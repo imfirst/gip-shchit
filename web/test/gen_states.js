@@ -17,6 +17,7 @@ const ac = st.rows.filter(x => x.cat === 'ac').pop(); st = M.moveRows(st, [ac.id
 const dw = st.rows.find(x => x.key === 'dw');
 r = M.wrapRcd(st, [hob.id]); st = r.st; st = M.setField(st, r.id, 'poles', 4);
 st = M.setBoard(st, 'pAllowed', 15);
+st = M.setBoard(st, 'olLen', true); st = M.setBoard(st, 'route', 'Пол, потолок');
 out.k3_rcd = st;
 // b) 2-комнатная, 1 фаза, дифавтоматы, один блок УЗО из розеток, ручная длина и кабель
 o = M.tplOptions('k2'); st = M.generate(o);
@@ -24,6 +25,7 @@ const socks = st.rows.filter(x => x.cat === 'sock').map(x => x.id);
 r = M.wrapRcd(st, socks.slice(0, 3)); st = r.st;
 st = M.setField(st, socks[3], 'len', '42'); st = M.setField(st, socks[3], 'cable', '3×4');
 st = M.setBoard(st, 'brand', 'iek');
+st = M.setBoard(st, 'xb', true); st = M.setBoard(st, 'kmType', '40-20');
 out.k2_dif = st;
 // c) пустой щит
 o = M.tplOptions('empty'); st = M.generate(o); out.empty = st;

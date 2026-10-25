@@ -30,6 +30,12 @@
   (setq t1 (vl-string-right-trim "- " t1))
   (gip:short-type t1))
 
+;; марка контактора -> две строки надписи: «ESB» + «25-40N», «КМ63-40М» + «25А», «NCH8» + «25/40»
+(defun gip:km-split (m / p)
+  (cond ((gip:starts m "ESB") (list "ESB" (substr m 4)))
+        ((setq p (vl-string-search " " m)) (list (substr m 1 p) (gip:trim (substr m (+ p 2)))))
+        ((setq p (vl-string-search "-" m)) (list (substr m 1 p) (substr m (+ p 2))))
+        (T (list m ""))))
 (defun gip:in-cable (In is3 / sq) (setq sq (cond ((<= In 25) 6) ((<= In 40) 10) (T 16))) (strcat "ВВГнгLS " (if is3 "5" "3") "x" (itoa sq)))
 (defun gip:conduit (cab / sq p)
   (setq sq 2.5)
@@ -53,9 +59,15 @@
 (defun gip:inom (l / cc) (setq cc (gip:cos l))
   (if (= (gip:g l "poles") 3) (/ (gip:g l "p") (* (sqrt 3.0) 0.4 cc)) (/ (gip:g l "p") (* 0.23 cc))))
 
+;; видимость вставки "I" (элемент 10)
+(defun gip:it-vis (it v) (if (and v (= (car it) "I") (nth 10 it)) (append (gip:take it 10) (list v) (gip:drop it 11)) it))
+;; видимость блока «аппарат управления и защиты в РЩ» по числу полюсов
+(defun gip:av-vis (n) (strcat "Автоматический выключатель " (nth (max 0 (min 3 (1- n))) '("однополюсный" "двухполюсный" "трехполюсный" "четырехполюсный"))))
+(defun gip:rcd-vis (four) (if four "Дифференциальный выключатель четырехполюсный" "Дифференциальный выключатель двухполюсный"))
 ;; атрибуты аппарата на схеме
 (defun gip:dev-atts (its d o)
   (mapcar '(lambda (it)
+             (setq it (gip:it-vis it (gip:g o "vis")))
              (gip:it-atts it
                (append
                  (list (cons "НОМ.ТОК,А" (itoa (if (assoc "In" o) (cdr (assoc "In" o)) (gip:g d "In"))))
@@ -136,12 +148,13 @@
           (gip:place (if is3 "floor3" "floor1") OX OY
             '(lambda (its) (mapcar '(lambda (it / t1) (if (and (= (car it) "E") (setq t1 (gip:it-get it 1)) (assoc t1 sub)) (gip:it-set it 1 (cdr (assoc t1 sub))) it)) its)))))
       (setq chain (list (list (cons "p" (if is3 "in3" "dev_a1")) (cons "rel" is3) (cons "d" inD)
-                              (cons "o" (list (cons "ser" (if is3 (gip:brand-ser b (if (= (gip:g S "inPoles") 4) "a4" "a3") nil) (gip:brand-ser b "a2" nil))))))))
+                              (cons "o" (list (cons "ser" (if is3 (gip:brand-ser b (if (= (gip:g S "inPoles") 4) "a4" "a3") nil) (gip:brand-ser b "a2" nil)))
+                                              (cons "vis" (gip:av-vis (if is3 (if (= (gip:g S "inPoles") 4) 4 3) 2))))))))
       (if rns (setq chain (append chain (list (list (cons "p" (if is3 "rel3" "rel1")) (cons "rel" T) (cons "d" '(("In" . 63)))
                                                     (cons "o" (list (cons "ser" (if is3 "VIP-63 x3" "VIP-63")) '("maker" . "Welrok")
                                                                     (cons "ref" (gip:join (mapcar '(lambda (r) (gip:g r "ref")) rns) ", ")))))))))
       (if fire (setq chain (append chain (list (list (cons "p" (if is3 "dev_d3" "dev_d1")) (cons "rel" nil) (cons "d" fire)
-                                                     (cons "o" (list '("ma" . "100") (cons "ser" (gip:rcd-ser (gip:g b (if is3 "fire4" "fire2")))) '("type" . "АC"))))))))
+                                                     (cons "o" (list '("ma" . "100") (cons "ser" (gip:rcd-ser (gip:g b (if is3 "fire4" "fire2")))) '("type" . "АC") (cons "vis" (gip:rcd-vis is3)))))))))
       (setq y0 (if (> (length chain) 2) 787.0 169.0) xi 3973.06 kk 0)
       (foreach cn chain
         (setq yy (- y0 (* kk 618.0)))
@@ -162,7 +175,7 @@
       (gip:dot (+ OX xi) (+ OY *gip:YB_L*) T) (gip:dot (+ OX 4137.8) (+ OY *gip:YB_N*) T) (gip:dot (+ OX 4302.6) (+ OY *gip:YB_PE*) T)
       (if km
         (progn
-          (setq ks (gip:split (gip:gn km "model" "") " ") k1 (car ks) k2 (gip:join (cdr ks) " "))
+          (setq ks (gip:km-split (gip:gn km "model" "")) k1 (car ks) k2 (cadr ks))
           (gip:place (if is3 "km3" "km1") OX OY '(lambda (its) (mapcar '(lambda (it / t1) (setq t1 (if (= (car it) "E") (gip:it-get it 1)))
                                                                                (cond ((= t1 "ESB") (gip:it-set it 1 k1)) ((= t1 "63-40N") (gip:it-set it 1 k2)) (T it))) its)))
           (gip:place "kmname" OX OY nil)))
@@ -178,18 +191,19 @@
               (T (setq q (cdr (assoc (gip:g l "phase") '(("L1" . "A") ("L2" . "B") ("L3" . "C")))))
                  (setq ph (gip:s ph q (+ (gip:g ph q) (gip:g l "p")))))))
       (setq PRAS (* spw Kc) Ip (if is3 (/ PRAS (* (sqrt 3.0) 0.4 cosl)) (/ PRAS (* 0.23 cosl))))
-      (setq tx (+ OX 8400.0) ty (+ OY 3550.0) kk2 *gip:KU* w1 (* 85 kk2) hh (* 34 kk2) px2 (+ tx w1) w2 (* 118 kk2) HD 500.0 hh2 (+ HD (* 30 kk2)))
+      ;; таблица по фазам: при одной фазе — только столбец A без заголовка
+      (setq phs (if is3 '("A" "B" "C") '("A")))
+      (setq tx (+ OX 8400.0) ty (+ OY 3550.0) kk2 *gip:KU* w1 (* (if is3 85 41) kk2) hh (* 34 kk2) px2 (+ tx w1) w2 (* 118 kk2) HD 500.0 hh2 (+ HD (* 30 kk2)))
       (gip:PL (list tx ty (+ px2 w2) ty (+ px2 w2) (- ty hh2) tx (- ty hh2) tx ty) nil)
       (gip:PL (list tx (- ty HD) (+ tx w1) (- ty HD)) nil)
       (gip:PL (list px2 ty px2 (- ty hh2)) nil)
-      (foreach mm '(19 41 63) (gip:PL (list (+ tx (* mm kk2)) ty (+ tx (* mm kk2)) (- ty hh2)) nil))
+      (foreach mm (if is3 '(19 41 63) '(19)) (gip:PL (list (+ tx (* mm kk2)) ty (+ tx (* mm kk2)) (- ty hh2)) nil))
       (foreach mm '(10 20) (gip:PL (list tx (- ty HD (* mm kk2)) (+ tx w1) (- ty HD (* mm kk2))) nil))
-      (setq phs (if is3 '("A" "B" "C") '("A")))
       (setq ii 0)
-      (foreach t1 '("Фаза A" "Фаза B" "Фаза C") (gip:ol-cell (+ tx (* (+ 30 (* ii 22)) kk2)) (- ty (/ HD 2)) t1 nil) (setq ii (1+ ii)))
+      (if is3 (foreach t1 '("Фаза A" "Фаза B" "Фаза C") (gip:ol-cell (+ tx (* (+ 30 (* ii 22)) kk2)) (- ty (/ HD 2)) t1 nil) (setq ii (1+ ii))))
       (foreach r (list '("Pуст., кВт" . 5) '("Pр., кВт" . 15) '("Iрасч., А" . 25)) (gip:ol-cell (+ tx (* 9.5 kk2)) (- ty HD (* (cdr r) kk2)) (car r) nil))
       (setq ii 0)
-      (foreach pp '("A" "B" "C")
+      (foreach pp phs
         (setq xx (+ tx (* (+ 30 (* ii 22)) kk2)) on (member pp phs))
         (gip:ol-cell xx (- ty HD (* 5 kk2)) (if on (gip:f1 (gip:g ph pp)) "—") nil)
         (gip:ol-cell xx (- ty HD (* 15 kk2)) (if on (gip:f1 (* (gip:g ph pp) Kc)) "—") nil)
@@ -230,7 +244,7 @@
         (gip:dot AX (+ OY *gip:YB_L*) nil) (gip:dot (+ AX 165) (+ OY *gip:YB_N*) nil)
         (gip:W AX (+ OY *gip:YB_L*) AX (+ OY *gip:YDEV*)) (gip:W (+ AX 165) (+ OY *gip:YB_N*) (+ AX 165) (+ OY *gip:YDEV*))
         (setq rr d)
-        (gip:place "dev_d1" AX (+ OY *gip:YDEV*) '(lambda (its) (gip:dev-atts its rr (list (cons "ma" (itoa (gip:gn rr "idn" 30))) (cons "ser" (gip:rcd-ser (gip:g *gip:b* (if (= (gip:g rr "w") 4) "rcd4" "rcd2")))) (cons "type" (if (= (gip:g rr "type") "AC") "АС" "А"))))))
+        (gip:place "dev_d1" AX (+ OY *gip:YDEV*) '(lambda (its) (gip:dev-atts its rr (list (cons "ma" (itoa (gip:gn rr "idn" 30))) (cons "ser" (gip:rcd-ser (gip:g *gip:b* (if (= (gip:g rr "w") 4) "rcd4" "rcd2")))) (cons "type" (if (= (gip:g rr "type") "AC") "АС" "А")) (cons "vis" (gip:rcd-vis (= (gip:g rr "w") 4)))))))
         (gip:W AX (+ OY *gip:YDB*) AX (- OY 2700.0)) (gip:W AX (- OY 2700.0) (+ AX 250) (- OY 2700.0)) (gip:W (+ AX 250) (- OY 2700.0) (+ AX 250) (+ OY yL))
         (gip:W (+ AX 165) (+ OY *gip:YDB*) (+ AX 165) (- OY 2655.0)) (gip:W (+ AX 165) (- OY 2655.0) (+ AX 330) (- OY 2655.0)) (gip:W (+ AX 330) (- OY 2655.0) (+ AX 330) (+ OY yN))
         (gip:PL (list (+ AX 250) (+ OY yL) xe (+ OY yL)) "lightbus")
@@ -259,8 +273,8 @@
             (gip:place (car cs) AX (+ OY (cadr cs))
               '(lambda (its) (mapcar '(lambda (it) (gip:it-atts it (list (cons "ПОЗИЦИЯ" (gip:g (car rr) "no")) (cons "ИМЯ" (gip:g (cadr rr) "name")) (cons "ОПИСАНИЕ" (gip:g (cadr rr) "name"))))) its)))
             (gip:mt "m_cable" (- AX 157.0) (- OY 4195.5) (strcat "ВВГнгLS " (gip:repl (gip:g l "cable") "×" "x")) nil)
-            (gip:mt "m_cond" (+ AX 64.0) (- OY 4195.5) (gip:conduit (gip:g l "cable")) nil)
-            (gip:mt "m_cond" (+ AX 285.0) (- OY 4195.5) (strcat "L=" (itoa (gip:g l "len")) " м") nil)))
+            ;; длина кабеля на схеме — по галочке «Длины кабелей на схеме»
+            (gip:mt "m_cond" (+ AX 64.0) (- OY 4195.5) (strcat (gip:conduit (gip:g l "cable")) (if (gip:g S "olLen") (strcat " L=" (itoa (gip:g l "len")) " м") "")) nil)))
         (gip:mt "cell_qty" AX (- OY 4845.0) (gip:g c "no") (list (cons "w" 700.0)))
         (gip:mt "cell_qty" AX (- OY 5293.0) (gip:f1 (gip:g l "p")) (list (cons "w" 700.0)))
         (gip:mt "cell_qty" AX (- OY 5591.0) (gip:f1 (gip:inom l)) (list (cons "w" 700.0)))
@@ -272,7 +286,7 @@
     (progn
       (setq AXk (+ OX *gip:C0* (* (length sc) *gip:PITCH*)))
       (gip:PL (list (- AXk 392.7) (+ OY (nth 0 *gip:YT*)) (- AXk 392.7) (+ OY (nth 4 *gip:YT*))) nil)
-      (gip:dot AXk (+ OY *gip:YB_PE*) nil) (gip:W AXk (+ OY *gip:YB_PE*) AXk (- OY 4400.0))
+      (gip:dot AXk (+ OY *gip:YB_PE*) nil) (gip:W AXk (+ OY *gip:YB_PE*) AXk (- OY 4360.5))
       (gip:place "kup" AXk OY
         '(lambda (its) (mapcar '(lambda (it)
                                   (if (and (= (car it) "E") (= (gip:it-get it 0) "MTEXT") (gip:has (gip:gn (cdr it) 1 "") "Коробки"))

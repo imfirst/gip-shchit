@@ -423,6 +423,18 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     chint: { name: 'CHINT', a1: 'NXB-63 1P C{I}', a2: 'NXB-63 2P C{I}', a3: 'NXB-63 3P C{I}', a4: 'NXB-63 4P C{I}', dif: 'NB2LE C{I} 30мА', dif4: 'NB2LE 4P C{I} 30мА', rcd2: 'NXL-63 2P {I}A 30мА', rcd4: 'NXL-63 4P {I}A 30мА', fire2: 'NXL-63 2P {I}A 100мА', fire4: 'NXL-63 4P {I}A 100мА', km2: 'NCH8-25/20', km4: 'NCH8-25/40' }
   };
   var STD_IN = [6, 10, 16, 20, 25, 32, 40, 50, 63];
+  /* Контакторы «мастер-выключателя»: ток, контакты, ширина в модулях (ABB ESB…N) */
+  var KM_TYPES = [
+    { k: '20-20', I: 20, c: 2, w: 1 }, { k: '25-20', I: 25, c: 2, w: 1 }, { k: '25-40', I: 25, c: 4, w: 2 },
+    { k: '40-20', I: 40, c: 2, w: 3 }, { k: '40-40', I: 40, c: 4, w: 3 }, { k: '63-20', I: 63, c: 2, w: 3 }, { k: '63-40', I: 63, c: 4, w: 3 }
+  ];
+  var KM_MODEL = { abb: 'ESB{K}N', iek: 'КМ63-{C}0М {I}А', dekraft: 'КМ-103 {I}А {C}НО', chint: 'NCH8-{I}/{C}0' };
+  /* Корпуса ABB для встраиваемого щита: ряд 12 модулей — UK600 (IP30), ряд 18 — Mistral41F (IP41) */
+  var BOXES = {
+    12: [{ rows: 1, n: 'UK610', art: '' }, { rows: 2, n: 'UK620', art: '' }, { rows: 3, n: 'UK630', art: '' }, { rows: 4, n: 'UK640', art: '' }, { rows: 5, n: 'UK650', art: '' }],
+    18: [{ rows: 1, n: 'Mistral41F 18M', art: '1SLM004102A1104' }, { rows: 2, n: 'Mistral41F 36M', art: '1SLM004102A1106' }, { rows: 3, n: 'Mistral41F 54M', art: '1SLM004102A1109' }, { rows: 4, n: 'Mistral41F 72M', art: '1SLM004102A1110' }]
+  };
+  var ROUTES = ['Потолок', 'Пол, потолок', 'Кабель-канал'];
   var IN_A = [16, 20, 25, 32, 40, 50, 63];
   var RCD_IN = [25, 40, 63, 80, 100];
   var IDN = [10, 30, 100];
@@ -488,7 +500,8 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
   function newId(st, p) { st.seq = (st.seq || 0) + 1; return p + st.seq; }
 
   function defaultBoard() {
-    return { name: 'ЩР', tpl: 'k2', area: 60, phases: 1, inA: 40, inPoles: 3, brand: 'abb', relay: true, km: true, fire: false, kup: true, kc: 0.4, kcMode: 'auto', pAllowed: null, mark: 'ВВГнг(А)-LS', railW: 18, mode: 'dif' };
+    return { name: 'ЩР', tpl: 'k2', area: 60, phases: 1, inA: 40, inPoles: 3, brand: 'abb', relay: true, km: true, fire: false, kup: true, kc: 0.4, kcMode: 'auto', pAllowed: null, mark: 'ВВГнг(А)-LS', railW: 18, mode: 'dif',
+             kmType: null, xb: false, olLen: false, route: 'Потолок', phaseMode: 'abc' };
   }
 
   function tplOptions(key) {
@@ -521,7 +534,8 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     var B = st.board;
     B.tpl = o.tpl; B.area = num(o.area, t.area); B.phases = o.phases === 3 ? 3 : 1; B.inA = o.inA || (B.phases === 3 ? 25 : 40);
     B.inPoles = o.inPoles === 4 ? 4 : 3; B.mode = o.mode === 'rcd' ? 'rcd' : 'dif';
-    ['brand', 'relay', 'km', 'fire', 'kup'].forEach(function (k) { if (o[k] !== undefined) B[k] = o[k]; });
+    ['brand', 'relay', 'km', 'fire'].forEach(function (k) { if (o[k] !== undefined) B[k] = o[k]; });
+    B.kup = true; B.phaseMode = 'abc';
     var is3 = B.phases === 3, app = o.app || {};
     var L = [];
     t.light.forEach(function (n) { L.push({ cat: 'light', name: 'Освещение: ' + n, prot: 'a', poles: 1, In: 10, p: 0.3, km: true }); });
@@ -539,7 +553,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     if (app.leak) L.push({ key: 'leak', cat: 'leak', name: 'Защита от протечек и слаботочный щит', prot: 'd', poles: 1, In: 16, p: 0.2 });
     for (var a = 1; a <= na; a++) L.push({ cat: 'ac', name: 'Кондиционер' + (na > 1 ? ' ' + a : ''), prot: 'a', poles: 1, In: 16, p: 1.2 });
 
-    /* фазы — как в конструкторе: свет тремя участками по счёту, остальное тремя участками с ровной мощностью */
+    /* фазы при 3 фазах — ABC подряд под трёхфазную гребёнку (normalize), здесь только начальное значение */
     if (is3) {
       L.forEach(function (l) { if (l.poles === 3) l.phase = 'L123'; });
       var lights = L.filter(function (l) { return l.cat === 'light' && l.poles === 1; });
@@ -607,6 +621,10 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
 
   function normalize(st) {
     var B = st.board, is3 = B.phases === 3;
+    var d0 = defaultBoard();
+    ['kmType', 'xb', 'olLen', 'route', 'phaseMode'].forEach(function (k) { if (B[k] === undefined) B[k] = d0[k]; });
+    B.kup = true;
+    if (ROUTES.indexOf(B.route) < 0) B.route = 'Потолок';
     /* 3P-группы не могут стоять под УЗО 2P — выносим сразу за блок */
     var out = [], cur = null, pending = [];
     function closeBlock() { if (pending.length) { pending.forEach(function (g) { out.push(g); }); pending = []; } cur = null; }
@@ -642,7 +660,76 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       if (!B.km) r.km = false;
       if (r.cat === 'reserve') { r.p = 0; }
     });
+    if (is3 && B.phaseMode === 'abc') abcPhases(st);
     return st;
+  }
+
+  /* ABC подряд: так фазы раздаёт трёхфазная гребёнка (L1 L2 L3 L1 …). Цикл идёт через весь щит;
+     3P-группы и закреплённые вручную фазы цикл не сдвигают; УЗО 2P берёт фазу целиком, под УЗО 4P группы идут по циклу. */
+  function abcPhases(st) {
+    var P = ['L1', 'L2', 'L3'], B = st.board, bl = blocks(st), load = { L1: 0, L2: 0, L3: 0 }, units = [], cur = null;
+    function blk(r) { return bl.byRow[r.id] ? find(st, bl.byRow[r.id]) : null; }
+    st.rows.forEach(function (r) {
+      if (r.t !== 'g') return;
+      var u = blk(r);
+      if (r.poles === 3) { P.forEach(function (p) { load[p] += r.p / 3; }); return; }
+      if (r.lock && !(u && u.poles === 2)) load[r.phase] = (load[r.phase] || 0) + r.p;
+    });
+    /* единицы: блок УЗО 2P (одна фаза на всё УЗО) и участки одной гребёнки (подряд, один тип аппарата, один источник) */
+    st.rows.forEach(function (r) {
+      if (r.t === 'u') {
+        cur = null;
+        if (r.poles === 2) units.push({ blk: r, P: bl.members[r.id].reduce(function (a, g) { return a + g.p; }, 0) });
+        return;
+      }
+      var u = blk(r);
+      if ((u && u.poles === 2) || r.poles === 3 || r.lock) { cur = null; return; }
+      var key = (r.prot === 'dif' ? 'd' : 'a') + '|' + (u ? u.id : (r.km && B.km ? 'km' : 'src'));
+      if (cur && cur.key === key) cur.rows.push(r);
+      else { cur = { key: key, rows: [r] }; units.push(cur); }
+    });
+    units.forEach(function (un) {
+      if (un.blk) {
+        if (!un.blk.lock) un.blk.phase = P.slice().sort(function (a, b) { return load[a] - load[b]; })[0];
+        load[un.blk.phase] += un.P;
+        return;
+      }
+      var best = null;
+      for (var rot = 0; rot < 3; rot++) {
+        var t = { L1: load.L1, L2: load.L2, L3: load.L3 };
+        un.rows.forEach(function (r, i) { t[P[(i + rot) % 3]] += r.p; });
+        var m = Math.max(t.L1, t.L2, t.L3), q = t.L1 * t.L1 + t.L2 * t.L2 + t.L3 * t.L3;
+        if (!best || m < best.m - 1e-9 || (Math.abs(m - best.m) < 1e-9 && q < best.q - 1e-9)) best = { rot: rot, m: m, q: q, t: t };
+      }
+      un.rows.forEach(function (r, i) { r.phase = P[(i + best.rot) % 3]; });
+      load = best.t;
+    });
+    st.rows.forEach(function (r) { if (r.t === 'g') { var u = blk(r); if (u && u.poles === 2) r.phase = u.phase; } });
+  }
+  function kmAuto(B) {
+    var a = num(B.area, 60), three = B.phases === 3;
+    if (three) return a <= 70 ? '25-40' : a <= 100 ? '40-40' : '63-40';
+    return a <= 40 ? '20-20' : a <= 70 ? '25-20' : '40-20';
+  }
+  function kmOf(B) {
+    var key = B.kmType || kmAuto(B);
+    for (var i = 0; i < KM_TYPES.length; i++) if (KM_TYPES[i].k === key) return KM_TYPES[i];
+    return KM_TYPES[1];
+  }
+  function kmModel(B, t) {
+    var tpl = KM_MODEL[B.brand] || KM_MODEL.abb;
+    return tpl.replace('{K}', t.k).replace('{I}', t.I).replace('{C}', t.c);
+  }
+  /* реальный корпус: наименьший с запасом 20 %, иначе наименьший, куда всё помещается */
+  function pickBox(B, used, flowRows) {
+    var W = B.railW || 18, list = (B.brand === 'abb' || true) ? BOXES[W] : null;
+    var res = { W: W, rows: Math.max(flowRows, Math.ceil(used * 1.2 / W)), box: null, reserveOk: true };
+    if (!list) return res;
+    var withRes = list.filter(function (x) { return x.rows >= flowRows && x.rows * W >= used * 1.2; });
+    var fit = list.filter(function (x) { return x.rows >= flowRows && x.rows * W >= used; });
+    var pick = withRes[0] || fit[0] || null;
+    if (pick) { res.box = pick; res.rows = pick.rows; res.reserveOk = !!withRes[0]; }
+    return res;
   }
 
   function find(st, id) { for (var i = 0; i < st.rows.length; i++) if (st.rows[i].id === id) return st.rows[i]; return null; }
@@ -705,11 +792,12 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       var fi = stdUp(Math.max(B.inA, 40), [40, 63, 80, 100]);
       fixed.push({ id: 'fire', kind: 'fire', name: 'УЗО противопожарное 100 мА', ref: ref('QD'), w: is3 ? 4 : 2, In: fi, model: fmtModel(is3 ? b.fire4 : b.fire2, fi) });
     }
-    fixed.push({ id: 'xb', kind: 'xb', name: 'Кросс-модуль', ref: ref('XT'), w: is3 ? 5 : 3, model: is3 ? '4П, 125 А' : '2П, 125 А' });
+    if (B.xb) fixed.push({ id: 'xb', kind: 'xb', name: 'Кросс-модуль', ref: ref('XT'), w: is3 ? 5 : 3, model: is3 ? '4П, 125 А' : '2П, 125 А' });
     var useKm = B.km && st.rows.some(function (r) { return r.t === 'g' && r.km; });
     if (useKm) {
       fixed.push({ id: 'c2', kind: 'a1', name: 'Защита катушки КМ', ref: ref('QF'), w: 1, In: 2, model: fmtModel(b.a1, 2) });
-      fixed.push({ id: 'km', kind: 'km', name: 'Контактор «мастер-выключатель»', ref: ref('KM'), w: is3 ? 2 : 1, model: is3 ? b.km4 : b.km2 });
+      var kt = kmOf(B);
+      fixed.push({ id: 'km', kind: 'km', name: 'Контактор «мастер-выключатель»', ref: ref('KM'), w: kt.w, model: kmModel(B, kt), kmType: kt.k, kmAuto: !B.kmType });
     }
 
     var serN = { 'ЛО': 0, 'ЛАО': 0, 'ЛС': 0 };
@@ -791,7 +879,8 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     /* рейки: по порядку, аппарат не делится между рейками, запас 20 % */
     var W = B.railW || 18, railsN = 0, used = 0;
     fixed.concat(rows).forEach(function (d) { if (railsN === 0 || used + d.w > W) { railsN++; used = 0; } used += d.w; });
-    railsN = Math.max(railsN, Math.ceil(modules * 1.2 / W));
+    var bx = pickBox(B, modules, railsN);
+    railsN = bx.rows;
     var warn = [];
     if (Ir > B.inA + 0.05) warn.push('Расчётный ток ' + fmt(Ir, 1) + ' А больше вводного автомата ' + B.inA + ' А — уменьшите Kс или включите подбор «авто»');
     if (Pall != null && Pall > 0 && Pr > Pall + 0.05) warn.push('Расчётная мощность ' + fmt(Pr, 1) + ' кВт больше выделенной ' + fmt(Pall, 1) + ' кВт');
@@ -799,10 +888,13 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     if (kcLevel === 'bad') warn.push('Kс ' + fmt(kc, 2) + ' — критично мало: щит рассчитан почти на одновременную работу лишь пятой части нагрузки. Нужно реле приоритета (отключение части нагрузки) или больше мощности по ТУ');
     else if (kcLevel === 'low') warn.push('Kс ' + fmt(kc, 2) + ' — низкий: рекомендуется реле приоритета, чтобы при включении мощной нагрузки не срабатывал вводной');
     if (is3 && imb > IMB_WARN) warn.push('Перекос фаз ' + fmt(imb, 0) + ' %');
+    if (BOXES[W] && !bx.box) warn.push('Нет корпуса ABB на ' + modules + ' мод. при ряде по ' + W + ' — ' + (W === 12 ? 'возьмите ряд 18 модулей' : 'щит не помещается в Mistral41F 72M'));
+    else if (bx.box && !bx.reserveOk) warn.push('Корпус ' + bx.box.n + ': запас меньше 20 %');
+    if (!BOXES[W]) warn.push('Для ряда ' + W + ' модулей готового корпуса ABB нет — выберите 12 (UK600) или 18 (Mistral41F)');
     var nWarn = rows.reduce(function (a, v) { return a + (v.warn.length ? 1 : 0); }, 0);
     return {
       board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm,
-      tot: { P: sumP, kc: kc, kcAuto: kcAuto, kcFit: kcFit, kcLevel: kcLevel, Pcap: Pcap, PbyIn: PbyIn, Pall: Pall, Pr: Pr, cos: cosAvg, Ir: Ir, phases: phases, imb: imb, modules: modules, rails: railsN, cap: railsN * W, groups: nG, counts: counts, ser: serCount, warn: warn, nWarn: nWarn }
+      tot: { P: sumP, kc: kc, kcAuto: kcAuto, kcFit: kcFit, kcLevel: kcLevel, Pcap: Pcap, PbyIn: PbyIn, Pall: Pall, Pr: Pr, cos: cosAvg, Ir: Ir, phases: phases, imb: imb, modules: modules, rails: railsN, cap: railsN * W, box: bx.box, boxW: W, groups: nG, counts: counts, ser: serCount, warn: warn, nWarn: nWarn }
     };
   }
 
@@ -998,17 +1090,25 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     var wasPh = B.phases;
     if (field === 'phases' || field === 'inA' || field === 'inPoles' || field === 'railW') B[field] = +value;
     else if (field === 'area') B[field] = num(value, B[field]);
+    else if (field === 'kmType') B.kmType = value || null;
+    else if (field === 'xb' || field === 'olLen') B[field] = !!value;
     else if (field === 'kc') { var k = num(value, null); if (k != null && k > 0) { B.kc = Math.min(1, round(k, 2)); B.kcMode = 'manual'; } }
     else if (field === 'pAllowed') { var pa = num(value, null); B.pAllowed = (pa != null && pa > 0) ? round(pa, 1) : null; }
     else B[field] = value;
     if (field === 'km' && value) {
       st.rows.forEach(function (r) { if (r.t === 'g' && r.cat === 'light' && r.prot !== 'rcd') r.km = true; });
     }
-    normalize(st);
     if (field === 'phases' && wasPh !== B.phases && B.phases === 3) {
-      st.rows.forEach(function (r) { r.lock = false; });
-      balance(st, 'seq');
+      st.rows.forEach(function (r) {
+        r.lock = false;
+        if (r.t === 'g' && r.poles !== 3 && (r.cat === 'hob' || (r.cat === 'heat' && /проточн/i.test(r.name)))) {
+          r.poles = 3; r.In = 16; r.cable = null; r.phase = 'L123';
+          if (r.cat === 'heat' && r.prot === 'rcd') r.prot = 'dif';
+        }
+      });
+      B.phaseMode = 'abc';
     }
+    normalize(st);
     return st;
   }
 
@@ -1025,6 +1125,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     var c = CAT[cat] || CAT.other;
     var g = mkGroup(st, cat, { km: !!(cat === 'light' && st.board.km) });
     g.phase = st.board.phases === 3 ? leastPhase(st) : 'L';
+    if (st.board.phases === 3 && cat === 'hob') { g.poles = 3; g.In = 16; g.phase = 'L123'; }
     var a = anchorAfter(st, afterId);
     if (a.end) {
       /* в конец: вне блоков */
@@ -1108,6 +1209,8 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
   function balance(st, mode) {
     var B = st.board;
     if (B.phases !== 3) return st;
+    if (mode === 'abc') { B.phaseMode = 'abc'; return normalize(st); }
+    B.phaseMode = 'manual';
     normalize(st);
     var bl = blocks(st);
     var base = { L1: 0, L2: 0, L3: 0 };
@@ -1146,6 +1249,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
   root.GIPM = {
     BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
     DU_WARN: DU_WARN, IMB_WARN: IMB_WARN, KC_LOW: KC_LOW, KC_BAD: KC_BAD,
+    KM_TYPES: KM_TYPES, BOXES: BOXES, ROUTES: ROUTES, kmAuto: kmAuto, kmOf: kmOf,
     clone: clone, num: num, fmt: fmt, round: round, secStr: secStr, cableStr: cableStr,
     defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
     moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,
@@ -1264,12 +1368,15 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       '<div class="fld"><label for="b-pAllowed">Выделено по ТУ, кВт</label><input id="b-pAllowed" class="w-m" data-b="pAllowed" inputmode="decimal" autocomplete="off"></div>' +
       '<div class="fld"><label for="b-kc">Kс</label><div class="kcbox"><input id="b-kc" class="w-s" data-b="kc" inputmode="decimal" autocomplete="off"><button type="button" class="kcmode" id="b-kcMode" data-tip="Авто: наибольший Kс, при котором щит укладывается в выделенную мощность и вводной автомат">авто</button></div></div>' +
       '<div class="fld"><label for="b-mark">Марка кабеля</label><input id="b-mark" class="w-l" data-b="mark" autocomplete="off"></div>' +
-      '<div class="fld"><label for="b-railW">Рейка</label><select id="b-railW" data-b="railW">' + [12, 18, 24].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
-      '<div class="fld grow"><span class="lbl">Общие аппараты</span><div class="checks">' +
+      '<div class="fld"><label for="b-railW">Ряд корпуса</label><select id="b-railW" data-b="railW" data-tip="12 модулей — ABB UK600, 18 модулей — ABB Mistral41F">' + [12, 18].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
+      '<div class="fld" id="b-kmF"><label for="b-kmType">Контактор КМ</label><select id="b-kmType" data-b="kmType"></select></div>' +
+      '<div class="fld"><label for="b-route">Прокладка кабелей</label><select id="b-route" data-b="route" data-tip="Вид блока на листе «Схема подвода кабеля к выключателям и розеткам»">' + M.ROUTES.map(function (v) { return opt(v, v, ''); }).join('') + '</select></div>' +
+      '<div class="fld grow"><span class="lbl">Общие аппараты и схема</span><div class="checks">' +
         '<label class="chk"><input type="checkbox" id="b-relay" data-b="relay">Реле напряжения</label>' +
         '<label class="chk"><input type="checkbox" id="b-km" data-b="km">Мастер-выключатель</label>' +
         '<label class="chk"><input type="checkbox" id="b-fire" data-b="fire">УЗО 100 мА</label>' +
-        '<label class="chk"><input type="checkbox" id="b-kup" data-b="kup">КУП</label>' +
+        '<label class="chk" data-tip="Без кросс-модуля провода идут от вводного (реле, УЗО 100 мА) прямо на гребёнки, N — на шину"><input type="checkbox" id="b-xb" data-b="xb">Кросс-модуль</label>' +
+        '<label class="chk" data-tip="Писать длины кабелей групп на однолинейной схеме"><input type="checkbox" id="b-olLen" data-b="olLen">Длины кабелей на схеме</label>' +
       '</div></div>';
     b.addEventListener('change', function (e) {
       var el = e.target, f = el.getAttribute('data-b'); if (!f) return;
@@ -1306,7 +1413,13 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     var km = $('b-kcMode'); km.setAttribute('aria-pressed', String(D.tot.kcAuto));
     $('b-kc').classList.toggle('kc-auto', D.tot.kcAuto);
     $('b-kc').classList.toggle('kc-low', D.tot.kcLevel === 'low'); $('b-kc').classList.toggle('kc-bad', D.tot.kcLevel === 'bad');
-    ['relay', 'km', 'fire', 'kup'].forEach(function (k) { $('b-' + k).checked = !!B[k]; });
+    ['relay', 'km', 'fire', 'xb', 'olLen'].forEach(function (k) { $('b-' + k).checked = !!B[k]; });
+    var kmSel = $('b-kmType'), auto = M.kmAuto(B), fx = D.fixed.filter(function (f) { return f.id === 'km'; })[0];
+    var kmHtml = opt('', 'авто · ' + auto, B.kmType || '') + M.KM_TYPES.filter(function (t) { return B.phases === 3 ? t.c === 4 : true; }).map(function (t) { return opt(t.k, t.k + ' · ' + t.I + ' А, ' + t.c + ' НО', B.kmType || ''); }).join('');
+    if (kmSel.__h !== kmHtml) { kmSel.innerHTML = kmHtml; kmSel.__h = kmHtml; }
+    if (kmSel !== act) kmSel.value = B.kmType || '';
+    $('b-kmF').hidden = !B.km;
+    setv('b-route', B.route);
     [].forEach.call($('b-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === B.phases)); });
     [].forEach.call($('b-inPoles').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === (B.inPoles === 4 ? 4 : 3))); });
     $('b-inPolesF').hidden = B.phases !== 3;
@@ -1421,13 +1534,14 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     if (is3) {
       var mx = Math.max.apply(null, T.phases.map(function (p) { return p.P; })) || 1;
       var imbCls = T.imb > M.IMB_WARN ? 'warn' : 'ok';
-      h += '<div class="card"><h3>Фазы <span class="pill ' + imbCls + '">перекос ' + fmt(T.imb, 0) + ' %</span></h3><div class="phases">' +
+      h += '<div class="card"><h3>Фазы ' + (B.phaseMode === 'abc' ? '<span class="pill ok" data-tip="Фазы идут по порядку L1 L2 L3 — трёхфазная гребёнка">ABC</span>' : '') + '<span class="pill ' + imbCls + '">перекос ' + fmt(T.imb, 0) + ' %</span></h3><div class="phases">' +
         T.phases.map(function (p, i) {
           return '<div class="ph-row"><span><span class="phd ph-' + p.ph + '"></span></span><div class="pbar"><i style="width:' + (p.P / mx * 100).toFixed(1) + '%;background:var(--ph' + (i + 1) + ')"></i></div><b>' + fmt(p.P, 1) + ' кВт · ' + fmt(p.Ir, 0) + ' А</b></div>';
         }).join('') +
         '</div><div class="acts"><div class="menu-wrap"><button class="btn" type="button" id="balBtn" aria-haspopup="true" aria-expanded="false">Распределить фазы</button>' +
         '<div class="menu" id="balMenu" hidden>' +
-          '<button type="button" data-bal="seq">Участками подряд <small>порядок не меняется, соседи одной фазы — на одну гребёнку</small></button>' +
+          '<button type="button" data-bal="abc">ABC подряд <small>как раздаёт трёхфазная гребёнка; фазы пересчитываются при перестановке</small></button>' +
+          '<button type="button" data-bal="seq">Участками AAA BBB CCC <small>порядок не меняется, однофазные гребёнки</small></button>' +
           '<button type="button" data-bal="power">По мощности <small>ровнее, фазы вперемешку</small></button>' +
           '<button type="button" data-bal="unlock">Открепить все фазы <small>сброс ручных фаз</small></button>' +
         '</div></div></div></div>';
@@ -1439,9 +1553,9 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       '<div class="kv"><span><span class="chip s-lo">ЛО</span> <b>' + sr['ЛО'] + '</b></span><span><span class="chip s-ls">ЛС</span> <b>' + sr['ЛС'] + '</b></span>' + (sr['ЛАО'] ? '<span><span class="chip s-lao">ЛАО</span> <b>' + sr['ЛАО'] + '</b></span>' : '') + '</div>' +
       '<div class="kv"><span>автоматов <b>' + (c.av + c.rcd) + '</b></span><span>дифавтоматов <b>' + c.dif + '</b></span><span>УЗО <b>' + c.u + '</b></span></div></div>';
     var used = T.modules, cap = T.cap;
-    h += '<div class="card"><h3>Корпус</h3><div class="big">' + used + ' <small>мод. · ' + T.rails + ' ' + plural(T.rails, 'рейка', 'рейки', 'реек') + ' по ' + B.railW + '</small></div>' +
-      '<div class="meter"><i style="width:' + Math.min(100, used / Math.max(cap, 1) * 100).toFixed(1) + '%"></i></div>' +
-      '<div class="kv"><span>свободно <b>' + Math.max(0, cap - used) + '</b> мод. — запас не меньше 20 %</span></div></div>';
+    h += '<div class="card"><h3>Корпус ' + (T.box ? '<span class="pill ok">ABB ' + esc(T.box.n) + '</span>' : '<span class="pill warn">нет готового</span>') + '</h3><div class="big">' + used + ' <small>мод. из ' + cap + ' · ' + T.rails + ' ' + plural(T.rails, 'ряд', 'ряда', 'рядов') + ' по ' + B.railW + '</small></div>' +
+      '<div class="meter' + (used > cap ? ' over' : '') + '"><i style="width:' + Math.min(100, used / Math.max(cap, 1) * 100).toFixed(1) + '%"></i></div>' +
+      '<div class="kv"><span>свободно <b>' + Math.max(0, cap - used) + '</b> мод.' + (T.box && T.box.art ? ' · ' + esc(T.box.art) : '') + '</span></div></div>';
     var W = [];
     T.warn.forEach(function (t) { W.push({ t: t }); });
     D.rows.forEach(function (v) { v.warn.forEach(function (w) { W.push({ id: v.id, ref: v.t === 'u' ? v.ref : v.num, t: w.t }); }); });
@@ -1548,7 +1662,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       if (mode === 'unlock') { commit(function (st) { st.rows.forEach(function (r) { r.lock = false; }); return st; }); toast('Ручные фазы откреплены', true); return; }
       var before = D.tot.imb;
       commit(function (st) { return M.balance(st, mode); });
-      toast('Фазы распределены ' + (mode === 'seq' ? 'участками подряд' : 'по мощности') + ': перекос ' + fmt(before, 0) + ' → ' + fmt(D.tot.imb, 0) + ' %', true);
+      toast('Фазы распределены ' + ({ abc: 'ABC подряд', seq: 'участками', power: 'по мощности' })[mode] + ': перекос ' + fmt(before, 0) + ' → ' + fmt(D.tot.imb, 0) + ' %', true);
       return;
     }
     var j = e.target.closest('[data-jump]');

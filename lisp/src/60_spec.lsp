@@ -7,13 +7,20 @@
 (defun gip:row (name typ maker unit qty)
   (list (cons "name" name) (cons "type" typ) (cons "maker" maker) (cons "unit" unit) (cons "qty" qty)))
 
-(defun gip:spec-board (S BRD b / is3 map order add p pp kk p2 p4 rank k)
+(defun gip:spec-board (S BRD b / is3 map order add p pp kk p2 p4 rank k bx)
   (setq is3 (= (gip:g S "phases") 3) map nil order nil)
   (defun gip:sp-add (key r)
     (if (assoc key map)
       (setq map (subst (cons key (gip:s (cdr (assoc key map)) "qty" (1+ (gip:g (cdr (assoc key map)) "qty")))) (assoc key map) map))
       (setq map (append map (list (cons key (gip:s r "qty" 1)))) order (append order (list key)))))
-  (gip:sp-add "box" (gip:row (strcat "Щит распределительный встраиваемый с клеммниками N/PE, IP 41, " (itoa (gip:g BRD "cap")) " мод.") "" (gip:g b "name") "шт." 1))
+  (setq bx (gip:g BRD "box"))
+  (gip:sp-add "box"
+    (if bx
+      (gip:row (strcat "Щит распределительный встраиваемый " (if (gip:starts (car bx) "UK") "UK600" "Mistral41F") ", " (itoa (cadr bx)) " "
+                       (if (= (cadr bx) 1) "ряд" (if (< (cadr bx) 5) "ряда" "рядов")) ", " (itoa (* (cadr bx) (gip:g S "railW"))) " мод., "
+                       (if (gip:starts (car bx) "UK") "IP30" "IP41") ", с клеммниками N/PE")
+               (if (/= (caddr bx) "") (caddr bx) (car bx)) "ABB" "шт." 1)
+      (gip:row (strcat "Щит распределительный встраиваемый с клеммниками N/PE, IP41, " (itoa (gip:g BRD "cap")) " мод.") "" (gip:g b "name") "шт." 1)))
   (foreach d (gip:g BRD "all")
     (setq k (gip:g d "kind"))
     (cond
@@ -36,7 +43,7 @@
        (setq p4 (if is3 4 2))
        (gip:sp-add (strcat "f" (itoa p4) "_" (gip:pad0 (itoa (gip:g d "In")) 3))
                    (gip:row (strcat "Устройство защитного отключения противопожарное, " (itoa p4) "-полюсное, " (itoa (gip:g d "In")) "A, 100мА, тип «AC»") (gip:fmt-model (gip:g b (if is3 "fire4" "fire2")) (gip:g d "In")) (gip:g b "name") "шт." 1)))
-      ((= k "km") (gip:sp-add "km" (gip:row (strcat "Контактор с катушкой упр. 230В, 25A, " (if is3 "4НО" "2НО")) (gip:g d "model") (gip:g b "name") "шт." 1)))
+      ((= k "km") (gip:sp-add "km" (gip:row (strcat "Контактор модульный с катушкой упр. 230В, " (itoa (gip:gn d "kmI" 25)) "A, " (itoa (gip:gn d "kmC" (if is3 4 2))) "НО") (gip:g d "model") (gip:g b "name") "шт." 1)))
       ((= k "xb") (gip:sp-add "xb" (gip:row (strcat "Распределительный блок (кросс-модуль) " (if is3 "4П" "2П") ", 125A") "" "" "шт." 1)))))
   (gip:sp-add "nbus" (gip:row "Шина нулевая N на изоляторах" "" "" "шт." 1))
   (gip:sp-add "pebus" (gip:row "Шина защитная PE на изоляторах" "" "" "шт." 1))

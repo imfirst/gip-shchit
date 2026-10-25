@@ -330,6 +330,8 @@ class Preview(object):
         for p in data:
             if isinstance(p, DPair):
                 v = p.cdr
+                # entmake: углы TEXT/ATTRIB/ARC в радианах, в DXF — градусы
+                if typ in ('TEXT', 'ATTDEF', 'ATTRIB', 'ARC') and p.car in (50, 51) and isinstance(v, (int, float)): v = float(v) * 180 / math.pi
                 if isinstance(v, Ename): v = v.h
                 elif isinstance(v, float): v = repr(v)
                 elif v is None: v = ''

@@ -94,6 +94,16 @@
 (defun gip:save-geo (g) (gip:dict-put "GIPSHCHIT_GEO" (vl-prin1-to-string g)))
 (defun gip:load-geo (/ s) (if (setq s (gip:dict-get "GIPSHCHIT_GEO")) (read s)))
 
+;; прокладка кабелей: вид блока «ЭОМ_Схема подвода кабеля_GIP» на листе схемы подвода
+(defun gip:set-route (S / ss i o nm r)
+  (setq r (gip:gn S "route" (car *gip:routes*)))
+  (if (setq ss (ssget "_X" '((0 . "INSERT"))))
+    (progn (setq i 0)
+      (while (< i (sslength ss))
+        (setq o (vlax-ename->vla-object (ssname ss i)) i (1+ i))
+        (setq nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
+        (if (= nm "ЭОМ_Схема подвода кабеля_GIP") (gip:set-dyn o "Вид" r))))))
+
 ;; ---------------------------------------------------------------- построение альбома
 (defun gip:build (S / BRD sheets od dsup F0 pages k n nOL Fm box secs spages p Fp total roles num tblist m ol-titles)
   (setq *gip:S* S *gip:b* (gip:brand (gip:g S "brand")) *gip:tag* "gip")
@@ -144,6 +154,7 @@
     (setq p (1+ p)))
   ;; нумерация листов шаблона и ведомость
   (gip:number-sheets sheets nOL ol-titles S)
+  (gip:set-route S)
   (gip:save-state S)
   (gip:panel-save S BRD)
   (gip:save-geo (list (cons "mgeo" *gip:mgeo*) (cons "snap" (gip:montage-snapshot))))

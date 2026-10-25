@@ -44,7 +44,7 @@
 (defun gip:stencil (d s is3 / k P n)
   (setq k (gip:g d "kind"))
   (cond
-    ((= k "km") (if is3 "abb_km4" "abb_km2"))
+    ((= k "km") (if (> (gip:g d "w") 1) "abb_km4" "abb_km2"))
     ((= k "rn") "rel_vip")
     ((member (gip:g s "brand") '("abb" "chint"))
      (setq P (if (= (gip:g s "brand") "abb") "ab_" "ch_"))
@@ -88,9 +88,19 @@
 (defun gip:net (d pole is3)
   (cond ((member pole '("N" "A2")) "N") ((= pole "A1") "CTL")
         ((member pole '("L" "Lo")) (if is3 (gip:gn d "phase" "L1") "L")) (T pole)))
+;; гребёнка: тип по аппарату (1P, 2P — однополюсные с N, 3P, 4P); фазы однополюсных проверяются при сборке участка
 (defun gip:comb-key (d / k)
   (setq k (gip:g d "kind"))
-  (cond ((= k "a1") (strcat "1P" (gip:gn d "phase" ""))) ((= k "dif") (strcat "2P" (gip:gn d "phase" ""))) ((= k "a3") "3P") ((= k "dif4") "4P") (T nil)))
+  (cond ((= k "a1") "1P") ((= k "dif") "2P") ((= k "a3") "3P") ((= k "dif4") "4P") (T nil)))
+(defun gip:ph-next (p) (cdr (assoc p '(("L1" . "L2") ("L2" . "L3") ("L3" . "L1")))))
+;; можно ли продолжить участок гребёнки аппаратом d: одна фаза подряд (однофазная гребёнка)
+;; или L1 → L2 → L3 → L1 (трёхфазная гребёнка)
+(defun gip:comb-join (run d / dl p q mode)
+  (setq dl (last (gip:g run "devs")) p (gip:gn dl "phase" "L") q (gip:gn d "phase" "L") mode (gip:g run "mode"))
+  (cond ((not (member (gip:g run "key") '("1P" "2P"))) "fix")
+        ((and (/= mode "cyc") (= p q)) "same")
+        ((and (/= mode "same") (= (gip:ph-next p) q)) "cyc")
+        (T nil)))
 
 ;; ---------------------------------------------------------------- преобразование координат pt -> модель
 (defun gip:X (x) (+ (car *gip:mo*) (* x (caddr *gip:mo*))))
@@ -128,13 +138,40 @@
     (setq i (1+ i)))
   (gip:mk l *gip:tag*))
 
-(defun gip:mhatch (pts tc / l)
+;; заливка: полный набор кодов, как у штриховок из файлов ГИП (их AutoCAD создаёт), иначе — через ActiveX
+(defun gip:mhatch (pts tc / l e)
   (setq l (append (gip:ent-head "HATCH" tc)
                   (list '(100 . "AcDbHatch") '(10 0.0 0.0 0.0) '(210 0.0 0.0 1.0) '(2 . "SOLID") '(70 . 1) '(71 . 0) '(91 . 1)
-                        '(92 . 7) '(72 . 0) '(73 . 1) (cons 93 (length pts)))))
+                        '(92 . 7) '(72 . 1) '(73 . 1) (cons 93 (length pts)))))
+  (foreach p pts (setq l (append l (list (list 10 (gip:X (car p)) (gip:Y (cadr p)) 0.0) '(42 . 0.0)))))
+  (setq l (append l (list '(97 . 0) '(75 . 0) '(76 . 1) '(47 . 1.0) '(98 . 1) (list 10 (gip:X (car (car pts))) (gip:Y (cadr (car pts))) 0.0)
+                          '(450 . 0) '(451 . 0) '(460 . 0.0) '(461 . 0.0) '(452 . 0) '(462 . 0.0) '(453 . 0) '(470 . ""))))
+  (setq e (entmakex (append l (gip:tag-list *gip:tag*))))
+  (if (null e) (setq e (gip:mhatch-ax pts tc)))
+  e)
+(defun gip:mhatch-ax (pts tc / l pl o h arr r e)
+  (setq l (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 *gip:mlay*) '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 1)))
   (foreach p pts (setq l (append l (list (list 10 (gip:X (car p)) (gip:Y (cadr p)))))))
-  (setq l (append l (list '(97 . 0) '(75 . 0) '(76 . 1) '(98 . 1) (list 10 (gip:X (car (car pts))) (gip:Y (cadr (car pts)))))))
-  (gip:mk l *gip:tag*))
+  (if (setq pl (entmakex l))
+    (progn
+      (setq o (vlax-ename->vla-object pl))
+      (setq h (vl-catch-all-apply 'vla-addhatch (list (gip:ms) 1 "SOLID" :vlax-false)))
+      (if (not (vl-catch-all-error-p h))
+        (progn
+          (setq arr (vlax-make-safearray vlax-vbObject '(0 . 0)))
+          (vlax-safearray-fill arr (list o))
+          (setq r (vl-catch-all-apply 'vla-appendouterloop (list h (vlax-make-variant arr))))
+          (if (vl-catch-all-error-p r)
+            (progn (vla-delete h) (setq h nil))
+            (progn
+              (vl-catch-all-apply 'vla-evaluate (list h))
+              (vla-put-layer h *gip:mlay*)
+              (vla-put-color h (gip:aci tc))
+              (setq e (vlax-vla-object->ename h))
+              (entmod (append (entget e) (gip:tag-list *gip:tag*))))))
+        (setq h nil))
+      (entdel pl)))
+  e)
 
 (defun gip:rectpts (x y w h) (list (list x y) (list (+ x w) y) (list (+ x w) (+ y h)) (list x (+ y h))))
 ;; прямоугольник: заливка fill (или nil) и контур stroke (или nil)
@@ -237,12 +274,15 @@
 ;; вставка аппарата: блок GIPM_*, атрибуты номинала, метки GIPGEN + GIPDEV(id)
 (defun gip:mfill (tpl rt ma In)
   (gip:repl (gip:repl (gip:repl tpl "{R}" (strcat " " rt)) "{M}" (strcat " " ma)) "{I}" (if In (itoa In) "")))
-(defun gip:mdev (d x y s is3 / bn obj e rt ma pairs)
-  (setq bn (gip:mblock d s is3))
+(defun gip:mdev (d x y s is3 / bn obj e rt ma pairs sx vb)
+  (setq bn (gip:mblock d s is3) sx (caddr *gip:mo*))
+  ;; контактор шире трафарета (ESB40/63 — 3 модуля): растянуть по ширине
+  (if (and (= (gip:g d "kind") "km") (gip:g d "st") (setq vb (cdr (assoc (gip:g d "st") *gip:st-vbw*))))
+    (setq sx (* sx (/ (* (gip:g d "w") *gip:MW*) vb))))
   (if (not (tblsearch "BLOCK" bn))
     (progn (princ (strcat "\nGIP: нет блока " bn)) nil)
     (progn
-      (setq obj (vla-insertblock (gip:ms) (vlax-3d-point (gip:X x) (gip:Y y) 0.0) bn (caddr *gip:mo*) (caddr *gip:mo*) (caddr *gip:mo*) 0.0))
+      (setq obj (vla-insertblock (gip:ms) (vlax-3d-point (gip:X x) (gip:Y y) 0.0) bn sx (caddr *gip:mo*) (caddr *gip:mo*) 0.0))
       (vla-put-layer obj (gip:layer *gip:mlay*))
       (setq rt (if (gip:g d "In") (gip:rating d) "") ma (strcat (itoa (gip:gn d "idn" (if (= (gip:g d "kind") "fire") 100 30))) "мА"))
       (setq pairs (mapcar '(lambda (p) (cons (car p) (gip:mfill (cdr p) rt ma (gip:g d "In")))) (cdr (assoc bn *gip:mtpl*))))
@@ -252,7 +292,7 @@
       obj)))
 
 ;; ---------------------------------------------------------------- построение монтажной схемы
-(defun gip:montage (S BRD Fm / box tall is3 TAGH COMB rails all NR ri acc i d runs cur k CONN buses busOrder inD xb fire km c2 rns
+(defun gip:montage (S BRD Fm / box tall is3 TAGH COMB rails all NR ri acc i d runs cur k jm seen dd chain CONN buses busOrder inD xb fire km c2 rns
                      down INN-k use used ph rs net src g w rn xbSlot lanes trunks TL TR x0 SWD y chY railC hasTag maxH h busY SH bx b nl inc
                      peN peW peX SWX swPts hasSw e PA B2 pts l ya yb xt ly xr ca cb XEXT xa xbx mid ty tx sc BW BH)
   (setq is3 (= (gip:g S "phases") 3) TAGH 50.0 COMB 16.0)
@@ -275,10 +315,10 @@
     (setq cur nil)
     (foreach d r
       (setq k (gip:comb-key d))
-      (if (and k cur (= (gip:g cur "key") k) (= (gip:g cur "feed") (gip:g d "feed")))
-        (setq cur (gip:s cur "devs" (append (gip:g cur "devs") (list d))))
+      (if (and k cur (= (gip:g cur "key") k) (= (gip:g cur "feed") (gip:g d "feed")) (setq jm (gip:comb-join cur d)))
+        (setq cur (gip:s (gip:s cur "devs" (append (gip:g cur "devs") (list d))) "mode" jm))
         (progn (if cur (setq runs (append runs (list cur))))
-               (setq cur (list (cons "key" k) (cons "feed" (gip:g d "feed")) (cons "devs" (list d)))))))
+               (setq cur (list (cons "key" k) (cons "feed" (gip:g d "feed")) (cons "devs" (list d)) (cons "mode" nil))))))
     (if cur (setq runs (append runs (list cur)))))
   ;; соединения: элементы связи — (dev-id side pole) | ("ext" k) | ("bus" key) | ("sw" n)
   (setq CONN nil buses (list (cons "main" "N общий")) busOrder (list "main"))
@@ -286,7 +326,8 @@
   (setq rns (vl-remove-if-not '(lambda (d) (= (gip:g d "kind") "rn")) all))
   (setq INN-k 0)
   (defun gip:m-inn () (if (member "N" (gip:g inD "poles")) (list "in" "bot" "N") (progn (setq INN-k (1+ INN-k)) (list "ext" (1- INN-k)))))
-  (setq down (if fire (list "fire" "top") (list "xb" "bot")))
+  ;; ввод -> (реле) -> УЗО 100 мА -> кросс-модуль; без кросс-модуля группы питаются от последнего аппарата цепочки, N — от шины
+  (setq down (cond (fire (list "fire" "top")) (xb (list "xb" "bot")) (T nil)))
   (defun gip:m-d2 (p) (list (car down) (cadr down) p))
   (defun gip:m-cadd (a b net) (setq CONN (append CONN (list (list a b net)))))
   (if rns
@@ -296,24 +337,45 @@
         (setq ph (if is3 (gip:g rn "phase") "L") rs (if (gip:g rn "st") "top" "bot"))
         (gip:m-cadd (list "in" "bot" ph) (list (gip:g rn "id") rs "L") ph)
         (gip:m-cadd (if (= i 0) (gip:m-inn) (list (gip:g (nth (1- i) rns) "id") rs "N")) (list (gip:g rn "id") rs "N") "N")
-        (gip:m-cadd (list (gip:g rn "id") "bot" "Lo") (gip:m-d2 ph) ph)
+        (if down (gip:m-cadd (list (gip:g rn "id") "bot" "Lo") (gip:m-d2 ph) ph))
         (setq i (1+ i))))
-    (foreach ph (if is3 '("L1" "L2" "L3") '("L")) (gip:m-cadd (list "in" "bot" ph) (gip:m-d2 ph) ph)))
-  (gip:m-cadd (gip:m-inn) (gip:m-d2 "N") "N")
-  (if fire (foreach p (gip:g fire "poles") (gip:m-cadd (list "fire" "bot" p) (list "xb" "bot" p) (gip:net fire p is3))))
-  (gip:m-cadd (list "xb" "bot" "N") (list "bus" "main") "N")
+    (if down (foreach ph (if is3 '("L1" "L2" "L3") '("L")) (gip:m-cadd (list "in" "bot" ph) (gip:m-d2 ph) ph))))
+  (gip:m-cadd (gip:m-inn) (if down (gip:m-d2 "N") (list "bus" "main")) "N")
+  (if fire
+    (if xb
+      (foreach p (gip:g fire "poles") (gip:m-cadd (list "fire" "bot" p) (list "xb" "bot" p) (gip:net fire p is3)))
+      (gip:m-cadd (list "fire" "bot" "N") (list "bus" "main") "N")))
+  (if xb (gip:m-cadd (list "xb" "bot" "N") (list "bus" "main") "N"))
+  ;; источник фазы net для групп «от ввода»
+  (defun gip:m-src (net d / rn)
+    (cond (xb (list "xb" (if (= (gip:g d "rail") (gip:g xb "rail")) "top" "bot") (if (= net "N") "N" (if is3 net "L"))))
+          ((= net "N") (list "bus" "main"))
+          (fire (list "fire" "bot" (if is3 net "L")))
+          ((and rns (setq rn (if is3 (vl-some '(lambda (r) (if (= (gip:g r "phase") net) r)) rns) (car rns)))) (list (gip:g rn "id") "bot" "Lo"))
+          (T (list "in" "bot" (if is3 net "L")))))
+  ;; подвод к аппарату d (полюс p) участка гребёнки; без кросс-модуля — шлейфом от предыдущего аппарата той же фазы
+  ;; (не больше двух проводов в клемме)
+  (setq chain nil)
+  (defun gip:m-feed (d p / net src e)
+    (setq net (gip:net d p is3) src (gip:g d "feed") e (list (gip:g d "id") "top" p))
+    (cond ((= src "src")
+           (gip:m-cadd (if (and (null xb) (gip:g chain net)) (gip:g chain net) (gip:m-src net d)) e net)
+           (if (null xb) (setq chain (gip:s chain net e))))
+          ((and (= src "km") km) (if (/= net "N") (gip:m-cadd (list "km" "bot" (if is3 net "L")) (list (gip:g d "id") "top" p) net)))
+          ((and src (gip:starts src "rcd")) (if (and (gip:m-by src) (/= net "N")) (gip:m-cadd (list src "bot" (if (= (gip:g (gip:m-by src) "w") 4) net "L")) (list (gip:g d "id") "top" p) net)))))
   (foreach rn runs
     (setq d (car (gip:g rn "devs")))
     (if (not (member (gip:g d "kind") '("in" "rn" "fire" "xb")))
       (progn
-        (foreach p (gip:g d "poles")
-          (if (/= p "A1")
-            (progn
-              (setq net (gip:net d p is3) src (gip:g d "feed"))
-              (cond ((= src "src")
-                     (gip:m-cadd (list "xb" (if (= (gip:g d "rail") (gip:g xb "rail")) "top" "bot") (if (= net "N") "N" (if is3 net "L"))) (list (gip:g d "id") "top" p) net))
-                    ((and (= src "km") km) (if (/= net "N") (gip:m-cadd (list "km" "bot" (if is3 net "L")) (list (gip:g d "id") "top" p) net)))
-                    ((and src (gip:starts src "rcd")) (if (and (gip:m-by src) (/= net "N")) (gip:m-cadd (list src "bot" (if (= (gip:g (gip:m-by src) "w") 4) net "L")) (list (gip:g d "id") "top" p) net)))))))
+        (if (= (gip:g rn "mode") "cyc")
+          ;; трёхфазная гребёнка: каждая фаза — к первому аппарату этой фазы, N — один раз
+          (progn
+            (setq seen nil)
+            (foreach dd (gip:g rn "devs")
+              (if (not (member (gip:g dd "phase") seen))
+                (progn (setq seen (cons (gip:g dd "phase") seen)) (gip:m-feed dd "L"))))
+            (if (member "N" (gip:g d "poles")) (gip:m-feed d "N")))
+          (foreach p (gip:g d "poles") (if (/= p "A1") (gip:m-feed d p))))
         (if (= (gip:g d "kind") "rcd")
           (progn (setq k (strcat "rcd" (itoa (gip:g d "rcdNo"))))
                  (setq buses (append buses (list (cons k (strcat "N " (gip:g d "ref"))))) busOrder (append busOrder (list k)))
@@ -443,7 +505,7 @@
             (if (/= p "A1")
               (progn (setq pts (gip:term dd "top" p))
                      (gip:mrect (- (+ x0 (gip:g dd "xo") (car pts)) 2.5) (+ ty 8) 5.0 (- (+ (gip:m-devtop dd) (cadr pts)) ty 8) 12434877 7039851)))))
-        (gip:mtext (+ xa 2) (- ty 3) 11.0 (substr (gip:g rn "key") 1 2) 1118481 0))))
+        (gip:mtext (+ xa 2) (- ty 3) 11.0 (if (= (gip:g rn "mode") "cyc") (if (= (gip:g rn "key") "2P") "3Ф+N" "3Ф") (gip:g rn "key")) 1118481 0))))
   ;; ввод
   (foreach p (gip:g inD "poles")
     (setq pts (gip:term inD "top" p) xa (+ x0 (gip:g inD "xo") (car pts)) ya (+ (gip:m-devtop inD) (cadr pts)))

@@ -5,8 +5,15 @@
 (setq *gip:app* "GIPGEN")          ; метка созданных объектов (xdata)
 (setq *gip:dev-app* "GIPDEV")      ; метка аппаратов монтажной схемы (id аппарата)
 
+;; углы TEXT/ATTDEF (поворот 50, наклон 51) и ARC (50, 51) в файлах ГИП записаны в градусах,
+;; а entmake ждёт радианы (MTEXT 50 — уже радианы, вставки "I" пересчитывает gip:ins)
+(defun gip:deg-fix (it / typ)
+  (if (and (= (car it) "E") (member (setq typ (cdr (assoc 0 (cdr it)))) '("TEXT" "ATTDEF" "ARC")))
+    (cons "E" (mapcar '(lambda (p) (if (and (member (car p) '(50 51)) (numberp (cdr p))) (cons (car p) (* (cdr p) (/ pi 180.0))) p)) (cdr it)))
+    it))
 (defun gip:protos ()
-  (if (null *gip:protos*) (setq *gip:protos* (gip:deep-u *gip:protos-raw*)))
+  (if (null *gip:protos*)
+    (setq *gip:protos* (mapcar '(lambda (pr) (cons (car pr) (mapcar 'gip:deg-fix (cdr pr)))) (gip:deep-u *gip:protos-raw*))))
   *gip:protos*)
 (defun gip:proto (name / p)
   (if (setq p (assoc name (gip:protos))) (cdr p) (progn (princ (strcat "\nGIP: нет прототипа " name)) nil)))

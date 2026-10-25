@@ -94,7 +94,7 @@
 (defun gip:dev (pairs) pairs)
 
 ;; общие аппараты щита: ввод, реле, УЗО 100 мА, кросс-модуль, КМ (используют переменные вызывающей функции: b is3 useKm)
-(defun gip:fixed-devs (s lines / D inPoles inP fi hasLight bn)
+(defun gip:fixed-devs (s lines / D inPoles inP fi hasLight bn kt)
   (setq D nil)
   (setq inPoles (if is3 (if (= (gip:g s "inPoles") 4) 4 3) 2))
   (setq inP (if is3 (if (= inPoles 4) '("L1" "L2" "L3" "N") '("L1" "L2" "L3")) '("L" "N")))
@@ -116,16 +116,18 @@
                           (cons "poles" (if is3 '("L1" "L2" "L3" "N") '("L" "N"))) (cons "bot" (if is3 '("L1" "L2" "L3" "N") '("L" "N")))
                           (cons "In" fi) (cons "model" (gip:fmt-model (if is3 (gip:g b "fire4") (gip:g b "fire2")) fi))
                           '("name" . "УЗО противопожарное 100 мА") (cons "brand" bn) '("feed" . "up")) D))))
-  (setq D (cons (list '("id" . "xb") '("kind" . "xb") (cons "w" (if is3 5 3))
-                      (cons "poles" (if is3 '("L1" "L2" "L3" "N") '("L" "N"))) (cons "bot" (if is3 '("L1" "L2" "L3" "N") '("L" "N")))
-                      (cons "model" (if is3 "4П, 125 А" "2П, 125 А")) '("name" . "Кросс-модуль") '("brand" . "—") '("feed" . "up")) D))
+  (if (gip:g s "xb")
+    (setq D (cons (list '("id" . "xb") '("kind" . "xb") (cons "w" (if is3 5 3))
+                        (cons "poles" (if is3 '("L1" "L2" "L3" "N") '("L" "N"))) (cons "bot" (if is3 '("L1" "L2" "L3" "N") '("L" "N")))
+                        (cons "model" (if is3 "4П, 125 А" "2П, 125 А")) '("name" . "Кросс-модуль") '("brand" . "—") '("feed" . "up")) D)))
   (if useKm
     (progn
       (setq D (cons (list '("id" . "c2") '("kind" . "a1") '("w" . 1) '("poles" "L") '("bot" "L") (cons "phase" (if is3 "L1" "L")) '("In" . 2)
                           (cons "model" (gip:fmt-model (gip:g b "a1") 2)) '("name" . "Защита катушки КМ") (cons "brand" bn) '("feed" . "src")) D))
-      (setq D (cons (list '("id" . "km") '("kind" . "km") (cons "w" (if is3 2 1))
+      (setq kt (gip:km-of s))
+      (setq D (cons (list '("id" . "km") '("kind" . "km") (cons "w" (nth 3 kt)) (cons "kmType" (car kt)) (cons "kmI" (cadr kt)) (cons "kmC" (caddr kt))
                           (cons "poles" (if is3 '("A1" "L1" "L2" "L3") '("A1" "L"))) (cons "bot" (if is3 '("A2" "L1" "L2" "L3") '("A2" "L")))
-                          (cons "model" (if is3 (gip:g b "km4") (gip:g b "km2"))) '("name" . "Контактор «мастер-выключатель»") (cons "brand" bn) '("feed" . "src")) D))))
+                          (cons "model" (gip:km-model s kt)) '("name" . "Контактор «мастер-выключатель»") (cons "brand" bn) '("feed" . "src")) D))))
   (reverse D))
 
 ;; аппараты щита (режим шаблона)
@@ -200,7 +202,7 @@
       out)))
 
 ;; раскладка по рейкам
-(defun gip:flow-rails (s DEVS / W rails cur used total need i d brk gw j nxt)
+(defun gip:flow-rails (s DEVS / W rails cur used total need i d brk gw j nxt bx)
   (setq W (gip:g s "railW") rails nil cur nil used 0 i 0)
   (foreach d DEVS
     (setq brk (and (or (member (gip:g d "id") (gip:g s "breaks")) (member i (gip:g s "breakAt"))) cur))
@@ -220,8 +222,10 @@
   (setq total (gip:sum (mapcar '(lambda (d) (gip:g d "w")) DEVS)))
   (setq need (max (length rails) (gip:ceil (/ (* total 1.2) W))))
   (if (> (gip:gn s "railsMin" 0) 0) (setq need (max need (gip:g s "railsMin"))))
+  ;; настоящий корпус ABB: реек на схеме столько же, сколько рядов в корпусе
+  (if (setq bx (gip:pick-box W total (max need (length rails)))) (setq need (max need (cadr bx))))
   (while (< (length rails) need) (setq rails (append rails (list nil))))
-  (list (cons "rails" rails) (cons "used" total) (cons "cap" (* (length rails) W))))
+  (list (cons "rails" rails) (cons "used" total) (cons "cap" (* (length rails) W)) (cons "box" bx)))
 
 ;; обозначения QF, QFD, QD, KV, KM, XT по порядку на рейках
 (defun gip:designate (rails / c p r)
@@ -256,4 +260,4 @@
   (setq flow (gip:flow-rails s devs))
   (setq rails (gip:designate (gip:g flow "rails")))
   (setq all (apply 'append rails))
-  (list (cons "lines" lines) (cons "devs" devs) (cons "rails" rails) (cons "all" all) (cons "cap" (gip:g flow "cap")) (cons "used" (gip:g flow "used"))))
+  (list (cons "lines" lines) (cons "devs" devs) (cons "rails" rails) (cons "all" all) (cons "cap" (gip:g flow "cap")) (cons "used" (gip:g flow "used")) (cons "box" (gip:g flow "box"))))

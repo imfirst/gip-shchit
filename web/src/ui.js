@@ -106,12 +106,15 @@
       '<div class="fld"><label for="b-pAllowed">Выделено по ТУ, кВт</label><input id="b-pAllowed" class="w-m" data-b="pAllowed" inputmode="decimal" autocomplete="off"></div>' +
       '<div class="fld"><label for="b-kc">Kс</label><div class="kcbox"><input id="b-kc" class="w-s" data-b="kc" inputmode="decimal" autocomplete="off"><button type="button" class="kcmode" id="b-kcMode" data-tip="Авто: наибольший Kс, при котором щит укладывается в выделенную мощность и вводной автомат">авто</button></div></div>' +
       '<div class="fld"><label for="b-mark">Марка кабеля</label><input id="b-mark" class="w-l" data-b="mark" autocomplete="off"></div>' +
-      '<div class="fld"><label for="b-railW">Рейка</label><select id="b-railW" data-b="railW">' + [12, 18, 24].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
-      '<div class="fld grow"><span class="lbl">Общие аппараты</span><div class="checks">' +
+      '<div class="fld"><label for="b-railW">Ряд корпуса</label><select id="b-railW" data-b="railW" data-tip="12 модулей — ABB UK600, 18 модулей — ABB Mistral41F">' + [12, 18].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
+      '<div class="fld" id="b-kmF"><label for="b-kmType">Контактор КМ</label><select id="b-kmType" data-b="kmType"></select></div>' +
+      '<div class="fld"><label for="b-route">Прокладка кабелей</label><select id="b-route" data-b="route" data-tip="Вид блока на листе «Схема подвода кабеля к выключателям и розеткам»">' + M.ROUTES.map(function (v) { return opt(v, v, ''); }).join('') + '</select></div>' +
+      '<div class="fld grow"><span class="lbl">Общие аппараты и схема</span><div class="checks">' +
         '<label class="chk"><input type="checkbox" id="b-relay" data-b="relay">Реле напряжения</label>' +
         '<label class="chk"><input type="checkbox" id="b-km" data-b="km">Мастер-выключатель</label>' +
         '<label class="chk"><input type="checkbox" id="b-fire" data-b="fire">УЗО 100 мА</label>' +
-        '<label class="chk"><input type="checkbox" id="b-kup" data-b="kup">КУП</label>' +
+        '<label class="chk" data-tip="Без кросс-модуля провода идут от вводного (реле, УЗО 100 мА) прямо на гребёнки, N — на шину"><input type="checkbox" id="b-xb" data-b="xb">Кросс-модуль</label>' +
+        '<label class="chk" data-tip="Писать длины кабелей групп на однолинейной схеме"><input type="checkbox" id="b-olLen" data-b="olLen">Длины кабелей на схеме</label>' +
       '</div></div>';
     b.addEventListener('change', function (e) {
       var el = e.target, f = el.getAttribute('data-b'); if (!f) return;
@@ -148,7 +151,13 @@
     var km = $('b-kcMode'); km.setAttribute('aria-pressed', String(D.tot.kcAuto));
     $('b-kc').classList.toggle('kc-auto', D.tot.kcAuto);
     $('b-kc').classList.toggle('kc-low', D.tot.kcLevel === 'low'); $('b-kc').classList.toggle('kc-bad', D.tot.kcLevel === 'bad');
-    ['relay', 'km', 'fire', 'kup'].forEach(function (k) { $('b-' + k).checked = !!B[k]; });
+    ['relay', 'km', 'fire', 'xb', 'olLen'].forEach(function (k) { $('b-' + k).checked = !!B[k]; });
+    var kmSel = $('b-kmType'), auto = M.kmAuto(B), fx = D.fixed.filter(function (f) { return f.id === 'km'; })[0];
+    var kmHtml = opt('', 'авто · ' + auto, B.kmType || '') + M.KM_TYPES.filter(function (t) { return B.phases === 3 ? t.c === 4 : true; }).map(function (t) { return opt(t.k, t.k + ' · ' + t.I + ' А, ' + t.c + ' НО', B.kmType || ''); }).join('');
+    if (kmSel.__h !== kmHtml) { kmSel.innerHTML = kmHtml; kmSel.__h = kmHtml; }
+    if (kmSel !== act) kmSel.value = B.kmType || '';
+    $('b-kmF').hidden = !B.km;
+    setv('b-route', B.route);
     [].forEach.call($('b-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === B.phases)); });
     [].forEach.call($('b-inPoles').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === (B.inPoles === 4 ? 4 : 3))); });
     $('b-inPolesF').hidden = B.phases !== 3;
@@ -263,13 +272,14 @@
     if (is3) {
       var mx = Math.max.apply(null, T.phases.map(function (p) { return p.P; })) || 1;
       var imbCls = T.imb > M.IMB_WARN ? 'warn' : 'ok';
-      h += '<div class="card"><h3>Фазы <span class="pill ' + imbCls + '">перекос ' + fmt(T.imb, 0) + ' %</span></h3><div class="phases">' +
+      h += '<div class="card"><h3>Фазы ' + (B.phaseMode === 'abc' ? '<span class="pill ok" data-tip="Фазы идут по порядку L1 L2 L3 — трёхфазная гребёнка">ABC</span>' : '') + '<span class="pill ' + imbCls + '">перекос ' + fmt(T.imb, 0) + ' %</span></h3><div class="phases">' +
         T.phases.map(function (p, i) {
           return '<div class="ph-row"><span><span class="phd ph-' + p.ph + '"></span></span><div class="pbar"><i style="width:' + (p.P / mx * 100).toFixed(1) + '%;background:var(--ph' + (i + 1) + ')"></i></div><b>' + fmt(p.P, 1) + ' кВт · ' + fmt(p.Ir, 0) + ' А</b></div>';
         }).join('') +
         '</div><div class="acts"><div class="menu-wrap"><button class="btn" type="button" id="balBtn" aria-haspopup="true" aria-expanded="false">Распределить фазы</button>' +
         '<div class="menu" id="balMenu" hidden>' +
-          '<button type="button" data-bal="seq">Участками подряд <small>порядок не меняется, соседи одной фазы — на одну гребёнку</small></button>' +
+          '<button type="button" data-bal="abc">ABC подряд <small>как раздаёт трёхфазная гребёнка; фазы пересчитываются при перестановке</small></button>' +
+          '<button type="button" data-bal="seq">Участками AAA BBB CCC <small>порядок не меняется, однофазные гребёнки</small></button>' +
           '<button type="button" data-bal="power">По мощности <small>ровнее, фазы вперемешку</small></button>' +
           '<button type="button" data-bal="unlock">Открепить все фазы <small>сброс ручных фаз</small></button>' +
         '</div></div></div></div>';
@@ -281,9 +291,9 @@
       '<div class="kv"><span><span class="chip s-lo">ЛО</span> <b>' + sr['ЛО'] + '</b></span><span><span class="chip s-ls">ЛС</span> <b>' + sr['ЛС'] + '</b></span>' + (sr['ЛАО'] ? '<span><span class="chip s-lao">ЛАО</span> <b>' + sr['ЛАО'] + '</b></span>' : '') + '</div>' +
       '<div class="kv"><span>автоматов <b>' + (c.av + c.rcd) + '</b></span><span>дифавтоматов <b>' + c.dif + '</b></span><span>УЗО <b>' + c.u + '</b></span></div></div>';
     var used = T.modules, cap = T.cap;
-    h += '<div class="card"><h3>Корпус</h3><div class="big">' + used + ' <small>мод. · ' + T.rails + ' ' + plural(T.rails, 'рейка', 'рейки', 'реек') + ' по ' + B.railW + '</small></div>' +
-      '<div class="meter"><i style="width:' + Math.min(100, used / Math.max(cap, 1) * 100).toFixed(1) + '%"></i></div>' +
-      '<div class="kv"><span>свободно <b>' + Math.max(0, cap - used) + '</b> мод. — запас не меньше 20 %</span></div></div>';
+    h += '<div class="card"><h3>Корпус ' + (T.box ? '<span class="pill ok">ABB ' + esc(T.box.n) + '</span>' : '<span class="pill warn">нет готового</span>') + '</h3><div class="big">' + used + ' <small>мод. из ' + cap + ' · ' + T.rails + ' ' + plural(T.rails, 'ряд', 'ряда', 'рядов') + ' по ' + B.railW + '</small></div>' +
+      '<div class="meter' + (used > cap ? ' over' : '') + '"><i style="width:' + Math.min(100, used / Math.max(cap, 1) * 100).toFixed(1) + '%"></i></div>' +
+      '<div class="kv"><span>свободно <b>' + Math.max(0, cap - used) + '</b> мод.' + (T.box && T.box.art ? ' · ' + esc(T.box.art) : '') + '</span></div></div>';
     var W = [];
     T.warn.forEach(function (t) { W.push({ t: t }); });
     D.rows.forEach(function (v) { v.warn.forEach(function (w) { W.push({ id: v.id, ref: v.t === 'u' ? v.ref : v.num, t: w.t }); }); });
@@ -390,7 +400,7 @@
       if (mode === 'unlock') { commit(function (st) { st.rows.forEach(function (r) { r.lock = false; }); return st; }); toast('Ручные фазы откреплены', true); return; }
       var before = D.tot.imb;
       commit(function (st) { return M.balance(st, mode); });
-      toast('Фазы распределены ' + (mode === 'seq' ? 'участками подряд' : 'по мощности') + ': перекос ' + fmt(before, 0) + ' → ' + fmt(D.tot.imb, 0) + ' %', true);
+      toast('Фазы распределены ' + ({ abc: 'ABC подряд', seq: 'участками', power: 'по мощности' })[mode] + ': перекос ' + fmt(before, 0) + ' → ' + fmt(D.tot.imb, 0) + ' %', true);
       return;
     }
     var j = e.target.closest('[data-jump]');
