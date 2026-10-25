@@ -28,8 +28,16 @@
   var IDN = [10, 30, 100];
   var SECTIONS = [1.5, 2.5, 4, 6, 10, 16, 25];
   /* ПУЭ табл. 1.3.6, медь, кабель в воздухе: двухжильный (1ф: L+N нагружены) и трёхжильный (3ф) */
-  var IZ1 = { 1.5: 19, 2.5: 27, 4: 38, 6: 50, 10: 70, 16: 90, 25: 115 };
-  var IZ3 = { 1.5: 19, 2.5: 25, 4: 35, 6: 42, 10: 55, 16: 75, 25: 95 };
+  var IZ1 = { 1.5: 19, 2.5: 27, 4: 38, 6: 50, 10: 70, 16: 90, 25: 115, 35: 140 };
+  var IZ3 = { 1.5: 19, 2.5: 25, 4: 35, 6: 42, 10: 55, 16: 75, 25: 95, 35: 115 };
+  /* ПУЭ табл. 1.3.7, алюминий, кабель в воздухе */
+  var IZA1 = { 2.5: 21, 4: 29, 6: 38, 10: 55, 16: 70, 25: 90, 35: 105 };
+  var IZA3 = { 2.5: 19, 4: 27, 6: 32, 10: 42, 16: 60, 25: 75, 35: 90 };
+  /* Этажный щит: ряды номиналов, сечения и марки вводного кабеля */
+  var FS_BRK = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125], FS_QS = [25, 32, 40, 50, 63, 80, 100, 125], FS_RCD = [25, 40, 63, 80, 100];
+  var FS_SEC = [4, 6, 10, 16, 25, 35], FS_IDN = [30, 100, 300];
+  var FS_MARKS = ['ВВГнг(А)-LS', 'ВВГнг(А)-FRLS', 'ППГнг(А)-HF', 'АВВГнг(А)-LS', 'АППГнг(А)-HF'];
+  var FS_METERS = { 3: ['Меркурий 236 ART', '400/230В 5-60А'], 1: ['Меркурий 204 ARTMX2-02', '230В, 5-100А'] };
   var CABLE1 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
   var CABLE3 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
   var DU_C1 = 12.8, DU_C3 = 77; /* ΔU% = P·L/(C·S), медь, 230 и 400/230 В */
@@ -346,6 +354,47 @@
     var tpl = KM_MODEL[B.brand] || KM_MODEL.abb;
     return tpl.replace('{K}', t.k).replace('{I}', t.I).replace('{C}', t.c);
   }
+  /* Этажный щит: настройки fs* (пусто — авто). Селективность: автомат после счётчика на ступень больше вводного квартиры,
+     УЗО на ступень больше автомата, рубильник/автомат перед счётчиком на ступень больше; при УЗО 100 мА в квартире — 300 мА. */
+  function nextAbove(v, list) { for (var i = 0; i < list.length; i++) if (list[i] > v) return list[i]; return list[list.length - 1]; }
+  function fsOf(B) {
+    var is3 = B.phases === 3, inA = B.inA;
+    var post = ['av', 'dif', 'avrcd'].indexOf(B.fsPost) >= 0 ? B.fsPost : (is3 ? 'dif' : 'av');
+    var a = { post: is3 ? 'dif' : 'av' };
+    a.postIn = nextAbove(inA, FS_BRK);
+    var postIn = B.fsPostIn || a.postIn;
+    a.rcdIn = nextAbove(postIn, FS_RCD);
+    var rcdIn = post === 'avrcd' ? (B.fsRcdIn || a.rcdIn) : null;
+    a.idn = B.fire ? 300 : 100;
+    var idn = post !== 'av' ? (B.fsIdn || a.idn) : null;
+    var pre = B.fsPre === 'qf' ? 'qf' : 'qs';
+    a.preIn = nextAbove(postIn, pre === 'qs' ? FS_QS : FS_BRK);
+    var preIn = B.fsPreIn || a.preIn;
+    var mt = FS_METERS[is3 ? 3 : 1];
+    a.mark = B.mark || 'ВВГнг(А)-LS';
+    var mark = (B.fsMark && String(B.fsMark).trim()) || a.mark;
+    var al = /^[АA]/.test(mark);
+    a.sec = al ? (inA <= 40 ? 16 : inA <= 63 ? 25 : 35) : (inA <= 25 ? 6 : inA <= 40 ? 10 : 16);
+    var sec = B.fsCable || a.sec, cores = is3 ? 5 : 3;
+    var iz = (al ? (is3 ? IZA3 : IZA1) : (is3 ? IZ3 : IZ1))[sec] || null;
+    var meterSpec = (B.fsMeterSpec && String(B.fsMeterSpec).trim()) || mt[1];
+    var mm = /(\d+)\s*[-–]\s*(\d+)\s*[АA]/.exec(meterSpec), meterMax = mm ? +mm[2] : null;
+    return { show: !B.fsHide, pre: pre, preIn: preIn, meter: (B.fsMeter && String(B.fsMeter).trim()) || mt[0], meterSpec: meterSpec, meterMax: meterMax,
+      post: post, postIn: postIn, rcdIn: rcdIn, idn: idn, mark: mark, al: al, sec: sec, cores: cores, iz: iz,
+      cable: mark + ' ' + cores + '×' + secStr(sec), auto: a, meterAuto: mt };
+  }
+  function fsWarn(B, f) {
+    var w = [];
+    if (f.postIn <= B.inA) w.push('Этажный щит: автомат ' + f.postIn + ' А не больше вводного квартиры ' + B.inA + ' А — нет селективности');
+    if (f.post === 'avrcd' && f.rcdIn <= f.postIn) w.push('Этажный щит: УЗО ' + f.rcdIn + ' А должно быть на ступень больше автомата ' + f.postIn + ' А');
+    if (f.pre === 'qf' && f.preIn <= f.postIn) w.push('Этажный щит: автомат перед счётчиком ' + f.preIn + ' А должен быть больше автомата после счётчика ' + f.postIn + ' А');
+    if (f.pre === 'qs' && f.preIn < f.postIn) w.push('Этажный щит: рубильник ' + f.preIn + ' А меньше автомата ' + f.postIn + ' А');
+    if (f.post !== 'av' && B.fire && f.idn <= 100) w.push('Этажный щит: в квартире УЗО 100 мА — для селективности по утечке в этажном щите нужно 300 мА');
+    if (f.iz != null && f.iz < f.postIn) w.push('Вводной кабель ' + f.cable + ' допускает ' + f.iz + ' А — меньше автомата этажного щита ' + f.postIn + ' А (ПУЭ, табл. ' + (f.al ? '1.3.7' : '1.3.6') + ')');
+    if (f.meterMax != null && f.meterMax < f.postIn) w.push('Счётчик до ' + f.meterMax + ' А, а автомат этажного щита ' + f.postIn + ' А');
+    return w;
+  }
+
   /* реальный корпус: наименьший с запасом 20 %, иначе наименьший, куда всё помещается */
   function pickBox(B, used, flowRows) {
     var W = B.railW || 18, list = (B.brand === 'abb' || true) ? BOXES[W] : null;
@@ -517,9 +566,11 @@
     if (BOXES[W] && !bx.box) warn.push('Нет корпуса ABB на ' + modules + ' мод. при ряде по ' + W + ' — ' + (W === 12 ? 'возьмите ряд 18 модулей' : 'щит не помещается в Mistral41F 72M'));
     else if (bx.box && !bx.reserveOk) warn.push('Корпус ' + bx.box.n + ': запас меньше 20 %');
     if (!BOXES[W]) warn.push('Для ряда ' + W + ' модулей готового корпуса ABB нет — выберите 12 (UK600) или 18 (Mistral41F)');
+    var fs = fsOf(B);
+    if (fs.show) warn = warn.concat(fsWarn(B, fs));
     var nWarn = rows.reduce(function (a, v) { return a + (v.warn.length ? 1 : 0); }, 0);
     return {
-      board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm,
+      board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm, fs: fs,
       tot: { P: sumP, kc: kc, kcAuto: kcAuto, kcFit: kcFit, kcLevel: kcLevel, Pcap: Pcap, PbyIn: PbyIn, Pall: Pall, Pr: Pr, cos: cosAvg, Ir: Ir, phases: phases, imb: imb, modules: modules, rails: railsN, cap: railsN * W, box: bx.box, boxW: W, groups: nG, counts: counts, ser: serCount, warn: warn, nWarn: nWarn }
     };
   }
@@ -722,7 +773,10 @@
     if (field === 'phases' || field === 'inA' || field === 'inPoles' || field === 'railW') B[field] = +value;
     else if (field === 'area') B[field] = num(value, B[field]);
     else if (field === 'kmType') B.kmType = value || null;
-    else if (field === 'xb' || field === 'olLen') B[field] = !!value;
+    else if (field === 'xb' || field === 'olLen' || field === 'fsHide') B[field] = !!value;
+    else if (/^fs(PreIn|PostIn|RcdIn|Idn|Cable)$/.test(field)) { var fv = num(value, null); B[field] = (fv != null && fv > 0) ? fv : null; }
+    else if (/^fs(Pre|Post|Meter|MeterSpec|Mark)$/.test(field)) { var sv = String(value == null ? '' : value).trim(); B[field] = sv || null; }
+    else if (field === 'fsReset') { ['fsPre', 'fsPreIn', 'fsMeter', 'fsMeterSpec', 'fsPost', 'fsPostIn', 'fsRcdIn', 'fsIdn', 'fsMark', 'fsCable'].forEach(function (k) { B[k] = null; }); }
     else if (field === 'kc') { var k = num(value, null); if (k != null && k > 0) { B.kc = Math.min(1, round(k, 2)); B.kcMode = 'manual'; } }
     else if (field === 'pAllowed') { var pa = num(value, null); B.pAllowed = (pa != null && pa > 0) ? round(pa, 1) : null; }
     else B[field] = value;
@@ -882,6 +936,7 @@
     BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
     DU_WARN: DU_WARN, IMB_WARN: IMB_WARN, KC_LOW: KC_LOW, KC_BAD: KC_BAD,
     KM_TYPES: KM_TYPES, BOXES: BOXES, ROUTES: ROUTES, kmAuto: kmAuto, kmOf: kmOf, SOFT: SOFT, softOk: softOk,
+    FS_BRK: FS_BRK, FS_QS: FS_QS, FS_RCD: FS_RCD, FS_SEC: FS_SEC, FS_IDN: FS_IDN, FS_MARKS: FS_MARKS, fsOf: fsOf,
     clone: clone, num: num, fmt: fmt, round: round, secStr: secStr, cableStr: cableStr,
     defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
     moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,

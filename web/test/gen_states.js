@@ -18,6 +18,8 @@ const dw = st.rows.find(x => x.key === 'dw');
 r = M.wrapRcd(st, [hob.id]); st = r.st; st = M.setField(st, r.id, 'poles', 4);
 st = M.setBoard(st, 'pAllowed', 15);
 st = M.setBoard(st, 'olLen', true); st = M.setBoard(st, 'route', 'Пол, потолок');
+// этажный щит: автомат перед счётчиком, автомат + УЗО после, ППГнг-HF 5×10
+st = M.setBoard(st, 'fsPre', 'qf'); st = M.setBoard(st, 'fsPost', 'avrcd'); st = M.setBoard(st, 'fsMark', 'ППГнг(А)-HF'); st = M.setBoard(st, 'fsCable', 10);
 out.k3_rcd = st;
 // b) 2-комнатная, 1 фаза, дифавтоматы, один блок УЗО из розеток, ручная длина и кабель
 o = M.tplOptions('k2'); st = M.generate(o);
@@ -26,6 +28,8 @@ r = M.wrapRcd(st, socks.slice(0, 3)); st = r.st;
 st = M.setField(st, socks[3], 'len', '42'); st = M.setField(st, socks[3], 'cable', '3×4');
 st = M.setBoard(st, 'brand', 'iek');
 st = M.setBoard(st, 'xb', true); st = M.setBoard(st, 'kmType', '40-20');
+// 1 фаза: дифавтомат в этажном щите, алюминиевый ввод, свой счётчик
+st = M.setBoard(st, 'fsPost', 'dif'); st = M.setBoard(st, 'fsMark', 'АВВГнг(А)-LS'); st = M.setBoard(st, 'fsMeter', 'Меркурий 201.8');
 out.k2_dif = st;
 // c) пустой щит
 o = M.tplOptions('empty'); st = M.generate(o); out.empty = st;

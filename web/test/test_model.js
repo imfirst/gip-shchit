@@ -137,6 +137,23 @@ d = M.derive(st);
 ok(d.byId[s1.id].dU > 4 && d.byId[s1.id].warn.some(w => w.f === 'dU'), 'dU warn ' + d.byId[s1.id].dU);
 
 
+// этажный щит: авто-значения, селективность, ручные настройки переживают перестройку щита
+{
+  let s3 = M.generate(M.tplOptions('k3'));
+  let f = M.derive(s3).fs;
+  ok(f.pre === 'qs' && f.preIn === 40 && f.post === 'dif' && f.postIn === 32 && f.idn === 100 && f.cable === 'ВВГнг(А)-LS 5×6', 'fs auto 3ph ' + JSON.stringify(f));
+  s3 = M.setBoard(s3, 'fsPost', 'avrcd'); s3 = M.setBoard(s3, 'fire', true); f = M.derive(s3).fs;
+  ok(f.rcdIn === 40 && f.idn === 300, 'fs avrcd selective rcd ' + f.rcdIn + ' idn ' + f.idn);
+  s3 = M.setBoard(s3, 'fsPreIn', '63'); s3 = M.setBoard(s3, 'fsMeter', 'Меркурий 234 ARTM');
+  const r = M.addGroup(s3, 'sock', null); s3 = r.st; s3 = M.removeRows(s3, [s3.rows[3].id]);
+  f = M.derive(s3).fs; ok(f.preIn === 63 && f.meter === 'Меркурий 234 ARTM' && f.post === 'avrcd', 'fs settings survive edits');
+  s3 = M.setBoard(s3, 'fsMark', 'АВВГнг(А)-LS'); s3 = M.setBoard(s3, 'fsCable', '4');
+  ok(M.derive(s3).tot.warn.some(w => /Вводной кабель/.test(w)), 'fs cable Iz warning');
+  s3 = M.setBoard(s3, 'fsReset', true); f = M.derive(s3).fs; ok(f.post === 'dif' && f.preIn === 40 && f.sec === 6, 'fs reset');
+  let s1 = M.generate(M.tplOptions('k2')); f = M.derive(s1).fs;
+  ok(f.post === 'av' && f.postIn === 50 && f.preIn === 63 && f.cable === 'ВВГнг(А)-LS 3×10', 'fs auto 1ph ' + f.cable);
+  s1 = M.setBoard(s1, 'fsMark', 'АВВГнг(А)-LS'); ok(M.derive(s1).fs.sec === 16, 'fs Al auto 16');
+}
 // розетки комнат: «авто»-мощность 0,5…1,5 кВт под ровные фазы, кухня 1,5 кВт
 {
   let s3 = M.generate(M.tplOptions('k3'));

@@ -125,7 +125,7 @@ button { cursor: pointer; }
 .fld input[type=text], .fld input:not([type]), .fld input[type=number], .fld select {
   height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 8px; font-size: 13px; min-width: 0;
 }
-.fld input.w-s { width: 64px; } .fld input.w-m { width: 110px; } .fld input.w-l { width: 140px; }
+.fld input.w-s { width: 64px; } .fld input.w-m { width: 110px; } .fld input.w-l { width: 140px; } .fld input.w-ml { width: 130px; } .fld input.w-xl { width: 190px; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; height: 32px; }
 .seg button { border: 0; background: var(--surface); padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--line-strong); }
@@ -134,6 +134,18 @@ button { cursor: pointer; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
 .chk input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
 .board .grow { flex: 1 1 auto; }
+.fsbox { border-top: 1px solid var(--line); }
+.fsbox > summary { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px; cursor: pointer; list-style: none; font-size: 13px; min-width: 0; }
+.fsbox > summary::-webkit-details-marker { display: none; }
+.fsbox > summary::before { content: '▸'; color: var(--muted); font-size: 11px; transition: transform .15s; }
+.fsbox[open] > summary::before { transform: rotate(90deg); }
+.fs-t { font-weight: 600; white-space: nowrap; }
+.fs-sum { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fs-sum b { color: var(--accent); font-weight: 600; }
+.fs-body { padding-top: 2px; }
+.fld select.auto, .fld input.auto { color: var(--muted); }
+.fld .pair { display: flex; gap: 6px; flex-wrap: wrap; }
+.fs-body .btn { height: 32px; }
 .kcbox { display: inline-flex; height: 32px; }
 .kcbox input { border-radius: 7px 0 0 7px !important; }
 .kcbox input.kc-auto { color: var(--accent); font-weight: 600; }

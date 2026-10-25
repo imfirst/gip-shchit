@@ -153,7 +153,7 @@
   (if (> (gip:gn S "floor" 0) 0) (setq mats (append mats (list (gip:row "Комплект тёплого пола" "" "" "компл." (gip:g S "floor"))))))
   (if kup (setq mats (append mats (list (gip:row "Коробка уравнивания потенциалов для бетона, 32А" "" "МПО Электромонтаж" "шт." bath)))))
   (setq cab nil)
-  (foreach c cabs (setq cab (append cab (list (gip:row (strcat "Кабель силовой, " (car c) "кв.мм") "ВВГнгLS" "Конкорд" "п.м." (gip:round5 (cdr c)))))))
+  (foreach c cabs (setq cab (append cab (list (gip:row (strcat "Кабель силовой, " (car c) "кв.мм") (gip:gn S "mark" "ВВГнг(А)-LS") "Конкорд" "п.м." (gip:round5 (cdr c)))))))
   (if kup
     (setq cab (append cab (list (gip:row "Провод желто-зелёный, 1х6кв.мм" "ПуГВнг(А)-LS" "Конкорд" "п.м." pe6)
                                 (gip:row "Провод желто-зелёный, 1х2,5кв.мм" "ПуГВнг(А)-LS" "Конкорд" "п.м." pe25)))))

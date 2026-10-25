@@ -30,6 +30,8 @@
   (setq t1 (vl-string-right-trim "- " t1))
   (gip:short-type t1))
 
+;; марка кабеля в узкой колонке схемы: без «(А)» и дефиса — «ВВГнгLS», «ППГнгHF»
+(defun gip:mark-short (m) (gip:repl (gip:repl (gip:repl m "(А)" "") "(A)" "") "-" ""))
 ;; марка контактора -> две строки надписи: «ESB» + «25-40N», «КМ63-40М» + «25А», «NCH8» + «25/40»
 (defun gip:km-split (m / p)
   (cond ((gip:starts m "ESB") (list "ESB" (substr m 4)))
@@ -100,9 +102,100 @@
   (if (and kup (>= (length (last pages)) CAP)) (setq pages (append pages (list nil))))
   pages)
 
+;; ---------------------------------------------------------------- этажный щит
+;; Настройки (поля fs* таблицы; пусто — авто). Селективность: автомат после счётчика — на ступень больше вводного
+;; квартиры, УЗО — на ступень больше автомата, рубильник/автомат перед счётчиком — на ступень больше; при УЗО 100 мА
+;; в квартире ток утечки в этажном щите — 300 мА.
+(setq *gip:fs-brk* '(16 20 25 32 40 50 63 80 100 125) *gip:fs-qs* '(25 32 40 50 63 80 100 125) *gip:fs-rcd* '(25 40 63 80 100))
+(defun gip:fs-int (S k) (if (numberp (gip:g S k)) (fix (gip:g S k))))
+(defun gip:fs-str (S k) (if (and (= (type (gip:g S k)) 'STR) (/= (gip:trim (gip:g S k)) "")) (gip:trim (gip:g S k))))
+(defun gip:sec-str (v) (if (equal v (fix v) 1e-9) (itoa (fix v)) (gip:repl (rtos v 2 1) "." ",")))
+(defun gip:fs-cfg (S / is3 inA post postIn rcdIn idn pre preIn mark al sec)
+  (setq is3 (= (gip:g S "phases") 3) inA (gip:gn S "inA" 40))
+  (setq post (if (member (gip:g S "fsPost") '("av" "dif" "avrcd")) (gip:g S "fsPost") (if is3 "dif" "av")))
+  (setq postIn (cond ((gip:fs-int S "fsPostIn")) (T (gip:next-in inA *gip:fs-brk*))))
+  (setq rcdIn (if (= post "avrcd") (cond ((gip:fs-int S "fsRcdIn")) (T (gip:next-in postIn *gip:fs-rcd*)))))
+  (setq idn (if (/= post "av") (cond ((gip:fs-int S "fsIdn")) ((gip:g S "fire") 300) (T 100))))
+  (setq pre (if (= (gip:g S "fsPre") "qf") "qf" "qs"))
+  (setq preIn (cond ((gip:fs-int S "fsPreIn")) (T (gip:next-in postIn (if (= pre "qs") *gip:fs-qs* *gip:fs-brk*)))))
+  (setq mark (cond ((gip:fs-str S "fsMark")) ((gip:fs-str S "mark")) (T "ВВГнг(А)-LS")))
+  (setq al (member (substr mark 1 1) '("А" "A")))
+  (setq sec (cond ((numberp (gip:g S "fsCable")) (gip:g S "fsCable"))
+                  (al (cond ((<= inA 40) 16) ((<= inA 63) 25) (T 35)))
+                  (T (cond ((<= inA 25) 6) ((<= inA 40) 10) (T 16)))))
+  (list (cons "post" post) (cons "postIn" postIn) (cons "rcdIn" rcdIn) (cons "idn" idn) (cons "pre" pre) (cons "preIn" preIn)
+        (cons "meter" (cond ((gip:fs-str S "fsMeter")) (is3 "Меркурий 236 ART") (T "Меркурий 204 ARTMX2-02")))
+        (cons "meterSpec" (cond ((gip:fs-str S "fsMeterSpec")) (is3 "400/230В 5-60А") (T "230В, 5-100А")))
+        (cons "cable" (strcat mark " " (if is3 "5" "3") "x" (gip:sec-str sec)))))
+
+;; оставляемые элементы прототипа (рамка, кабель с дугами, стояк, счётчик, PE) и детали аппаратов из floor3
+(setq *gip:fs-keep* '(("floor3" 0 1 2 3 4 5 6 7 8 9 10 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 42 49 53)
+                      ("floor1" 0 1 2 3 4 5 6 7 8 9 10 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 31 35 37)))
+(setq *gip:fs-parts* '(("brk" "floor3" 5066.734974156 28 36 37 38 60 61 63 62)   ; автомат: нож L, контакт с крестом, расцепитель
+                       ("brkN" "floor3" 5066.734974156 29 39 40 41 30 31)        ; второй полюс (N) автомата и связь ножей
+                       ("rcdL" "floor3" 5066.734974156 28 36)                    ; полюс L УЗО
+                       ("rcdN" "floor3" 5066.734974156 29 39 30 31)              ; полюс N УЗО и связь
+                       ("diff" "floor3" 5066.734974156 32 33 34 35)              ; дифференциальный трансформатор
+                       ("qs" "floor3" 6500.308914521 45 54 59)                   ; рубильник
+                       ("sl3" "floor3" 5066.734974156 50 51 52) ("sl1" "floor3" 5066.734974156 51)
+                       ("lbl1" "floor3" 6500.308914521 44)                       ; «QS 40А» над аппаратом перед счётчиком
+                       ("lblQF" "floor1" 5066.734974156 49)                      ; «QF 50А» над автоматом после счётчика
+                       ("lbl2a" "floor3" 5066.734974156 43) ("lbl2b" "floor3" 5066.734974156 13)))
+(setq *gip:FS-LY* 1469.92215386 *gip:FS-NY* 1296.492577819 *gip:FS-BL* 216.787 *gip:FS-X* 4566.734974156)
+
+(defun gip:fs-items (key x0 OX OY / p its)
+  (setq p (assoc key *gip:fs-parts*) its (gip:proto (cadr p)))
+  (mapcar '(lambda (i) (gip:shift-item (nth i its) (+ OX (- x0 (caddr p))) OY)) (cdddr p)))
+(defun gip:fs-text (key x0 OX OY txt) (gip:emit (list (gip:it-text (car (gip:fs-items key x0 OX OY)) txt)) *gip:tag*))
+;; аппарат: kind qs | qf | qfd | qd; x0 — начало ножа
+(defun gip:fs-dev (kind x0 is3 OX OY / k)
+  (foreach k (cond ((= kind "qs") '("qs")) ((= kind "qf") '("brk")) ((= kind "qfd") '("brk" "brkN" "diff")) (T '("rcdL" "rcdN" "diff")))
+    (gip:emit (gip:fs-items k x0 OX OY) *gip:tag*))
+  (gip:emit (gip:fs-items (if is3 "sl3" "sl1") x0 OX OY) *gip:tag*))
+;; провод y от x1 до x2 с разрывами brk ((a b) ...)
+(defun gip:fs-wire (y x1 x2 brk OX OY / tpl cur b)
+  (setq tpl (nth 56 (gip:proto "floor3")) cur x1)
+  (foreach b (gip:msort brk '(lambda (a c) (< (car a) (car c))))
+    (if (> (car b) (+ cur 0.5)) (gip:emit (list (gip:it-poly tpl (list (+ OX cur) (+ OY y) (+ OX (car b)) (+ OY y)))) *gip:tag*))
+    (setq cur (max cur (cadr b))))
+  (if (> x2 (+ cur 0.5)) (gip:emit (list (gip:it-poly tpl (list (+ OX cur) (+ OY y) (+ OX x2) (+ OY y)))) *gip:tag*)))
+
+(defun gip:floor-shield (S OX OY is3 / c name keep its it i p dm dq posts x0 kind brkL brkN pre lb)
+  (setq c (gip:fs-cfg S) name (if is3 "floor3" "floor1") keep (cdr (assoc name *gip:fs-keep*)))
+  ;; после счётчика: один аппарат на месте прототипа или автомат + УЗО (счётчик сдвигается вправо)
+  ;; (счётчик и аппарат перед ним сдвигаются вправо, чтобы надписи не налезали)
+  (if (= (gip:g c "post") "avrcd")
+    (setq dm 300.0 dq 200.0 posts (list (list "qd" 4849.0) (list "qf" 5466.0)))
+    (setq dm 0.0 dq 0.0 posts (list (list (if (= (gip:g c "post") "dif") "qfd" "qf") 5066.734974156))))
+  (setq its (gip:proto name) lb nil)
+  (foreach i keep
+    (setq it (gip:shift-item (nth i its) OX OY))
+    (cond ((= i 8) (setq it (gip:it-text it (gip:g c "cable"))))
+          ((= i 12) (setq it (gip:it-att (gip:shift-item it dm 0.0) "СЕРИЯ" (gip:g c "meter"))))
+          ((or (and is3 (= i 42)) (and (not is3) (= i 31))) (setq it (gip:it-text (gip:shift-item it dm 0.0) (gip:g c "meterSpec")))))
+    (setq lb (cons it lb)))
+  (gip:emit (reverse lb) *gip:tag*)
+  ;; аппараты и надписи
+  (setq brkL (list (list (+ 5783.521944339 dm) (+ 6000.308914521 dm))) brkN (list (list (+ 5783.521944339 dm) (+ 5997.145704499 dm))))
+  (foreach p posts
+    (setq kind (car p) x0 (cadr p))
+    (gip:fs-dev kind x0 is3 OX OY)
+    (setq brkL (cons (list x0 (+ x0 *gip:FS-BL*)) brkL))
+    (if (member kind '("qfd" "qd")) (setq brkN (cons (list x0 (+ x0 *gip:FS-BL*)) brkN)))
+    (cond ((= kind "qf") (gip:fs-text "lblQF" x0 OX OY (strcat "QF " (itoa (gip:g c "postIn")) "А")))
+          (T (gip:fs-text "lbl2a" x0 OX OY (if (= kind "qd") "QD" "QFD"))
+             (gip:fs-text "lbl2b" x0 OX OY (strcat (itoa (if (= kind "qd") (gip:g c "rcdIn") (gip:g c "postIn"))) "А/" (itoa (gip:g c "idn")) "мА")))))
+  (setq pre (gip:g c "pre") x0 (+ 6500.308914521 dq))
+  (gip:fs-dev pre x0 is3 OX OY)
+  (setq brkL (cons (list x0 (+ x0 *gip:FS-BL*)) brkL))
+  (gip:fs-text "lbl1" x0 OX OY (strcat (if (= pre "qf") "QF " "QS ") (itoa (gip:g c "preIn")) "А"))
+  ;; провода L и N (PE — из прототипа)
+  (gip:fs-wire *gip:FS-LY* *gip:FS-X* 7728.927631497 brkL OX OY)
+  (gip:fs-wire *gip:FS-NY* *gip:FS-X* 7593.090416282 brkN OX OY))
+
 ;; лист si однолинейной схемы с началом координат OX OY
 (defun gip:ol-sheet (S BRD sc si npages OX OY / is3 b isfirst islast kup by km inD fire rns bname nC lastX XR XT XTr dxr nChain
-                      flA qsA sub chain y0 xi yb kk2 tx ty w1 hh px2 w2 HD hh2 phs Kc LNS spw sqv cosl ph PRAS Ip rows lb lxx rcdBus
+                      sub chain y0 xi yb kk2 tx ty w1 hh px2 w2 HD hh2 phs Kc LNS spw sqv cosl ph PRAS Ip rows lb lxx rcdBus
                       ci x AX d l pl members xe yL yN srcY vr nY isD proto tk cs nmt AXk title titleF ks k1 k2 cn kk yy base px py rr q ii xx on)
   (setq is3 (= (gip:g S "phases") 3) b *gip:b* isfirst (= si 0) islast (= si (1- npages)) kup (gip:g S "kup"))
   (setq bname (gip:gn S "board" "ЩР"))
@@ -138,15 +231,7 @@
   ;; ---- ввод
   (if isfirst
     (progn
-      (setq flA (gip:next-in (gip:g S "inA") '(16 20 25 32 40 50 63 80 100)))
-      (setq qsA (gip:next-in flA '(25 32 40 50 63 80 100 125)))
-      (if (gip:g S "floorShield")
-        (progn
-          (setq sub (if is3
-                      (list (cons "ВВГнгLS 5x6" (gip:in-cable (gip:g S "inA") T)) (cons "32А/100мА" (strcat (itoa flA) "А/100мА")) (cons "QS 40А" (strcat "QS " (itoa qsA) "А")))
-                      (list (cons "ВВГнгLS 3x16" (gip:in-cable (gip:g S "inA") nil)) (cons "QF 63А" (strcat "QF " (itoa flA) "А")) (cons "QS 63А" (strcat "QS " (itoa qsA) "А")))))
-          (gip:place (if is3 "floor3" "floor1") OX OY
-            '(lambda (its) (mapcar '(lambda (it / t1) (if (and (= (car it) "E") (setq t1 (gip:it-get it 1)) (assoc t1 sub)) (gip:it-set it 1 (cdr (assoc t1 sub))) it)) its)))))
+      (if (gip:g S "floorShield") (gip:floor-shield S OX OY is3))
       (setq chain (list (list (cons "p" (if is3 "in3" "dev_a1")) (cons "rel" is3) (cons "d" inD)
                               (cons "o" (list (cons "ser" (if is3 (gip:brand-ser b (if (= (gip:g S "inPoles") 4) "a4" "a3") nil) (gip:brand-ser b "a2" nil)))
                                               (cons "vis" (gip:av-vis (if is3 (if (= (gip:g S "inPoles") 4) 4 3) 2))))))))
@@ -272,7 +357,7 @@
             (setq rr (list c l))
             (gip:place (car cs) AX (+ OY (cadr cs))
               '(lambda (its) (mapcar '(lambda (it) (gip:it-atts it (list (cons "ПОЗИЦИЯ" (gip:g (car rr) "no")) (cons "ИМЯ" (gip:g (cadr rr) "name")) (cons "ОПИСАНИЕ" (gip:g (cadr rr) "name"))))) its)))
-            (gip:mt "m_cable" (- AX 157.0) (- OY 4195.5) (strcat "ВВГнгLS " (gip:repl (gip:g l "cable") "×" "x")) nil)
+            (gip:mt "m_cable" (- AX 157.0) (- OY 4195.5) (strcat (gip:mark-short (gip:gn S "mark" "ВВГнг(А)-LS")) " " (gip:repl (gip:g l "cable") "×" "x")) nil)
             ;; длина кабеля на схеме — по галочке «Длины кабелей на схеме»
             (gip:mt "m_cond" (+ AX 64.0) (- OY 4195.5) (strcat (gip:conduit (gip:g l "cable")) (if (gip:g S "olLen") (strcat " L=" (itoa (gip:g l "len")) " м") "")) nil)))
         (gip:mt "cell_qty" AX (- OY 4845.0) (gip:g c "no") (list (cons "w" 700.0)))

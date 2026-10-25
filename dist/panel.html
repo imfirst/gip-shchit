@@ -128,7 +128,7 @@ button { cursor: pointer; }
 .fld input[type=text], .fld input:not([type]), .fld input[type=number], .fld select {
   height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 8px; font-size: 13px; min-width: 0;
 }
-.fld input.w-s { width: 64px; } .fld input.w-m { width: 110px; } .fld input.w-l { width: 140px; }
+.fld input.w-s { width: 64px; } .fld input.w-m { width: 110px; } .fld input.w-l { width: 140px; } .fld input.w-ml { width: 130px; } .fld input.w-xl { width: 190px; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; height: 32px; }
 .seg button { border: 0; background: var(--surface); padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--line-strong); }
@@ -137,6 +137,18 @@ button { cursor: pointer; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
 .chk input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
 .board .grow { flex: 1 1 auto; }
+.fsbox { border-top: 1px solid var(--line); }
+.fsbox > summary { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px; cursor: pointer; list-style: none; font-size: 13px; min-width: 0; }
+.fsbox > summary::-webkit-details-marker { display: none; }
+.fsbox > summary::before { content: '▸'; color: var(--muted); font-size: 11px; transition: transform .15s; }
+.fsbox[open] > summary::before { transform: rotate(90deg); }
+.fs-t { font-weight: 600; white-space: nowrap; }
+.fs-sum { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fs-sum b { color: var(--accent); font-weight: 600; }
+.fs-body { padding-top: 2px; }
+.fld select.auto, .fld input.auto { color: var(--muted); }
+.fld .pair { display: flex; gap: 6px; flex-wrap: wrap; }
+.fs-body .btn { height: 32px; }
 .kcbox { display: inline-flex; height: 32px; }
 .kcbox input { border-radius: 7px 0 0 7px !important; }
 .kcbox input.kc-auto { color: var(--accent); font-weight: 600; }
@@ -380,6 +392,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
 
 <section class="panel" aria-label="Параметры щита">
   <div class="board" id="board"></div>
+  <details class="fsbox" id="fsBox"><summary><span class="fs-t">Этажный щит</span><span class="fs-sum" id="fsSum"></span></summary><div class="board fs-body" id="fsBody"></div></details>
   <div class="tpl" id="tpl" hidden></div>
 </section>
 
@@ -437,8 +450,16 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
   var IDN = [10, 30, 100];
   var SECTIONS = [1.5, 2.5, 4, 6, 10, 16, 25];
   /* ПУЭ табл. 1.3.6, медь, кабель в воздухе: двухжильный (1ф: L+N нагружены) и трёхжильный (3ф) */
-  var IZ1 = { 1.5: 19, 2.5: 27, 4: 38, 6: 50, 10: 70, 16: 90, 25: 115 };
-  var IZ3 = { 1.5: 19, 2.5: 25, 4: 35, 6: 42, 10: 55, 16: 75, 25: 95 };
+  var IZ1 = { 1.5: 19, 2.5: 27, 4: 38, 6: 50, 10: 70, 16: 90, 25: 115, 35: 140 };
+  var IZ3 = { 1.5: 19, 2.5: 25, 4: 35, 6: 42, 10: 55, 16: 75, 25: 95, 35: 115 };
+  /* ПУЭ табл. 1.3.7, алюминий, кабель в воздухе */
+  var IZA1 = { 2.5: 21, 4: 29, 6: 38, 10: 55, 16: 70, 25: 90, 35: 105 };
+  var IZA3 = { 2.5: 19, 4: 27, 6: 32, 10: 42, 16: 60, 25: 75, 35: 90 };
+  /* Этажный щит: ряды номиналов, сечения и марки вводного кабеля */
+  var FS_BRK = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125], FS_QS = [25, 32, 40, 50, 63, 80, 100, 125], FS_RCD = [25, 40, 63, 80, 100];
+  var FS_SEC = [4, 6, 10, 16, 25, 35], FS_IDN = [30, 100, 300];
+  var FS_MARKS = ['ВВГнг(А)-LS', 'ВВГнг(А)-FRLS', 'ППГнг(А)-HF', 'АВВГнг(А)-LS', 'АППГнг(А)-HF'];
+  var FS_METERS = { 3: ['Меркурий 236 ART', '400/230В 5-60А'], 1: ['Меркурий 204 ARTMX2-02', '230В, 5-100А'] };
   var CABLE1 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
   var CABLE3 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
   var DU_C1 = 12.8, DU_C3 = 77; /* ΔU% = P·L/(C·S), медь, 230 и 400/230 В */
@@ -755,6 +776,47 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     var tpl = KM_MODEL[B.brand] || KM_MODEL.abb;
     return tpl.replace('{K}', t.k).replace('{I}', t.I).replace('{C}', t.c);
   }
+  /* Этажный щит: настройки fs* (пусто — авто). Селективность: автомат после счётчика на ступень больше вводного квартиры,
+     УЗО на ступень больше автомата, рубильник/автомат перед счётчиком на ступень больше; при УЗО 100 мА в квартире — 300 мА. */
+  function nextAbove(v, list) { for (var i = 0; i < list.length; i++) if (list[i] > v) return list[i]; return list[list.length - 1]; }
+  function fsOf(B) {
+    var is3 = B.phases === 3, inA = B.inA;
+    var post = ['av', 'dif', 'avrcd'].indexOf(B.fsPost) >= 0 ? B.fsPost : (is3 ? 'dif' : 'av');
+    var a = { post: is3 ? 'dif' : 'av' };
+    a.postIn = nextAbove(inA, FS_BRK);
+    var postIn = B.fsPostIn || a.postIn;
+    a.rcdIn = nextAbove(postIn, FS_RCD);
+    var rcdIn = post === 'avrcd' ? (B.fsRcdIn || a.rcdIn) : null;
+    a.idn = B.fire ? 300 : 100;
+    var idn = post !== 'av' ? (B.fsIdn || a.idn) : null;
+    var pre = B.fsPre === 'qf' ? 'qf' : 'qs';
+    a.preIn = nextAbove(postIn, pre === 'qs' ? FS_QS : FS_BRK);
+    var preIn = B.fsPreIn || a.preIn;
+    var mt = FS_METERS[is3 ? 3 : 1];
+    a.mark = B.mark || 'ВВГнг(А)-LS';
+    var mark = (B.fsMark && String(B.fsMark).trim()) || a.mark;
+    var al = /^[АA]/.test(mark);
+    a.sec = al ? (inA <= 40 ? 16 : inA <= 63 ? 25 : 35) : (inA <= 25 ? 6 : inA <= 40 ? 10 : 16);
+    var sec = B.fsCable || a.sec, cores = is3 ? 5 : 3;
+    var iz = (al ? (is3 ? IZA3 : IZA1) : (is3 ? IZ3 : IZ1))[sec] || null;
+    var meterSpec = (B.fsMeterSpec && String(B.fsMeterSpec).trim()) || mt[1];
+    var mm = /(\d+)\s*[-–]\s*(\d+)\s*[АA]/.exec(meterSpec), meterMax = mm ? +mm[2] : null;
+    return { show: !B.fsHide, pre: pre, preIn: preIn, meter: (B.fsMeter && String(B.fsMeter).trim()) || mt[0], meterSpec: meterSpec, meterMax: meterMax,
+      post: post, postIn: postIn, rcdIn: rcdIn, idn: idn, mark: mark, al: al, sec: sec, cores: cores, iz: iz,
+      cable: mark + ' ' + cores + '×' + secStr(sec), auto: a, meterAuto: mt };
+  }
+  function fsWarn(B, f) {
+    var w = [];
+    if (f.postIn <= B.inA) w.push('Этажный щит: автомат ' + f.postIn + ' А не больше вводного квартиры ' + B.inA + ' А — нет селективности');
+    if (f.post === 'avrcd' && f.rcdIn <= f.postIn) w.push('Этажный щит: УЗО ' + f.rcdIn + ' А должно быть на ступень больше автомата ' + f.postIn + ' А');
+    if (f.pre === 'qf' && f.preIn <= f.postIn) w.push('Этажный щит: автомат перед счётчиком ' + f.preIn + ' А должен быть больше автомата после счётчика ' + f.postIn + ' А');
+    if (f.pre === 'qs' && f.preIn < f.postIn) w.push('Этажный щит: рубильник ' + f.preIn + ' А меньше автомата ' + f.postIn + ' А');
+    if (f.post !== 'av' && B.fire && f.idn <= 100) w.push('Этажный щит: в квартире УЗО 100 мА — для селективности по утечке в этажном щите нужно 300 мА');
+    if (f.iz != null && f.iz < f.postIn) w.push('Вводной кабель ' + f.cable + ' допускает ' + f.iz + ' А — меньше автомата этажного щита ' + f.postIn + ' А (ПУЭ, табл. ' + (f.al ? '1.3.7' : '1.3.6') + ')');
+    if (f.meterMax != null && f.meterMax < f.postIn) w.push('Счётчик до ' + f.meterMax + ' А, а автомат этажного щита ' + f.postIn + ' А');
+    return w;
+  }
+
   /* реальный корпус: наименьший с запасом 20 %, иначе наименьший, куда всё помещается */
   function pickBox(B, used, flowRows) {
     var W = B.railW || 18, list = (B.brand === 'abb' || true) ? BOXES[W] : null;
@@ -926,9 +988,11 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     if (BOXES[W] && !bx.box) warn.push('Нет корпуса ABB на ' + modules + ' мод. при ряде по ' + W + ' — ' + (W === 12 ? 'возьмите ряд 18 модулей' : 'щит не помещается в Mistral41F 72M'));
     else if (bx.box && !bx.reserveOk) warn.push('Корпус ' + bx.box.n + ': запас меньше 20 %');
     if (!BOXES[W]) warn.push('Для ряда ' + W + ' модулей готового корпуса ABB нет — выберите 12 (UK600) или 18 (Mistral41F)');
+    var fs = fsOf(B);
+    if (fs.show) warn = warn.concat(fsWarn(B, fs));
     var nWarn = rows.reduce(function (a, v) { return a + (v.warn.length ? 1 : 0); }, 0);
     return {
-      board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm,
+      board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm, fs: fs,
       tot: { P: sumP, kc: kc, kcAuto: kcAuto, kcFit: kcFit, kcLevel: kcLevel, Pcap: Pcap, PbyIn: PbyIn, Pall: Pall, Pr: Pr, cos: cosAvg, Ir: Ir, phases: phases, imb: imb, modules: modules, rails: railsN, cap: railsN * W, box: bx.box, boxW: W, groups: nG, counts: counts, ser: serCount, warn: warn, nWarn: nWarn }
     };
   }
@@ -1131,7 +1195,10 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     if (field === 'phases' || field === 'inA' || field === 'inPoles' || field === 'railW') B[field] = +value;
     else if (field === 'area') B[field] = num(value, B[field]);
     else if (field === 'kmType') B.kmType = value || null;
-    else if (field === 'xb' || field === 'olLen') B[field] = !!value;
+    else if (field === 'xb' || field === 'olLen' || field === 'fsHide') B[field] = !!value;
+    else if (/^fs(PreIn|PostIn|RcdIn|Idn|Cable)$/.test(field)) { var fv = num(value, null); B[field] = (fv != null && fv > 0) ? fv : null; }
+    else if (/^fs(Pre|Post|Meter|MeterSpec|Mark)$/.test(field)) { var sv = String(value == null ? '' : value).trim(); B[field] = sv || null; }
+    else if (field === 'fsReset') { ['fsPre', 'fsPreIn', 'fsMeter', 'fsMeterSpec', 'fsPost', 'fsPostIn', 'fsRcdIn', 'fsIdn', 'fsMark', 'fsCable'].forEach(function (k) { B[k] = null; }); }
     else if (field === 'kc') { var k = num(value, null); if (k != null && k > 0) { B.kc = Math.min(1, round(k, 2)); B.kcMode = 'manual'; } }
     else if (field === 'pAllowed') { var pa = num(value, null); B.pAllowed = (pa != null && pa > 0) ? round(pa, 1) : null; }
     else B[field] = value;
@@ -1291,6 +1358,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
     DU_WARN: DU_WARN, IMB_WARN: IMB_WARN, KC_LOW: KC_LOW, KC_BAD: KC_BAD,
     KM_TYPES: KM_TYPES, BOXES: BOXES, ROUTES: ROUTES, kmAuto: kmAuto, kmOf: kmOf, SOFT: SOFT, softOk: softOk,
+    FS_BRK: FS_BRK, FS_QS: FS_QS, FS_RCD: FS_RCD, FS_SEC: FS_SEC, FS_IDN: FS_IDN, FS_MARKS: FS_MARKS, fsOf: fsOf,
     clone: clone, num: num, fmt: fmt, round: round, secStr: secStr, cableStr: cableStr,
     defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
     moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,
@@ -1427,13 +1495,16 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
         '<label class="chk" data-tip="Без кросс-модуля провода идут от вводного (реле, УЗО 100 мА) прямо на гребёнки, N — на шину"><input type="checkbox" id="b-xb" data-b="xb">Кросс-модуль</label>' +
         '<label class="chk" data-tip="Писать длины кабелей групп на однолинейной схеме"><input type="checkbox" id="b-olLen" data-b="olLen">Длины кабелей на схеме</label>' +
       '</div></div>';
-    b.addEventListener('change', function (e) {
+    function onB(e) {
       var el = e.target, f = el.getAttribute('data-b'); if (!f) return;
       var v = el.type === 'checkbox' ? el.checked : el.value;
       if (f === 'name' || f === 'mark') v = String(v).trim() || (f === 'name' ? 'ЩР' : 'ВВГнг(А)-LS');
+      if (f === 'fsShow') { f = 'fsHide'; v = !v; }
       commit(function (st) { return M.setBoard(st, f, v); });
-    });
-    b.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+    }
+    function onKey(e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); }
+    b.addEventListener('change', onB); b.addEventListener('keydown', onKey);
+    buildFs(onB, onKey);
     $('b-kcMode').addEventListener('click', function () {
       var auto = state.board.kcMode !== 'manual';
       commit(function (st) { st.board.kcMode = auto ? 'manual' : 'auto'; if (auto) st.board.kc = D.tot.kc; return st; });
@@ -1451,6 +1522,52 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
       var v = +bt.getAttribute('data-v');
       commit(function (st) { return M.setBoard(st, 'inPoles', v); });
     });
+  }
+  /* ---------------------------------------------------------------- этажный щит (свёрнутый блок) */
+  function buildFs(onB, onKey) {
+    var fb = $('fsBody');
+    var marks = M.FS_MARKS.map(function (m) { return '<option value="' + esc(m) + '">'; }).join('');
+    fb.innerHTML =
+      '<div class="fld"><span class="lbl">На схеме</span><div class="checks"><label class="chk"><input type="checkbox" id="b-fsShow" data-b="fsShow">Рисовать этажный щит</label></div></div>' +
+      '<div class="fld"><label for="b-fsPre">Перед счётчиком</label><div class="pair"><select id="b-fsPre" data-b="fsPre">' + opt('qs', 'Рубильник QS', '') + opt('qf', 'Автомат QF', '') + '</select><select id="b-fsPreIn" data-b="fsPreIn" aria-label="Номинал перед счётчиком"></select></div></div>' +
+      '<div class="fld"><label for="b-fsMeter">Счётчик</label><div class="pair"><input id="b-fsMeter" class="w-xl" data-b="fsMeter" list="fsMeters" autocomplete="off"><input id="b-fsMeterSpec" class="w-ml" data-b="fsMeterSpec" aria-label="Параметры счётчика" autocomplete="off"></div>' +
+        '<datalist id="fsMeters"><option value="Меркурий 236 ART"><option value="Меркурий 234 ARTM"><option value="Меркурий 204 ARTMX2-02"><option value="Меркурий 201.8"><option value="Нева МТ 314"><option value="Энергомера CE308"></datalist></div>' +
+      '<div class="fld"><label for="b-fsPost">После счётчика</label><div class="pair"><select id="b-fsPost" data-b="fsPost"></select><select id="b-fsPostIn" data-b="fsPostIn" aria-label="Номинал автомата"></select>' +
+        '<select id="b-fsRcdIn" data-b="fsRcdIn" aria-label="Номинал УЗО"></select><select id="b-fsIdn" data-b="fsIdn" aria-label="Ток утечки"></select></div></div>' +
+      '<div class="fld"><label for="b-fsMark">Вводной кабель</label><div class="pair"><input id="b-fsMark" class="w-l" data-b="fsMark" list="fsMarks" autocomplete="off"><datalist id="fsMarks">' + marks + '</datalist>' +
+        '<select id="b-fsCable" data-b="fsCable" aria-label="Сечение вводного кабеля"></select></div></div>' +
+      '<div class="fld"><span class="lbl">&nbsp;</span><button type="button" class="btn" id="b-fsReset" data-tip="Вернуть все значения этажного щита к подобранным автоматически">Всё авто</button></div>';
+    fb.addEventListener('change', onB); fb.addEventListener('keydown', onKey);
+    $('b-fsReset').addEventListener('click', function () { commit(function (st) { return M.setBoard(st, 'fsReset', true); }); toast('Этажный щит: все значения подбираются автоматически'); });
+    var box = $('fsBox');
+    if (uiS.fsOpen) box.open = true;
+    box.addEventListener('toggle', function () { uiS.fsOpen = box.open; lsSet(LS_UI, uiS); });
+  }
+  function syncFs() {
+    var B = state.board, f = D.fs, a = f.auto, act = document.activeElement, is3 = B.phases === 3;
+    function sel(id, html, val) { var el = $(id); if (el.__h !== html) { el.innerHTML = html; el.__h = html; } if (el !== act) el.value = val; el.classList.toggle('auto', val === ''); }
+    function inp(id, val, ph) { var el = $(id); if (el !== act) el.value = val || ''; el.placeholder = ph; el.classList.toggle('auto', !val); }
+    function nums(list, unit, cur) { return list.map(function (v) { return opt(v, v + unit, cur); }).join(''); }
+    $('b-fsShow').checked = f.show;
+    sel('b-fsPre', opt('qs', 'Рубильник QS', '') + opt('qf', 'Автомат QF', ''), f.pre);
+    sel('b-fsPreIn', opt('', 'авто · ' + a.preIn + ' А', '') + nums(f.pre === 'qs' ? M.FS_QS : M.FS_BRK, ' А', ''), B.fsPreIn ? String(B.fsPreIn) : '');
+    inp('b-fsMeter', B.fsMeter, f.meterAuto[0]); inp('b-fsMeterSpec', B.fsMeterSpec, f.meterAuto[1]);
+    var PN = { av: 'Автомат', dif: 'Дифавтомат', avrcd: 'Автомат + УЗО' };
+    sel('b-fsPost', opt('', 'авто · ' + PN[a.post].toLowerCase(), '') + ['av', 'dif', 'avrcd'].map(function (k) { return opt(k, PN[k], ''); }).join(''), B.fsPost || '');
+    sel('b-fsPostIn', opt('', 'авто · ' + a.postIn + ' А', '') + nums(M.FS_BRK, ' А', ''), B.fsPostIn ? String(B.fsPostIn) : '');
+    sel('b-fsRcdIn', opt('', 'УЗО авто · ' + a.rcdIn + ' А', '') + nums(M.FS_RCD, ' А', ''), B.fsRcdIn ? String(B.fsRcdIn) : '');
+    $('b-fsRcdIn').hidden = f.post !== 'avrcd';
+    sel('b-fsIdn', opt('', 'авто · ' + a.idn + ' мА', '') + nums(M.FS_IDN, ' мА', ''), B.fsIdn ? String(B.fsIdn) : '');
+    $('b-fsIdn').hidden = f.post === 'av';
+    inp('b-fsMark', B.fsMark, a.mark);
+    var cores = is3 ? 5 : 3;
+    sel('b-fsCable', opt('', 'авто · ' + cores + '×' + M.secStr(a.sec), '') + M.FS_SEC.map(function (v) { return opt(v, cores + '×' + M.secStr(v), ''); }).join(''), B.fsCable ? String(B.fsCable) : '');
+    var nSet = ['fsPre', 'fsPreIn', 'fsMeter', 'fsMeterSpec', 'fsPost', 'fsPostIn', 'fsRcdIn', 'fsIdn', 'fsMark', 'fsCable'].filter(function (k) { return B[k] != null && B[k] !== ''; }).length;
+    var post = f.post === 'dif' ? 'QFD ' + f.postIn + ' А/' + f.idn + ' мА' : f.post === 'avrcd' ? 'QF ' + f.postIn + ' А + QD ' + f.rcdIn + ' А/' + f.idn + ' мА' : 'QF ' + f.postIn + ' А';
+    $('fsSum').innerHTML = f.show
+      ? esc((f.pre === 'qs' ? 'QS ' : 'QF ') + f.preIn + ' А → ' + f.meter + ' → ' + post + ' → ' + f.cable) + (nSet ? ' · <b>изменено: ' + nSet + '</b>' : '')
+      : 'не рисуется';
+    $('fsBody').classList.toggle('off', !f.show);
   }
   function syncBoard() {
     var B = state.board, act = document.activeElement;
@@ -1472,6 +1589,7 @@ td.w-cell .cell, td.w-cell { color: var(--warn); }
     [].forEach.call($('b-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === B.phases)); });
     [].forEach.call($('b-inPoles').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === (B.inPoles === 4 ? 4 : 3))); });
     $('b-inPolesF').hidden = B.phases !== 3;
+    syncFs();
   }
 
   /* ---------------------------------------------------------------- сборка по шаблону */

@@ -124,13 +124,16 @@
         '<label class="chk" data-tip="Без кросс-модуля провода идут от вводного (реле, УЗО 100 мА) прямо на гребёнки, N — на шину"><input type="checkbox" id="b-xb" data-b="xb">Кросс-модуль</label>' +
         '<label class="chk" data-tip="Писать длины кабелей групп на однолинейной схеме"><input type="checkbox" id="b-olLen" data-b="olLen">Длины кабелей на схеме</label>' +
       '</div></div>';
-    b.addEventListener('change', function (e) {
+    function onB(e) {
       var el = e.target, f = el.getAttribute('data-b'); if (!f) return;
       var v = el.type === 'checkbox' ? el.checked : el.value;
       if (f === 'name' || f === 'mark') v = String(v).trim() || (f === 'name' ? 'ЩР' : 'ВВГнг(А)-LS');
+      if (f === 'fsShow') { f = 'fsHide'; v = !v; }
       commit(function (st) { return M.setBoard(st, f, v); });
-    });
-    b.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+    }
+    function onKey(e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); }
+    b.addEventListener('change', onB); b.addEventListener('keydown', onKey);
+    buildFs(onB, onKey);
     $('b-kcMode').addEventListener('click', function () {
       var auto = state.board.kcMode !== 'manual';
       commit(function (st) { st.board.kcMode = auto ? 'manual' : 'auto'; if (auto) st.board.kc = D.tot.kc; return st; });
@@ -148,6 +151,52 @@
       var v = +bt.getAttribute('data-v');
       commit(function (st) { return M.setBoard(st, 'inPoles', v); });
     });
+  }
+  /* ---------------------------------------------------------------- этажный щит (свёрнутый блок) */
+  function buildFs(onB, onKey) {
+    var fb = $('fsBody');
+    var marks = M.FS_MARKS.map(function (m) { return '<option value="' + esc(m) + '">'; }).join('');
+    fb.innerHTML =
+      '<div class="fld"><span class="lbl">На схеме</span><div class="checks"><label class="chk"><input type="checkbox" id="b-fsShow" data-b="fsShow">Рисовать этажный щит</label></div></div>' +
+      '<div class="fld"><label for="b-fsPre">Перед счётчиком</label><div class="pair"><select id="b-fsPre" data-b="fsPre">' + opt('qs', 'Рубильник QS', '') + opt('qf', 'Автомат QF', '') + '</select><select id="b-fsPreIn" data-b="fsPreIn" aria-label="Номинал перед счётчиком"></select></div></div>' +
+      '<div class="fld"><label for="b-fsMeter">Счётчик</label><div class="pair"><input id="b-fsMeter" class="w-xl" data-b="fsMeter" list="fsMeters" autocomplete="off"><input id="b-fsMeterSpec" class="w-ml" data-b="fsMeterSpec" aria-label="Параметры счётчика" autocomplete="off"></div>' +
+        '<datalist id="fsMeters"><option value="Меркурий 236 ART"><option value="Меркурий 234 ARTM"><option value="Меркурий 204 ARTMX2-02"><option value="Меркурий 201.8"><option value="Нева МТ 314"><option value="Энергомера CE308"></datalist></div>' +
+      '<div class="fld"><label for="b-fsPost">После счётчика</label><div class="pair"><select id="b-fsPost" data-b="fsPost"></select><select id="b-fsPostIn" data-b="fsPostIn" aria-label="Номинал автомата"></select>' +
+        '<select id="b-fsRcdIn" data-b="fsRcdIn" aria-label="Номинал УЗО"></select><select id="b-fsIdn" data-b="fsIdn" aria-label="Ток утечки"></select></div></div>' +
+      '<div class="fld"><label for="b-fsMark">Вводной кабель</label><div class="pair"><input id="b-fsMark" class="w-l" data-b="fsMark" list="fsMarks" autocomplete="off"><datalist id="fsMarks">' + marks + '</datalist>' +
+        '<select id="b-fsCable" data-b="fsCable" aria-label="Сечение вводного кабеля"></select></div></div>' +
+      '<div class="fld"><span class="lbl">&nbsp;</span><button type="button" class="btn" id="b-fsReset" data-tip="Вернуть все значения этажного щита к подобранным автоматически">Всё авто</button></div>';
+    fb.addEventListener('change', onB); fb.addEventListener('keydown', onKey);
+    $('b-fsReset').addEventListener('click', function () { commit(function (st) { return M.setBoard(st, 'fsReset', true); }); toast('Этажный щит: все значения подбираются автоматически'); });
+    var box = $('fsBox');
+    if (uiS.fsOpen) box.open = true;
+    box.addEventListener('toggle', function () { uiS.fsOpen = box.open; lsSet(LS_UI, uiS); });
+  }
+  function syncFs() {
+    var B = state.board, f = D.fs, a = f.auto, act = document.activeElement, is3 = B.phases === 3;
+    function sel(id, html, val) { var el = $(id); if (el.__h !== html) { el.innerHTML = html; el.__h = html; } if (el !== act) el.value = val; el.classList.toggle('auto', val === ''); }
+    function inp(id, val, ph) { var el = $(id); if (el !== act) el.value = val || ''; el.placeholder = ph; el.classList.toggle('auto', !val); }
+    function nums(list, unit, cur) { return list.map(function (v) { return opt(v, v + unit, cur); }).join(''); }
+    $('b-fsShow').checked = f.show;
+    sel('b-fsPre', opt('qs', 'Рубильник QS', '') + opt('qf', 'Автомат QF', ''), f.pre);
+    sel('b-fsPreIn', opt('', 'авто · ' + a.preIn + ' А', '') + nums(f.pre === 'qs' ? M.FS_QS : M.FS_BRK, ' А', ''), B.fsPreIn ? String(B.fsPreIn) : '');
+    inp('b-fsMeter', B.fsMeter, f.meterAuto[0]); inp('b-fsMeterSpec', B.fsMeterSpec, f.meterAuto[1]);
+    var PN = { av: 'Автомат', dif: 'Дифавтомат', avrcd: 'Автомат + УЗО' };
+    sel('b-fsPost', opt('', 'авто · ' + PN[a.post].toLowerCase(), '') + ['av', 'dif', 'avrcd'].map(function (k) { return opt(k, PN[k], ''); }).join(''), B.fsPost || '');
+    sel('b-fsPostIn', opt('', 'авто · ' + a.postIn + ' А', '') + nums(M.FS_BRK, ' А', ''), B.fsPostIn ? String(B.fsPostIn) : '');
+    sel('b-fsRcdIn', opt('', 'УЗО авто · ' + a.rcdIn + ' А', '') + nums(M.FS_RCD, ' А', ''), B.fsRcdIn ? String(B.fsRcdIn) : '');
+    $('b-fsRcdIn').hidden = f.post !== 'avrcd';
+    sel('b-fsIdn', opt('', 'авто · ' + a.idn + ' мА', '') + nums(M.FS_IDN, ' мА', ''), B.fsIdn ? String(B.fsIdn) : '');
+    $('b-fsIdn').hidden = f.post === 'av';
+    inp('b-fsMark', B.fsMark, a.mark);
+    var cores = is3 ? 5 : 3;
+    sel('b-fsCable', opt('', 'авто · ' + cores + '×' + M.secStr(a.sec), '') + M.FS_SEC.map(function (v) { return opt(v, cores + '×' + M.secStr(v), ''); }).join(''), B.fsCable ? String(B.fsCable) : '');
+    var nSet = ['fsPre', 'fsPreIn', 'fsMeter', 'fsMeterSpec', 'fsPost', 'fsPostIn', 'fsRcdIn', 'fsIdn', 'fsMark', 'fsCable'].filter(function (k) { return B[k] != null && B[k] !== ''; }).length;
+    var post = f.post === 'dif' ? 'QFD ' + f.postIn + ' А/' + f.idn + ' мА' : f.post === 'avrcd' ? 'QF ' + f.postIn + ' А + QD ' + f.rcdIn + ' А/' + f.idn + ' мА' : 'QF ' + f.postIn + ' А';
+    $('fsSum').innerHTML = f.show
+      ? esc((f.pre === 'qs' ? 'QS ' : 'QF ') + f.preIn + ' А → ' + f.meter + ' → ' + post + ' → ' + f.cable) + (nSet ? ' · <b>изменено: ' + nSet + '</b>' : '')
+      : 'не рисуется';
+    $('fsBody').classList.toggle('off', !f.show);
   }
   function syncBoard() {
     var B = state.board, act = document.activeElement;
@@ -169,6 +218,7 @@
     [].forEach.call($('b-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === B.phases)); });
     [].forEach.call($('b-inPoles').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === (B.inPoles === 4 ? 4 : 3))); });
     $('b-inPolesF').hidden = B.phases !== 3;
+    syncFs();
   }
 
   /* ---------------------------------------------------------------- сборка по шаблону */
