@@ -33,6 +33,14 @@
     rcd: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 6h5M5.5 10h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
   };
 
+  /* подсказка к «авто»-мощности розеток комнат */
+  function pAutoTip() {
+    var S = M.SOFT;
+    return 'Розетки комнат — обычно компьютер и зарядки. ' + (state.board.phases === 3
+      ? 'Мощность подобрана от ' + fmt(S.min) + ' до ' + fmt(S.max) + ' кВт, чтобы выровнять фазы.'
+      : 'Принято ' + fmt(S.def) + ' кВт (при трёх фазах подбирается от ' + fmt(S.min) + ' до ' + fmt(S.max) + ' кВт под ровные фазы).') +
+      ' Впишите своё значение — закрепится; сотрите — снова авто';
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function opt(v, label, cur, dis) { return '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + (dis ? ' disabled' : '') + '>' + esc(label) + '</option>'; }
   var fmt = M.fmt;
@@ -464,7 +472,7 @@
     cells['in'] = '<td class="c-in' + (wf.In ? ' w-cell' : '') + '"' + (wf.In ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'In'; }).map(function (w) { return w.t; }).join('\n')) + '"' : '') + '><div class="duo">' +
       (D.is3 ? '<select class="cell xs" id="c-' + v.id + '-poles" data-f="poles" aria-label="Полюса">' + opt(1, '1P', v.poles) + opt(3, '3P', v.poles) + '</select>' : '') + inSel + '</div></td>';
     cells.p = noCab ? '<td class="c-p num"><span class="muted" style="padding:0 8px">—</span></td>' :
-      '<td class="c-p td-pad"><input class="cell num" id="c-' + v.id + '-p" data-f="p" value="' + esc(fmt(v.p)) + '" inputmode="decimal" aria-label="Мощность, кВт" autocomplete="off"></td>';
+      '<td class="c-p td-pad"' + (v.pAuto ? ' data-tip="' + esc(pAutoTip()) + '"' : '') + '><input class="cell num' + (v.pAuto ? ' auto' : '') + '" id="c-' + v.id + '-p" data-f="p" value="' + esc(fmt(v.p)) + '" inputmode="decimal" aria-label="Мощность, кВт" autocomplete="off"></td>';
     cells.ir = '<td class="c-ir num">' + (noCab ? '<span class="muted">—</span>' : fmt(v.Ir, 1)) + '</td>';
     if (D.is3) {
       if (v.poles === 3) cells.ph = '<td class="c-ph"><span class="phtxt"><span class="phd ph-L123"></span>L1–L3</span></td>';

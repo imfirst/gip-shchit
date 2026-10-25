@@ -57,7 +57,7 @@ ok(after[1].startsWith('ЛО-2') && after[1].includes(before[2].split(' ').slice
 const firstLight = st.rows.find(r => r.t === 'g' && r.cat === 'light');
 st = M.setField(st, firstLight.id, 'cat', 'sock');
 let fl = M.find(st, firstLight.id);
-ok(fl.cat === 'sock' && fl.In === 16 && fl.p === 1.5 && fl.prot === 'dif' && fl.name.startsWith('Розетки: '), 'cat change ' + JSON.stringify(fl));
+ok(fl.cat === 'sock' && fl.In === 16 && fl.pAuto && fl.prot === 'dif' && fl.name.startsWith('Розетки: '), 'cat change ' + JSON.stringify(fl));
 ok(M.derive(st).byId[fl.id].num.startsWith('ЛС-'), 'series LS after cat change');
 
 // 6. защита: дифавтомат -> под новое УЗО -> под существующее -> обратно
@@ -136,5 +136,27 @@ st = M.setField(st, s1.id, 'len', '120');
 d = M.derive(st);
 ok(d.byId[s1.id].dU > 4 && d.byId[s1.id].warn.some(w => w.f === 'dU'), 'dU warn ' + d.byId[s1.id].dU);
 
+
+// розетки комнат: «авто»-мощность 0,5…1,5 кВт под ровные фазы, кухня 1,5 кВт
+{
+  let s3 = M.generate(M.tplOptions('k3'));
+  const socks = s3.rows.filter(r => r.cat === 'sock');
+  const kit = socks.find(r => /кухн/i.test(r.name)), rooms = socks.filter(r => !/кухн/i.test(r.name));
+  ok(kit.p === 1.5 && !kit.pAuto, 'kitchen 1.5 fixed');
+  ok(rooms.every(r => r.pAuto && r.p >= 0.5 && r.p <= 1.5), 'rooms auto in range ' + rooms.map(r => r.p).join(','));
+  const imbFit = M.derive(s3).tot.imb;
+  const flat = M.clone(s3); flat.rows.forEach(r => { if (r.pAuto) { r.p = 1.0; r.pAuto = false; } });
+  const imbFlat = M.derive(flat).tot.imb;
+  ok(imbFit <= imbFlat + 1e-9, 'fit not worse: ' + imbFit.toFixed(1) + ' vs ' + imbFlat.toFixed(1));
+  console.log('soft fit k3: imbalance', imbFlat.toFixed(1), '->', imbFit.toFixed(1), '%, rooms', rooms.map(r => r.p).join(' '));
+  const ps1 = s3.rows.map(r => r.p).join(','); M.normalize(s3); ok(ps1 === s3.rows.map(r => r.p).join(','), 'fit idempotent');
+  s3 = M.setField(s3, rooms[0].id, 'p', '0,7'); ok(M.find(s3, rooms[0].id).p === 0.7 && !M.find(s3, rooms[0].id).pAuto, 'manual p fixes');
+  s3 = M.setField(s3, rooms[0].id, 'p', ''); ok(M.find(s3, rooms[0].id).pAuto, 'empty p -> auto');
+  s3 = M.setField(s3, rooms[1].id, 'name', 'Розетки кухни-гостиной'); ok(M.find(s3, rooms[1].id).p === 1.5 && !M.find(s3, rooms[1].id).pAuto, 'renamed to kitchen -> 1.5');
+  s3 = M.setBoard(s3, 'phases', 1); ok(s3.rows.filter(r => r.pAuto).every(r => r.p === 1.0), '1ph rooms 1.0');
+  const old = M.generate(M.tplOptions('k2')); old.rows.forEach(r => { if (r.cat === 'sock') { r.p = 1.5; delete r.pAuto; } }); M.normalize(old);
+  ok(old.rows.filter(r => r.cat === 'sock' && !/кухн/i.test(r.name)).every(r => r.pAuto) && old.rows.find(r => /Розетки кухни/.test(r.name)).p === 1.5, 'migration old 1.5');
+  let sp = M.balance(M.generate(M.tplOptions('k3')), 'power'); console.log('power balance + fit imb', M.derive(sp).tot.imb.toFixed(1));
+}
 console.log(fails ? fails + ' FAILED' : 'ALL OK');
 process.exit(fails ? 1 : 0);

@@ -41,7 +41,7 @@
   var CAT = {
     light:   { label: 'Освещение', ser: 'ЛО', In: 10, p: 0.3, cos: 0.9, prot: 'av', len: [4.0, 10], light: true },
     elight:  { label: 'Аварийное освещение', ser: 'ЛАО', In: 10, p: 0.1, cos: 0.9, prot: 'av', len: [4.0, 10], light: true },
-    sock:    { label: 'Розетки', ser: 'ЛС', In: 16, p: 1.5, cos: 0.9, prot: 'dif', len: [1.2, 4] },
+    sock:    { label: 'Розетки', ser: 'ЛС', In: 16, p: 1.0, cos: 0.9, prot: 'dif', len: [1.2, 4] },
     hob:     { label: 'Варочная панель', ser: 'ЛС', In: 32, p: 7.0, cos: 1.0, prot: 'av', len: [0.9, 2] },
     oven:    { label: 'Духовой шкаф', ser: 'ЛС', In: 16, p: 3.5, cos: 1.0, prot: 'dif', len: [0.9, 2] },
     app:     { label: 'Бытовая техника', ser: 'ЛС', In: 16, p: 2.2, cos: 0.9, prot: 'dif', len: [0.9, 2] },
@@ -52,6 +52,11 @@
     other:   { label: 'Прочее', ser: 'ЛС', In: 16, p: 1.0, cos: 0.9, prot: 'dif', len: [1.2, 4] },
     reserve: { label: 'Резерв', ser: 'ЛС', In: 16, p: 0, cos: 0.9, prot: 'av', len: [0, 0], noCable: true }
   };
+  /* Розетки комнат (не кухни): обычно компьютер и зарядки — мощность «плавает» в этих пределах и подбирается
+     так, чтобы выровнять фазы; кухня — 1,5 кВт (чайник, микроволновка и т. п.) */
+  var SOFT = { def: 1.0, min: 0.5, max: 1.5, kitchen: 1.5 };
+  function isKitchen(r) { return /кухн/i.test(r.name || ''); }
+  function softOk(r) { return r.t === 'g' && r.cat === 'sock' && !isKitchen(r); }
   var CAT_ORDER = ['light', 'elight', 'sock', 'hob', 'oven', 'app', 'floor', 'heat', 'ac', 'leak', 'other', 'reserve'];
 
   var TEMPLATES = {
@@ -105,7 +110,7 @@
 
   function mkGroup(st, cat, o) {
     var c = CAT[cat] || CAT.other;
-    var g = { t: 'g', id: newId(st, 'g'), cat: cat, name: c.label, prot: c.prot, poles: 1, In: c.In, p: c.p, idn: 30, phase: 'L1', lock: false, cable: null, len: null, km: false };
+    var g = { t: 'g', id: newId(st, 'g'), cat: cat, name: c.label, prot: c.prot, poles: 1, In: c.In, p: c.p, pAuto: cat === 'sock', idn: 30, phase: 'L1', lock: false, cable: null, len: null, km: false };
     if (o) for (var k in o) g[k] = o[k];
     return g;
   }
@@ -133,7 +138,7 @@
     if (app.dw) L.push({ key: 'dw', cat: 'app', name: 'ПММ и измельчитель', prot: 'd', poles: 1, In: 16, p: 2.2 });
     if (app.wash) L.push({ key: 'wash', cat: 'app', name: 'Стиральная машина', prot: 'd', poles: 1, In: 16, p: 2.3 });
     if (app.dry) L.push({ key: 'dry', cat: 'app', name: 'Сушильная машина', prot: 'd', poles: 1, In: 16, p: 2.5 });
-    t.sockets.forEach(function (n) { L.push({ cat: 'sock', name: n, prot: 'd', poles: 1, In: 16, p: 1.5 }); });
+    t.sockets.forEach(function (n) { var kit = /кухн/i.test(n); L.push({ cat: 'sock', name: n, prot: 'd', poles: 1, In: 16, p: kit ? SOFT.kitchen : SOFT.def, pAuto: !kit }); });
     var nf = o.floor | 0, na = o.ac | 0;
     for (var f = 1; f <= nf; f++) L.push({ cat: 'floor', name: 'Тёплый пол' + (nf > 1 ? ' ' + f : ''), prot: 'd', poles: 1, In: 16, p: 1.2 });
     if (o.heater === 'boiler') L.push({ key: 'heater', cat: 'heat', name: 'Водонагреватель накопительный', prot: 'd', poles: 1, In: 16, p: 2 });
@@ -154,7 +159,7 @@
     var ri = Math.max(40, stdUp(B.inA, [25, 40, 63, 80]));
     var run = [];
     function toGroup(l, prot) {
-      return mkGroup(st, l.cat, { name: l.name, prot: prot, poles: l.poles, In: l.In, p: l.p, phase: l.phase, km: !!(l.km && B.km), key: l.key || null, cable: l.cable || null });
+      return mkGroup(st, l.cat, { name: l.name, prot: prot, poles: l.poles, In: l.In, p: l.p, pAuto: !!l.pAuto, phase: l.phase, km: !!(l.km && B.km), key: l.key || null, cable: l.cable || null });
     }
     function flush() {
       if (!run.length) return;
@@ -247,9 +252,42 @@
       if (r.prot === 'rcd') r.km = false;
       if (!B.km) r.km = false;
       if (r.cat === 'reserve') { r.p = 0; }
+      /* розетки комнат: мощность «авто» (старые щиты — если стояли прежние 1,5 кВт) */
+      if (r.pAuto === undefined) r.pAuto = softOk(r) && Math.abs(r.p - 1.5) < 1e-9;
+      if (r.pAuto && !softOk(r)) { r.pAuto = false; if (r.cat === 'sock') r.p = SOFT.kitchen; }
+      if (r.pAuto) r.p = SOFT.def;
     });
     if (is3 && B.phaseMode === 'abc') abcPhases(st);
+    if (is3) fitSoft(st);
     return st;
+  }
+
+  /* Подбор мощности розеток комнат (0,5…1,5 кВт) под ровные фазы: фазы уже розданы, меняются только «авто»-значения.
+     Ищем общий уровень T, к которому можно подтянуть каждую фазу в её пределах; при равном перекосе — ближе к 1 кВт. */
+  function fitSoft(st) {
+    var P = ['L1', 'L2', 'L3'], F = { L1: 0, L2: 0, L3: 0 }, soft = { L1: [], L2: [], L3: [] };
+    st.rows.forEach(function (r) {
+      if (r.t !== 'g') return;
+      if (r.poles === 3) { P.forEach(function (p) { F[p] += r.p / 3; }); return; }
+      if (F[r.phase] == null) return;
+      if (r.pAuto) { soft[r.phase].push(r); F[r.phase] += SOFT.min; } else F[r.phase] += r.p;
+    });
+    var n = soft.L1.length + soft.L2.length + soft.L3.length;
+    if (!n) return;
+    var M = {}; P.forEach(function (p) { M[p] = F[p] + soft[p].length * (SOFT.max - SOFT.min); });
+    var lo = Math.min(F.L1, F.L2, F.L3), hi = Math.max(M.L1, M.L2, M.L3), best = null;
+    for (var T = lo; T <= hi + 1e-9; T += 0.05) {
+      var L = {}, sum = 0;
+      P.forEach(function (p) { L[p] = Math.min(M[p], Math.max(F[p], T)); sum += L[p] - F[p]; });
+      var spread = Math.round((Math.max(L.L1, L.L2, L.L3) - Math.min(L.L1, L.L2, L.L3)) * 10) / 10;
+      var dev = Math.abs(sum + n * SOFT.min - n * SOFT.def);
+      if (!best || spread < best.spread - 1e-9 || (Math.abs(spread - best.spread) < 1e-9 && dev < best.dev - 1e-9)) best = { spread: spread, dev: dev, L: L };
+    }
+    P.forEach(function (p) {
+      var k = soft[p].length; if (!k) return;
+      var tot = Math.round((k * SOFT.min + best.L[p] - F[p]) * 10), base = Math.floor(tot / k), rem = tot - base * k;
+      soft[p].forEach(function (r, i) { r.p = Math.max(SOFT.min, Math.min(SOFT.max, (base + (i < rem ? 1 : 0)) / 10)); });
+    });
   }
 
   /* ABC подряд: так фазы раздаёт трёхфазная гребёнка (L1 L2 L3 L1 …). Цикл идёт через весь щит;
@@ -610,7 +648,8 @@
         var nc = CAT[value] || CAT.other;
         if (r.name === old.label || !r.name) r.name = nc.label;
         else if (r.name.indexOf(old.label + ': ') === 0) r.name = nc.label + ': ' + r.name.slice(old.label.length + 2);
-        if (sameDefault(r.p, old.p)) r.p = nc.p;
+        if (r.pAuto || sameDefault(r.p, old.p)) r.p = nc.p;
+        r.pAuto = value === 'sock' && !isKitchen(r);
         if (r.In === old.In) r.In = nc.In;
         if (r.prot !== 'rcd' && r.prot === old.prot) r.prot = nc.prot;
         r.cat = value;
@@ -661,7 +700,11 @@
       }
       case 'In': r.In = +value; break;
       case 'idn': r.idn = +value; break;
-      case 'p': r.p = Math.max(0, num(value, r.p)); break;
+      case 'p': {
+        if ((value === '' || value == null) && softOk(r)) { r.pAuto = true; break; }
+        var pv = num(value, null); if (pv == null) break;
+        r.p = Math.max(0, pv); r.pAuto = false; break;
+      }
       case 'phase': r.phase = value; r.lock = true; break;
       case 'lock': r.lock = !!value; break;
       case 'cable': r.cable = value || null; break;
@@ -800,6 +843,7 @@
     if (mode === 'abc') { B.phaseMode = 'abc'; return normalize(st); }
     B.phaseMode = 'manual';
     normalize(st);
+    st.rows.forEach(function (r) { if (r.pAuto) r.p = SOFT.def; });   /* фазы раздаём по типовой мощности, подгонка — после */
     var bl = blocks(st);
     var base = { L1: 0, L2: 0, L3: 0 };
     var lightU = [], restU = [];
@@ -837,7 +881,7 @@
   root.GIPM = {
     BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
     DU_WARN: DU_WARN, IMB_WARN: IMB_WARN, KC_LOW: KC_LOW, KC_BAD: KC_BAD,
-    KM_TYPES: KM_TYPES, BOXES: BOXES, ROUTES: ROUTES, kmAuto: kmAuto, kmOf: kmOf,
+    KM_TYPES: KM_TYPES, BOXES: BOXES, ROUTES: ROUTES, kmAuto: kmAuto, kmOf: kmOf, SOFT: SOFT, softOk: softOk,
     clone: clone, num: num, fmt: fmt, round: round, secStr: secStr, cableStr: cableStr,
     defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
     moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,

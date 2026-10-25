@@ -133,7 +133,7 @@
                        ("relay" . "b") ("km" . "b") ("fire" . "b") ("kup" . "b") ("kc" . "n") ("kcMode" . "s") ("pAllowed" . "n")
                        ("mark" . "s") ("railW" . "i") ("mode" . "s") ("kmType" . "s") ("xb" . "b") ("olLen" . "b") ("route" . "s") ("phaseMode" . "s")))
 (setq *gip:js-g* '(("t" . "s") ("id" . "s") ("cat" . "s") ("name" . "s") ("prot" . "s") ("poles" . "i") ("In" . "i") ("p" . "n") ("idn" . "i")
-                   ("phase" . "s") ("lock" . "b") ("cable" . "s") ("len" . "n") ("km" . "b") ("key" . "s")))
+                   ("phase" . "s") ("lock" . "b") ("cable" . "s") ("len" . "n") ("km" . "b") ("key" . "s") ("pAuto" . "b")))
 (setq *gip:js-u* '(("t" . "s") ("id" . "s") ("In" . "i") ("idn" . "i") ("type" . "s") ("poles" . "i") ("phase" . "s") ("lock" . "b")))
 
 ;; состояние таблицы (alist board + rows) -> JSON
