@@ -1,0 +1,2148 @@
+<title>Группы щита ГИП</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Рабочая таблица инженера: плотная сетка, бренд-палитра gipproekt (синий/тёмно-синий), фазы — классические жёлтый/зелёный/красный */
+:root {
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-2: #f0f5fd;
+  --surface-3: #e6eefb;
+  --line: #d7e4f7;
+  --line-strong: #b7cbea;
+  --text: #0f2557;
+  --muted: #5a6f95;
+  --faint: #8798b6;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5eeff;
+  --navy: #123c7d;
+  --blk: #edf3ff;
+  --blk-line: #8fb0ef;
+  --warn: #a15c07;
+  --warn-bg: #fff3dc;
+  --warn-line: #f0c27a;
+  --bad: #b42318;
+  --ok: #1d7a46;
+  --ph1: #c39200;
+  --ph2: #23935a;
+  --ph3: #d33f3f;
+  --lo-bg: #fff3cf; --lo-fg: #7d5200;
+  --ls-bg: #e3edff; --ls-fg: #1847b8;
+  --lao-bg: #ffe3e7; --lao-fg: #b0173a;
+  --u-bg: #dfe9fb; --u-fg: #123c7d;
+  --shadow: 0 10px 28px rgba(18, 60, 125, .14);
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1424; --surface: #111c30; --surface-2: #15233b; --surface-3: #1b2b47;
+    --line: #22355a; --line-strong: #2f4775; --text: #e2eaf8; --muted: #95a7c8; --faint: #6c7fa3;
+    --accent: #5b8cff; --accent-ink: #081227; --accent-soft: #1a2c52; --navy: #a9c2ff;
+    --blk: #142540; --blk-line: #3c63b3;
+    --warn: #f3b54a; --warn-bg: #352610; --warn-line: #7a5a1f; --bad: #ff7b6e; --ok: #4cc785;
+    --ph1: #e5b62c; --ph2: #45c27e; --ph3: #f07272;
+    --lo-bg: #382c0e; --lo-fg: #f5cd6e; --ls-bg: #18294f; --ls-fg: #93b5ff; --lao-bg: #3e1823; --lao-fg: #ff9fb3;
+    --u-bg: #1d3157; --u-fg: #bcd0ff; --shadow: 0 12px 30px rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1424; --surface: #111c30; --surface-2: #15233b; --surface-3: #1b2b47;
+  --line: #22355a; --line-strong: #2f4775; --text: #e2eaf8; --muted: #95a7c8; --faint: #6c7fa3;
+  --accent: #5b8cff; --accent-ink: #081227; --accent-soft: #1a2c52; --navy: #a9c2ff;
+  --blk: #142540; --blk-line: #3c63b3;
+  --warn: #f3b54a; --warn-bg: #352610; --warn-line: #7a5a1f; --bad: #ff7b6e; --ok: #4cc785;
+  --ph1: #e5b62c; --ph2: #45c27e; --ph3: #f07272;
+  --lo-bg: #382c0e; --lo-fg: #f5cd6e; --ls-bg: #18294f; --ls-fg: #93b5ff; --lao-bg: #3e1823; --lao-fg: #ff9fb3;
+  --u-bg: #1d3157; --u-fg: #bcd0ff; --shadow: 0 12px 30px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.4 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 40px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.num, .mono { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--f-mono); }
+.muted { color: var(--muted); }
+
+/* ---------- верхняя строка */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mark {
+  font: 700 12px/1 var(--f-mono); letter-spacing: .06em; color: var(--accent-ink); background: var(--navy);
+  border-radius: 6px; padding: 6px 7px;
+}
+:root[data-theme="dark"] .mark { color: #0c1424; }
+.brand h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+.brand .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.top .spacer { flex: 1 1 auto; }
+.link { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.link .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.link.on .dot { background: var(--ok); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+  border: 1px solid var(--line-strong); background: var(--surface); border-radius: 7px;
+  font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: .45; cursor: default; background: var(--surface); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { color: var(--bad); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+.kbd { font: 11px var(--f-mono); color: var(--faint); }
+
+.hostbar { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px;
+  background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn); font-size: 13px; }
+.hostbar span { flex: 1 1 320px; min-width: 0; }
+.top .chk { font-size: 12.5px; color: var(--muted); }
+
+/* ---------- параметры щита */
+.panel { margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.board { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; padding: 12px 14px; }
+.fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fld > label, .fld > .lbl { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.fld input[type=text], .fld input:not([type]), .fld input[type=number], .fld select {
+  height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 8px; font-size: 13px; min-width: 0;
+}
+.fld input.w-s { width: 64px; } .fld input.w-m { width: 110px; } .fld input.w-l { width: 140px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; height: 32px; }
+.seg button { border: 0; background: var(--surface); padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-height: 32px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.chk input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
+.board .grow { flex: 1 1 auto; }
+.kcbox { display: inline-flex; height: 32px; }
+.kcbox input { border-radius: 7px 0 0 7px !important; }
+.kcbox input.kc-auto { color: var(--accent); font-weight: 600; }
+.kcbox input.kc-low { color: var(--warn); background: var(--warn-bg); }
+.kcbox input.kc-bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
+.kcmode { border: 1px solid var(--line-strong); border-left: 0; border-radius: 0 7px 7px 0; background: var(--surface); padding: 0 9px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.kcmode[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.kcv-low { color: var(--warn) !important; } .kcv-bad { color: var(--bad) !important; }
+.board .sep { width: 1px; align-self: stretch; background: var(--line); }
+
+/* шаблон */
+.tpl { border-top: 1px solid var(--line); padding: 12px 14px 14px; display: grid; gap: 12px; }
+.tpl[hidden] { display: none !important; }
+.tpl-row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 7px; height: 32px; overflow: hidden; }
+.stepper button { border: 0; background: var(--surface); width: 28px; height: 100%; font-weight: 700; color: var(--muted); }
+.stepper button:hover { background: var(--surface-2); }
+.stepper output { min-width: 26px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--warn); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 6px 8px 6px 12px; }
+.mytpl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mytpl .t { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; background: var(--surface-2); }
+.mytpl .t button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; height: 22px; padding: 0 6px; }
+.mytpl .t button:hover { background: var(--surface-3); color: var(--text); }
+
+/* ---------- сводка */
+.sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.card h3 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.big { font-size: 22px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.big small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.kv { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kv b { color: var(--text); font-weight: 600; }
+.meter { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.meter.over i { background: var(--bad); }
+.phases { display: grid; gap: 5px; }
+.ph-row { display: grid; grid-template-columns: 24px 1fr 92px; align-items: center; gap: 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ph-row .pbar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+.ph-row .pbar i { display: block; height: 100%; border-radius: 4px; }
+.ph-row b { font-weight: 600; text-align: right; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 1px 8px; letter-spacing: 0; text-transform: none; }
+.pill.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.card .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.warnlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 12.5px; max-height: 92px; overflow: auto; }
+.warnlist button { border: 0; background: none; padding: 0; text-align: left; color: var(--warn); font-size: 12.5px; }
+.warnlist button:hover { text-decoration: underline; }
+.warnlist .gref { font-family: var(--f-mono); font-weight: 600; margin-right: 6px; }
+
+/* ---------- панель действий */
+.bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding: 8px; background: var(--surface);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0;
+}
+.bar .seltools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding-left: 8px; border-left: 1px solid var(--line); }
+.bar .count { font-size: 12.5px; font-weight: 600; color: var(--accent); padding: 0 4px; }
+.bar.has-sel .hint { display: none; }
+.hint { font-size: 12px; color: var(--muted); margin-left: auto; padding: 0 6px; }
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 230px; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; display: grid;
+}
+.menu[hidden] { display: none !important; }
+.menu.right { left: auto; right: 0; }
+.menu button { border: 0; background: none; text-align: left; padding: 7px 10px; border-radius: 7px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+.menu button:hover, .menu button:focus-visible { background: var(--surface-2); outline: none; }
+.menu button small { color: var(--muted); font-size: 12px; }
+.menu .mh { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); padding: 6px 10px 2px; }
+
+/* ---------- таблица */
+.grid-wrap {
+  position: relative; overflow: auto; max-height: calc(100vh - 120px); min-height: 240px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 0 0 12px 12px;
+  overscroll-behavior: contain;
+}
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: 13px; }
+.grid th, .grid td { border-bottom: 1px solid var(--line); padding: 0; height: 34px; vertical-align: middle; background: var(--surface); }
+.grid thead th {
+  position: sticky; top: 0; z-index: 6; background: var(--surface-2); height: 30px; padding: 0 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--line-strong);
+}
+.grid th.num, .grid td.num { text-align: right; }
+.grid .c-h { position: sticky; left: 0; z-index: 3; }
+.grid .c-ref { position: sticky; left: 32px; z-index: 3; padding: 0 6px; font: 600 12px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.grid tbody tr[data-kind] td.c-ref, .grid tbody tr[data-kind] td.c-num { cursor: grab; touch-action: none; }
+.grid .c-num { position: sticky; left: 90px; z-index: 3; padding: 0 6px; border-right: 1px solid var(--line); }
+.grid thead .c-h, .grid thead .c-ref, .grid thead .c-num { z-index: 8; }
+.grid .c-ir { padding: 0 8px; }
+.grid .c-du { padding: 0 8px; }
+.grid .c-km { text-align: center; }
+.grid .c-act { padding-right: 4px; }
+.grid thead .c-ir, .grid thead .c-du { padding: 0 8px; }
+
+/* ячейки-редакторы: выглядят как текст, рамка — при наведении и фокусе */
+.cell { display: block; width: 100%; height: 30px; border: 1px solid transparent; border-radius: 6px; background: transparent; padding: 0 6px; font-size: 13px; min-width: 0; }
+select.cell { appearance: none; -webkit-appearance: none; padding-right: 20px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--faint) 50%), linear-gradient(135deg, var(--faint) 50%, transparent 50%);
+  background-position: calc(100% - 11px) 13px, calc(100% - 7px) 13px; background-size: 4px 4px; background-repeat: no-repeat; }
+.cell:hover { border-color: var(--line-strong); background-color: var(--surface); }
+.cell:focus { border-color: var(--accent); background-color: var(--surface); outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
+input.cell.num { text-align: right; }
+input.cell::placeholder { color: var(--faint); }
+.duo { display: flex; gap: 2px; align-items: center; padding: 0 2px; }
+.duo .cell { flex: 1 1 auto; }
+.duo .cell.sm { flex: 0 0 76px; }
+.duo .cell.xs { flex: 0 0 46px; }
+.td-pad { padding: 0 2px; }
+.auto { color: var(--muted); }
+
+.handle {
+  width: 26px; height: 28px; margin-left: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--faint);
+  display: grid; place-items: center; cursor: grab; touch-action: none;
+}
+.handle:hover { background: var(--surface-3); color: var(--text); }
+.handle svg { width: 12px; height: 16px; }
+.dragging-on, .dragging-on * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+
+.chip { display: inline-block; font: 600 12px/20px var(--f-mono); padding: 0 7px; border-radius: 5px; white-space: nowrap; }
+.s-lo { background: var(--lo-bg); color: var(--lo-fg); }
+.s-ls { background: var(--ls-bg); color: var(--ls-fg); }
+.s-lao { background: var(--lao-bg); color: var(--lao-fg); }
+.s-u { background: var(--u-bg); color: var(--u-fg); }
+.chip.changed { animation: chipflash 1.6s ease-out; }
+@keyframes chipflash { 0% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* строки */
+.grid tbody tr:hover td { background: var(--surface-2); }
+.grid tr.sel td { background: var(--accent-soft) !important; }
+.grid tr.sel td.c-h { box-shadow: inset 3px 0 0 var(--accent); }
+.grid tr.landed td { animation: landed 1.2s ease-out; }
+@keyframes landed { 0% { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); } 100% { } }
+.grid tr.ghosted td { opacity: .35; }
+
+/* блок УЗО */
+.grid tr.r-u td { background: var(--blk); border-bottom-color: var(--blk-line); }
+.grid tr.r-u td.c-h { box-shadow: inset 3px 0 0 var(--blk-line); }
+.grid tr.in-blk td { background: color-mix(in srgb, var(--blk) 55%, var(--surface)); }
+.grid tr.in-blk td.c-h { box-shadow: inset 3px 0 0 var(--blk-line); }
+.grid tr.in-blk td.c-name .cell { padding-left: 18px; }
+.grid tr.in-blk td.c-name { background-image: linear-gradient(var(--blk-line), var(--blk-line)); background-size: 8px 1px; background-position: 6px 50%; background-repeat: no-repeat; }
+.grid tr.r-end td { height: 26px; background: var(--blk); border-bottom: 2px solid var(--blk-line); }
+.grid tr.r-end td.c-h { box-shadow: inset 3px 0 0 var(--blk-line); }
+.grid tr.r-end .endtxt { position: sticky; left: 32px; display: inline-flex; align-items: center; gap: 10px; padding: 0 6px; font-size: 12px; color: var(--muted); }
+.u-model { font-size: 12.5px; padding: 0 6px; white-space: nowrap; }
+.u-model b { font-weight: 600; color: var(--text); }
+.lnk { border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; padding: 2px 4px; border-radius: 5px; }
+.lnk:hover { background: var(--accent-soft); }
+
+/* ввод */
+.grid tr.r-fx td { background: var(--surface-2); color: var(--muted); height: 30px; }
+.grid tr.r-fx td.c-fx { padding: 0 6px; font-size: 12.5px; }
+.grid tr.r-fx td.c-fx b { color: var(--text); font-weight: 600; }
+.grid tr.r-sec td { background: var(--surface-2); height: 30px; }
+.sec-btn { position: sticky; left: 0; border: 0; background: none; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; height: 28px; font-size: 12.5px; color: var(--muted); max-width: 100vw; text-align: left; white-space: nowrap; }
+.sec-btn b { color: var(--text); font-weight: 600; }
+.sec-btn svg { width: 12px; height: 12px; transition: transform .15s; flex: none; }
+.sec-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+.grid tr.r-empty td { height: 120px; text-align: center; color: var(--muted); }
+
+/* фазы */
+.phd { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; flex: none; }
+.ph-L1 { background: var(--ph1); } .ph-L2 { background: var(--ph2); } .ph-L3 { background: var(--ph3); }
+.ph-L123 { background: conic-gradient(var(--ph1) 0 33%, var(--ph2) 0 66%, var(--ph3) 0); }
+.phcell { display: flex; align-items: center; padding: 0 2px 0 6px; gap: 0; }
+.phcell .cell { padding-left: 4px; }
+.phtxt { display: flex; align-items: center; padding: 0 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.lockb { border: 0; background: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 5px; color: var(--accent); flex: none; }
+.lockb:hover { background: var(--accent-soft); }
+.lockb svg { width: 13px; height: 13px; }
+
+/* замечания */
+td.w-cell { box-shadow: inset 0 -2px 0 var(--warn); }
+td.w-cell .cell, td.w-cell { color: var(--warn); }
+.acts-row { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.ib { border: 0; background: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; color: var(--faint); }
+.ib:hover { background: var(--surface-3); color: var(--text); }
+.ib.del:hover { color: var(--bad); }
+.ib svg { width: 15px; height: 15px; }
+.wbadge { border: 0; height: 22px; min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font: 700 12px var(--f-mono); }
+
+/* индикатор вставки и «призрак» */
+.drop-line { position: absolute; left: 0; right: 0; height: 0; border-top: 3px solid var(--accent); z-index: 12; pointer-events: none; border-radius: 2px; }
+.drop-line::before { content: ""; position: absolute; left: -2px; top: -7px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); }
+.drop-line.inside { border-top-style: solid; }
+.drop-line .dl-tag { position: absolute; top: -21px; font: 600 11px var(--f-body); color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.drag-ghost {
+  position: fixed; z-index: 60; pointer-events: none; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px;
+  box-shadow: var(--shadow); padding: 6px 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; max-width: 340px;
+}
+.drag-ghost .more { font-size: 12px; color: var(--muted); }
+
+/* подсказка */
+.tip {
+  position: fixed; z-index: 70; max-width: 320px; background: var(--text); color: var(--surface); font-size: 12.5px; line-height: 1.4;
+  padding: 7px 10px; border-radius: 7px; pointer-events: none; box-shadow: var(--shadow);
+}
+.tip[hidden] { display: none !important; }
+
+/* сообщение снизу */
+.toast {
+  position: fixed; z-index: 65; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--text); color: var(--surface); border-radius: 10px; padding: 8px 8px 8px 14px; font-size: 13px;
+  display: flex; gap: 10px; align-items: center; box-shadow: var(--shadow); max-width: calc(100vw - 32px);
+}
+.toast[hidden] { display: none !important; }
+.toast button { border: 0; background: color-mix(in srgb, var(--surface) 18%, transparent); color: var(--surface); border-radius: 7px; padding: 5px 10px; font-weight: 600; font-size: 13px; }
+
+.foot { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.foot .kbd { color: var(--muted); }
+
+@media (max-width: 1180px) {
+  .link #linkTxt { display: none; }
+}
+@media (max-width: 720px) {
+  .hint { display: none; }
+  .brand .sub { display: none; }
+  .link { display: none; }
+  .grid-wrap { max-height: calc(100vh - 90px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Группы щита</h1><span class="sub" id="sub"></span></div>
+  <div class="spacer"></div>
+  <span class="link" id="link" title="Отдельная страница — всё сохраняется в этом браузере"><span class="dot"></span><span id="linkTxt">Отдельная страница — всё сохраняется в этом браузере</span></span>
+  <label class="chk" id="autoWrap" hidden title="Перестраивать однолинейку, монтажную схему и спецификацию после каждого изменения"><input type="checkbox" id="autoChk">Сразу в чертёж</label>
+  <button class="btn" type="button" id="pushBtn" hidden>Обновить чертёж</button>
+  <button class="btn icon" type="button" id="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
+  <button class="btn icon" type="button" id="redo" title="Вернуть (Ctrl+Shift+Z)" aria-label="Вернуть"></button>
+  <button class="btn" type="button" id="tplBtn" aria-expanded="false" aria-controls="tpl">Собрать по шаблону</button>
+</header>
+
+<div class="hostbar" id="hostBar" hidden><span id="hostBarTxt"></span><button class="btn primary" type="button" id="buildHere">Построить альбом в этом чертеже</button></div>
+
+<section class="panel" aria-label="Параметры щита">
+  <div class="board" id="board"></div>
+  <div class="tpl" id="tpl" hidden></div>
+</section>
+
+<section class="sum" id="sum" aria-label="Сводка"></section>
+
+<div class="bar" id="bar"></div>
+<div class="grid-wrap" id="wrap">
+  <table class="grid" id="grid">
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="drop-line" id="dropLine" hidden></div>
+</div>
+
+<p class="foot">
+  <span><span class="kbd">щелчок</span> — выделить, <span class="kbd">Ctrl</span> — добавить к выделению, <span class="kbd">Shift</span> — диапазон</span>
+  <span><span class="kbd">Alt+↑↓</span> — сдвиг на позицию</span>
+  <span><span class="kbd">Del</span> — удалить</span>
+  <span><span class="kbd">Ctrl+D</span> — дублировать</span>
+  <span><span class="kbd">Ctrl+Z</span> — отменить</span>
+  <span><span class="kbd">Enter</span> в ячейке — к следующей строке</span>
+</p>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button type="button" id="toastBtn">Отменить</button></div>
+
+<script>
+/* ГИП · Группы щита — модель (без интерфейса).
+   Один список строк щита по порядку слева направо: группы (t:'g') и УЗО (t:'u').
+   Группы с защитой 'rcd' стоят сразу за своим УЗО — подряд. */
+(function (root) {
+  'use strict';
+
+  var BRANDS = {
+    abb: { name: 'ABB', a1: 'S201 C{I}', a2: 'S202 C{I}', a3: 'S203 C{I}', a4: 'S204 C{I}', dif: 'DS201 C{I} A30', dif4: 'DS203NC C{I} A30', rcd2: 'F202 A-{I}/0,03', rcd4: 'F204 A-{I}/0,03', fire2: 'F202 AC-{I}/0,1', fire4: 'F204 AC-{I}/0,1', km2: 'ESB 25-20', km4: 'ESB 25-40' },
+    iek: { name: 'IEK', a1: 'ВА47-29 1Р C{I}', a2: 'ВА47-29 2Р C{I}', a3: 'ВА47-29 3Р C{I}', a4: 'ВА47-29 4Р C{I}', dif: 'АВДТ32 C{I} 30мА', dif4: 'АВДТ34 C{I} 30мА', rcd2: 'ВД1-63 2Р {I}А 30мА', rcd4: 'ВД1-63 4Р {I}А 30мА', fire2: 'ВД1-63 2Р {I}А 100мА', fire4: 'ВД1-63 4Р {I}А 100мА', km2: 'КМ63-20М 25А', km4: 'КМ63-40М 25А' },
+    dekraft: { name: 'Dekraft', a1: 'ВА-101 1P C{I}', a2: 'ВА-101 2P C{I}', a3: 'ВА-101 3P C{I}', a4: 'ВА-101 4P C{I}', dif: 'ДИФ-103 1P+N C{I} 30мА', dif4: 'ДИФ-103 3P+N C{I} 30мА', rcd2: 'УЗО-03 2P {I}А 30мА', rcd4: 'УЗО-03 4P {I}А 30мА', fire2: 'УЗО-03 2P {I}А 100мА', fire4: 'УЗО-03 4P {I}А 100мА', km2: 'КМ-103 25А 2НО', km4: 'КМ-103 25А 4НО' },
+    chint: { name: 'CHINT', a1: 'NXB-63 1P C{I}', a2: 'NXB-63 2P C{I}', a3: 'NXB-63 3P C{I}', a4: 'NXB-63 4P C{I}', dif: 'NB2LE C{I} 30мА', dif4: 'NB2LE 4P C{I} 30мА', rcd2: 'NXL-63 2P {I}A 30мА', rcd4: 'NXL-63 4P {I}A 30мА', fire2: 'NXL-63 2P {I}A 100мА', fire4: 'NXL-63 4P {I}A 100мА', km2: 'NCH8-25/20', km4: 'NCH8-25/40' }
+  };
+  var STD_IN = [6, 10, 16, 20, 25, 32, 40, 50, 63];
+  var IN_A = [16, 20, 25, 32, 40, 50, 63];
+  var RCD_IN = [25, 40, 63, 80, 100];
+  var IDN = [10, 30, 100];
+  var SECTIONS = [1.5, 2.5, 4, 6, 10, 16, 25];
+  /* ПУЭ табл. 1.3.6, медь, кабель в воздухе: двухжильный (1ф: L+N нагружены) и трёхжильный (3ф) */
+  var IZ1 = { 1.5: 19, 2.5: 27, 4: 38, 6: 50, 10: 70, 16: 90, 25: 115 };
+  var IZ3 = { 1.5: 19, 2.5: 25, 4: 35, 6: 42, 10: 55, 16: 75, 25: 95 };
+  var CABLE1 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
+  var CABLE3 = { 6: 1.5, 10: 1.5, 16: 2.5, 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 10, 63: 16 };
+  var DU_C1 = 12.8, DU_C3 = 77; /* ΔU% = P·L/(C·S), медь, 230 и 400/230 В */
+  var DU_WARN = 4;
+  var KC_LOW = 0.25, KC_BAD = 0.2;
+  var IMB_WARN = 15;
+
+  /* Назначения групп. ser — серия номера на плане; len — [k, c] для оценки длины по площади */
+  var CAT = {
+    light:   { label: 'Освещение', ser: 'ЛО', In: 10, p: 0.3, cos: 0.9, prot: 'av', len: [4.0, 10], light: true },
+    elight:  { label: 'Аварийное освещение', ser: 'ЛАО', In: 10, p: 0.1, cos: 0.9, prot: 'av', len: [4.0, 10], light: true },
+    sock:    { label: 'Розетки', ser: 'ЛС', In: 16, p: 1.5, cos: 0.9, prot: 'dif', len: [1.2, 4] },
+    hob:     { label: 'Варочная панель', ser: 'ЛС', In: 32, p: 7.0, cos: 1.0, prot: 'av', len: [0.9, 2] },
+    oven:    { label: 'Духовой шкаф', ser: 'ЛС', In: 16, p: 3.5, cos: 1.0, prot: 'dif', len: [0.9, 2] },
+    app:     { label: 'Бытовая техника', ser: 'ЛС', In: 16, p: 2.2, cos: 0.9, prot: 'dif', len: [0.9, 2] },
+    floor:   { label: 'Тёплый пол', ser: 'ЛС', In: 16, p: 1.2, cos: 1.0, prot: 'dif', len: [0.9, 2] },
+    heat:    { label: 'Водонагреватель', ser: 'ЛС', In: 16, p: 2.0, cos: 1.0, prot: 'dif', len: [0.9, 2] },
+    ac:      { label: 'Кондиционер', ser: 'ЛС', In: 16, p: 1.2, cos: 0.9, prot: 'av', len: [1.2, 4] },
+    leak:    { label: 'Защита от протечек, слаботочный щит', ser: 'ЛС', In: 16, p: 0.2, cos: 0.9, prot: 'dif', len: [0.9, 2] },
+    other:   { label: 'Прочее', ser: 'ЛС', In: 16, p: 1.0, cos: 0.9, prot: 'dif', len: [1.2, 4] },
+    reserve: { label: 'Резерв', ser: 'ЛС', In: 16, p: 0, cos: 0.9, prot: 'av', len: [0, 0], noCable: true }
+  };
+  var CAT_ORDER = ['light', 'elight', 'sock', 'hob', 'oven', 'app', 'floor', 'heat', 'ac', 'leak', 'other', 'reserve'];
+
+  var TEMPLATES = {
+    studio: { name: 'Студия', area: 30, light: ['Прихожая', 'Кухня-гостиная', 'Санузел'], sockets: ['Розетки кухни', 'Розетки гостиной зоны', 'Розетки санузла'], floor: 1, ac: 1 },
+    k1: { name: '1-комнатная', area: 40, light: ['Прихожая', 'Кухня', 'Комната', 'Санузел'], sockets: ['Розетки кухни', 'Розетки комнаты', 'Розетки прихожей', 'Розетки санузла'], floor: 1, ac: 1 },
+    k2: { name: '2-комнатная', area: 60, light: ['Прихожая', 'Кухня', 'Гостиная', 'Спальня', 'Санузел'], sockets: ['Розетки кухни', 'Розетки гостиной', 'Розетки спальни', 'Розетки прихожей', 'Розетки санузла'], floor: 1, ac: 2 },
+    k3: { name: '3-комнатная', area: 80, light: ['Прихожая', 'Кухня', 'Гостиная', 'Спальня', 'Детская', 'Санузел 1', 'Санузел 2'], sockets: ['Розетки кухни', 'Розетки гостиной', 'Розетки спальни', 'Розетки детской', 'Розетки прихожей', 'Розетки санузла 1', 'Розетки санузла 2'], floor: 2, ac: 3 },
+    empty: { name: 'Пустой щит', area: 50, light: [], sockets: [], floor: 0, ac: 0, bare: true }
+  };
+
+  /* ------------------------------------------------------------------ утилиты */
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+  function stdUp(v, list) { for (var i = 0; i < list.length; i++) if (list[i] >= v - 1e-9) return list[i]; return list[list.length - 1]; }
+  function fmtModel(tpl, I) { return tpl.replace('{I}', I); }
+  function num(v, def) {
+    if (typeof v === 'number') return isFinite(v) ? v : def;
+    if (v == null) return def;
+    var s = String(v).replace(/\s+/g, '').replace(',', '.');
+    if (s === '') return def;
+    var n = parseFloat(s);
+    return isFinite(n) ? n : def;
+  }
+  function round(v, d) { var k = Math.pow(10, d || 0); return Math.round(v * k) / k; }
+  function fmt(v, d) {
+    if (v == null || !isFinite(v)) return '—';
+    var s = (d == null ? String(round(v, 2)) : v.toFixed(d));
+    return s.replace('.', ',');
+  }
+  function secStr(S) { return String(S).replace('.', ','); }
+  function cableStr(cores, S) { return cores + '×' + secStr(S); }
+  function catOf(g) { return CAT[g.cat] || CAT.other; }
+  function isLightCat(cat) { return !!(CAT[cat] && CAT[cat].light); }
+
+  function newId(st, p) { st.seq = (st.seq || 0) + 1; return p + st.seq; }
+
+  function defaultBoard() {
+    return { name: 'ЩР', tpl: 'k2', area: 60, phases: 1, inA: 40, inPoles: 3, brand: 'abb', relay: true, km: true, fire: false, kup: true, kc: 0.4, kcMode: 'auto', pAllowed: null, mark: 'ВВГнг(А)-LS', railW: 18, mode: 'dif' };
+  }
+
+  function tplOptions(key) {
+    var t = TEMPLATES[key] || TEMPLATES.k2;
+    var bare = !!t.bare;
+    return {
+      tpl: key, area: t.area, phases: key === 'k3' ? 3 : 1, inA: key === 'k3' ? 25 : 40, inPoles: 3,
+      floor: t.floor, ac: t.ac, heater: bare ? 'none' : 'boiler', mode: 'dif',
+      app: bare ? { hob: false, oven: false, fridge: false, dw: false, wash: false, dry: false, leak: false }
+                : { hob: true, oven: true, fridge: true, dw: true, wash: true, dry: false, leak: true }
+    };
+  }
+
+  function mkGroup(st, cat, o) {
+    var c = CAT[cat] || CAT.other;
+    var g = { t: 'g', id: newId(st, 'g'), cat: cat, name: c.label, prot: c.prot, poles: 1, In: c.In, p: c.p, idn: 30, phase: 'L1', lock: false, cable: null, len: null, km: false };
+    if (o) for (var k in o) g[k] = o[k];
+    return g;
+  }
+  function mkRcd(st, o) {
+    var u = { t: 'u', id: newId(st, 'u'), In: 40, idn: 30, type: 'A', poles: 2, phase: 'L1', lock: false };
+    if (o) for (var k in o) u[k] = o[k];
+    return u;
+  }
+
+  /* ------------------------------------------------------------------ сборка по шаблону (логика конструктора на сайте) */
+  function generate(o, board) {
+    var t = TEMPLATES[o.tpl] || TEMPLATES.k2;
+    var st = { v: 2, seq: 0, board: board ? clone(board) : defaultBoard(), rows: [] };
+    var B = st.board;
+    B.tpl = o.tpl; B.area = num(o.area, t.area); B.phases = o.phases === 3 ? 3 : 1; B.inA = o.inA || (B.phases === 3 ? 25 : 40);
+    B.inPoles = o.inPoles === 4 ? 4 : 3; B.mode = o.mode === 'rcd' ? 'rcd' : 'dif';
+    ['brand', 'relay', 'km', 'fire', 'kup'].forEach(function (k) { if (o[k] !== undefined) B[k] = o[k]; });
+    var is3 = B.phases === 3, app = o.app || {};
+    var L = [];
+    t.light.forEach(function (n) { L.push({ cat: 'light', name: 'Освещение: ' + n, prot: 'a', poles: 1, In: 10, p: 0.3, km: true }); });
+    if (app.hob) L.push(is3 ? { key: 'hob', cat: 'hob', name: 'Варочная панель', prot: 'a', poles: 3, In: 16, p: 7.5, cable: '5×4' } : { key: 'hob', cat: 'hob', name: 'Варочная панель', prot: 'a', poles: 1, In: 32, p: 7 });
+    if (app.oven) L.push({ key: 'oven', cat: 'oven', name: 'Духовой шкаф', prot: 'd', poles: 1, In: 16, p: 3.5 });
+    if (app.fridge) L.push({ key: 'fridge', cat: 'app', name: 'Холодильник', prot: 'd', poles: 1, In: 16, p: 0.5 });
+    if (app.dw) L.push({ key: 'dw', cat: 'app', name: 'ПММ и измельчитель', prot: 'd', poles: 1, In: 16, p: 2.2 });
+    if (app.wash) L.push({ key: 'wash', cat: 'app', name: 'Стиральная машина', prot: 'd', poles: 1, In: 16, p: 2.3 });
+    if (app.dry) L.push({ key: 'dry', cat: 'app', name: 'Сушильная машина', prot: 'd', poles: 1, In: 16, p: 2.5 });
+    t.sockets.forEach(function (n) { L.push({ cat: 'sock', name: n, prot: 'd', poles: 1, In: 16, p: 1.5 }); });
+    var nf = o.floor | 0, na = o.ac | 0;
+    for (var f = 1; f <= nf; f++) L.push({ cat: 'floor', name: 'Тёплый пол' + (nf > 1 ? ' ' + f : ''), prot: 'd', poles: 1, In: 16, p: 1.2 });
+    if (o.heater === 'boiler') L.push({ key: 'heater', cat: 'heat', name: 'Водонагреватель накопительный', prot: 'd', poles: 1, In: 16, p: 2 });
+    if (o.heater === 'flow') L.push(is3 ? { key: 'heater', cat: 'heat', name: 'Водонагреватель проточный', prot: 'd3', poles: 3, In: 16, p: 9 } : { key: 'heater', cat: 'heat', name: 'Водонагреватель проточный', prot: 'd', poles: 1, In: 32, p: 6 });
+    if (app.leak) L.push({ key: 'leak', cat: 'leak', name: 'Защита от протечек и слаботочный щит', prot: 'd', poles: 1, In: 16, p: 0.2 });
+    for (var a = 1; a <= na; a++) L.push({ cat: 'ac', name: 'Кондиционер' + (na > 1 ? ' ' + a : ''), prot: 'a', poles: 1, In: 16, p: 1.2 });
+
+    /* фазы — как в конструкторе: свет тремя участками по счёту, остальное тремя участками с ровной мощностью */
+    if (is3) {
+      L.forEach(function (l) { if (l.poles === 3) l.phase = 'L123'; });
+      var lights = L.filter(function (l) { return l.cat === 'light' && l.poles === 1; });
+      lights.forEach(function (l, k) { l.phase = ['L1', 'L2', 'L3'][Math.min(2, Math.floor(k * 3 / Math.max(lights.length, 1)))]; });
+      var rest = L.filter(function (l) { return l.poles === 1 && l.cat !== 'light'; });
+      var cut = split3(rest.map(function (l) { return l.p; }), [0, 0, 0]);
+      rest.forEach(function (l, k) { l.phase = k < cut[0] ? 'L1' : k < cut[1] ? 'L2' : 'L3'; });
+    } else L.forEach(function (l) { l.phase = 'L'; });
+
+    var ri = Math.max(40, stdUp(B.inA, [25, 40, 63, 80]));
+    var run = [];
+    function toGroup(l, prot) {
+      return mkGroup(st, l.cat, { name: l.name, prot: prot, poles: l.poles, In: l.In, p: l.p, phase: l.phase, km: !!(l.km && B.km), key: l.key || null, cable: l.cable || null });
+    }
+    function flush() {
+      if (!run.length) return;
+      var g = Math.ceil(run.length / 4), sz = Math.ceil(run.length / g);
+      for (var k = 0; k < run.length; k += sz) {
+        var part = run.slice(k, k + sz);
+        st.rows.push(mkRcd(st, { In: ri, phase: part[0].phase }));
+        part.forEach(function (l) { st.rows.push(toGroup(l, 'rcd')); });
+      }
+      run = [];
+    }
+    L.forEach(function (l) {
+      if (l.km) { flush(); st.rows.push(toGroup(l, 'av')); return; }
+      if (B.mode === 'rcd' && l.prot === 'd' && l.poles === 1) {
+        if (run.length && run[0].phase !== l.phase) flush();
+        run.push(l); return;
+      }
+      flush();
+      st.rows.push(toGroup(l, l.prot === 'a' ? 'av' : 'dif'));
+    });
+    flush();
+    return normalize(st);
+  }
+
+  /* Деление последовательности на три сплошных участка с наиболее ровной нагрузкой.
+     base — уже закреплённая нагрузка фаз. Возвращает [i, j]: участки [0,i) [i,j) [j,n). */
+  function split3(p, base) {
+    var n = p.length, pre = [0];
+    for (var k = 0; k < n; k++) pre.push(pre[k] + p[k]);
+    var best = null;
+    for (var i = 0; i <= n; i++) for (var j = i; j <= n; j++) {
+      var a1 = base[0] + pre[i], a2 = base[1] + pre[j] - pre[i], a3 = base[2] + pre[n] - pre[j];
+      var m = Math.max(a1, a2, a3);
+      var cnt = Math.max(i, j - i, n - j) - Math.min(i, j - i, n - j);
+      if (!best || m < best.m - 1e-9 || (Math.abs(m - best.m) < 1e-9 && cnt < best.c)) best = { m: m, c: cnt, i: i, j: j };
+    }
+    return [best.i, best.j];
+  }
+
+  /* ------------------------------------------------------------------ структура: блоки УЗО */
+  /* Разбор строк: для каждой группы — её УЗО (или null). Группа 'rcd' без УЗО перед ней — ошибка, normalize чинит. */
+  function blocks(st) {
+    var res = { byRow: {}, list: [], members: {} };
+    var cur = null;
+    st.rows.forEach(function (r) {
+      if (r.t === 'u') { cur = r; res.list.push(r); res.members[r.id] = []; res.byRow[r.id] = r.id; return; }
+      if (r.prot === 'rcd' && cur) { res.byRow[r.id] = cur.id; res.members[cur.id].push(r); }
+      else { cur = null; res.byRow[r.id] = null; }
+    });
+    return res;
+  }
+
+  function normalize(st) {
+    var B = st.board, is3 = B.phases === 3;
+    /* 3P-группы не могут стоять под УЗО 2P — выносим сразу за блок */
+    var out = [], cur = null, pending = [];
+    function closeBlock() { if (pending.length) { pending.forEach(function (g) { out.push(g); }); pending = []; } cur = null; }
+    st.rows.forEach(function (r) {
+      if (r.t === 'u') { closeBlock(); cur = r; out.push(r); return; }
+      if (r.prot === 'rcd' && cur) {
+        if (r.poles === 3 && cur.poles !== 4) { r.prot = 'dif'; pending.push(r); return; }
+        out.push(r); return;
+      }
+      closeBlock();
+      if (r.prot === 'rcd') r.prot = 'dif';
+      out.push(r);
+    });
+    closeBlock();
+    st.rows = out;
+    var bl = blocks(st);
+    st.rows.forEach(function (r) {
+      if (r.t === 'u') {
+        if (!is3) { r.poles = 2; r.phase = 'L'; }
+        else if (r.poles === 4) r.phase = 'L123';
+        else if (r.phase === 'L' || r.phase === 'L123' || !r.phase) r.phase = 'L1';
+        return;
+      }
+      if (r.poles !== 3) r.poles = 1;
+      if (!is3) {
+        if (r.poles === 3) { r.poles = 1; r.In = stdUp(Math.max(16, r.In * 1.75), STD_IN); r.cable = null; }
+        r.phase = 'L';
+      } else if (r.poles === 3) r.phase = 'L123';
+      else if (r.phase === 'L' || r.phase === 'L123' || !r.phase) r.phase = 'L1';
+      var u = bl.byRow[r.id] ? find(st, bl.byRow[r.id]) : null;
+      if (u && u.poles === 2) { r.phase = u.phase; r.lock = false; }
+      if (r.prot === 'rcd') r.km = false;
+      if (!B.km) r.km = false;
+      if (r.cat === 'reserve') { r.p = 0; }
+    });
+    return st;
+  }
+
+  function find(st, id) { for (var i = 0; i < st.rows.length; i++) if (st.rows[i].id === id) return st.rows[i]; return null; }
+  function indexOf(st, id) { for (var i = 0; i < st.rows.length; i++) if (st.rows[i].id === id) return i; return -1; }
+
+  /* ------------------------------------------------------------------ расчёт всего, что видно в таблице */
+  function sectionOf(cable) {
+    if (!cable) return null;
+    var m = String(cable).match(/(\d+)\s*[×xх*]\s*(\d+(?:[.,]\d+)?)/i);
+    return m ? { cores: +m[1], S: num(m[2], null) } : null;
+  }
+  function autoCable(g) {
+    var c = catOf(g);
+    if (c.noCable) return null;
+    if (g.cat === 'hob' && g.poles === 3) return '5×4';
+    var cores = g.poles === 3 ? 5 : 3;
+    if (c.light) return cableStr(cores, 1.5);
+    var S = (g.poles === 3 ? CABLE3 : CABLE1)[g.In];
+    if (!S) S = g.In <= 10 ? 1.5 : g.In <= 20 ? 2.5 : g.In <= 25 ? 4 : g.In <= 32 ? 6 : g.In <= 50 ? 10 : 16;
+    return cableStr(cores, S);
+  }
+  function autoLen(g, area) {
+    var c = catOf(g);
+    if (c.noCable) return 0;
+    var s = Math.sqrt(Math.max(num(area, 50), 15));
+    return Math.ceil((c.len[1] + c.len[0] * s) * 1.1);
+  }
+  function groupIr(g) {
+    var c = catOf(g).cos;
+    return g.poles === 3 ? g.p / (Math.sqrt(3) * 0.4 * c) : g.p / (0.23 * c);
+  }
+  function izOf(g, S) {
+    if (S == null) return null;
+    if (g.poles === 3) { var v = IZ3[S]; return v ? round(v * 0.92, 1) : null; }
+    return IZ1[S] || null;
+  }
+  function brandModel(B, kind, In, idn, type) {
+    var b = BRANDS[B.brand] || BRANDS.abb;
+    var m = fmtModel(b[kind], In);
+    if ((kind === 'dif' || kind === 'dif4' || kind === 'rcd2' || kind === 'rcd4') && idn && idn !== 30) {
+      m = m.replace('/0,03', '/' + String(idn / 1000).replace('.', ',')).replace('A30', 'A' + idn).replace('30мА', idn + 'мА');
+    }
+    if ((kind === 'rcd2' || kind === 'rcd4') && type === 'AC') m = m.replace(/ A-/, ' AC-');
+    return m;
+  }
+
+  function derive(st) {
+    var B = st.board, is3 = B.phases === 3, b = BRANDS[B.brand] || BRANDS.abb;
+    var bl = blocks(st);
+    var cnt = { QF: 0, QFD: 0, QD: 0, KV: 0, KM: 0, XT: 0 };
+    function ref(p) { cnt[p]++; return p + cnt[p]; }
+    var fixed = [];
+    var inPoles = is3 ? (B.inPoles === 4 ? 4 : 3) : 2;
+    fixed.push({ id: 'in', kind: 'in', name: 'Вводной автомат', ref: ref('QF'), w: inPoles, In: B.inA, model: fmtModel(is3 ? (inPoles === 4 ? b.a4 : b.a3) : b.a2, B.inA), poles: inPoles });
+    if (B.relay) {
+      if (is3) ['L1', 'L2', 'L3'].forEach(function (p) { fixed.push({ id: 'rn' + p, kind: 'rn', name: 'Реле напряжения ' + p, ref: ref('KV'), w: 2, In: 63, model: 'Welrok VIP-63', phase: p }); });
+      else fixed.push({ id: 'rn1', kind: 'rn', name: 'Реле напряжения', ref: ref('KV'), w: 2, In: 63, model: 'Welrok VIP-63' });
+    }
+    if (B.fire) {
+      var fi = stdUp(Math.max(B.inA, 40), [40, 63, 80, 100]);
+      fixed.push({ id: 'fire', kind: 'fire', name: 'УЗО противопожарное 100 мА', ref: ref('QD'), w: is3 ? 4 : 2, In: fi, model: fmtModel(is3 ? b.fire4 : b.fire2, fi) });
+    }
+    fixed.push({ id: 'xb', kind: 'xb', name: 'Кросс-модуль', ref: ref('XT'), w: is3 ? 5 : 3, model: is3 ? '4П, 125 А' : '2П, 125 А' });
+    var useKm = B.km && st.rows.some(function (r) { return r.t === 'g' && r.km; });
+    if (useKm) {
+      fixed.push({ id: 'c2', kind: 'a1', name: 'Защита катушки КМ', ref: ref('QF'), w: 1, In: 2, model: fmtModel(b.a1, 2) });
+      fixed.push({ id: 'km', kind: 'km', name: 'Контактор «мастер-выключатель»', ref: ref('KM'), w: is3 ? 2 : 1, model: is3 ? b.km4 : b.km2 });
+    }
+
+    var serN = { 'ЛО': 0, 'ЛАО': 0, 'ЛС': 0 };
+    var rows = [], byId = {};
+    var ph = { L1: 0, L2: 0, L3: 0 }, phI = { L1: 0, L2: 0, L3: 0 };
+    var sumP = 0, sumS = 0, nG = 0, counts = { av: 0, dif: 0, rcd: 0, u: 0 }, serCount = { 'ЛО': 0, 'ЛАО': 0, 'ЛС': 0 };
+    var modules = fixed.reduce(function (a, d) { return a + d.w; }, 0);
+    st.rows.forEach(function (r) {
+      var v = clone(r);
+      if (r.t === 'u') {
+        v.ref = ref('QD');
+        v.w = r.poles === 4 ? 4 : 2;
+        v.model = brandModel(B, r.poles === 4 ? 'rcd4' : 'rcd2', r.In, r.idn, r.type);
+        v.members = bl.members[r.id].map(function (g) { return g.id; });
+        v.sumIr = 0; v.sumP = 0; v.maxIn = 0; v.warn = [];
+        counts.u++;
+      } else {
+        var c = catOf(r);
+        nG++;
+        v.ser = c.ser; serN[c.ser]++; serCount[c.ser]++;
+        v.num = c.ser + '-' + serN[c.ser];
+        v.rcd = bl.byRow[r.id];
+        var kind;
+        if (r.prot === 'dif') { kind = r.poles === 3 ? 'dif4' : 'dif'; v.ref = ref('QFD'); v.w = r.poles === 3 ? 4 : 2; }
+        else { kind = r.poles === 3 ? 'a3' : 'a1'; v.ref = ref('QF'); v.w = r.poles === 3 ? 3 : 1; }
+        counts[r.prot === 'rcd' ? 'rcd' : r.prot]++;
+        v.model = r.prot === 'dif' ? brandModel(B, kind, r.In, r.idn) : fmtModel(b[kind], r.In);
+        v.cos = c.cos;
+        v.Ir = groupIr(r);
+        v.cableAuto = autoCable(r);
+        v.cableEff = c.noCable ? null : (r.cable || v.cableAuto);
+        v.lenAuto = autoLen(r, B.area);
+        v.lenEff = c.noCable ? 0 : (r.len != null ? r.len : v.lenAuto);
+        var sec = sectionOf(v.cableEff);
+        v.S = sec ? sec.S : null;
+        v.Iz = sec ? izOf(r, sec.S) : null;
+        v.dU = (sec && sec.S && r.p > 0) ? r.p * v.lenEff / ((r.poles === 3 ? DU_C3 : DU_C1) * sec.S) : (c.noCable ? null : 0);
+        v.warn = [];
+        if (!c.noCable && v.Iz != null && r.In > v.Iz + 1e-9) v.warn.push({ f: 'cable', t: 'Кабель ' + v.cableEff + ' допускает ' + fmt(v.Iz) + ' А — меньше номинала ' + r.In + ' А (ПУЭ, табл. 1.3.6)' });
+        if (v.Ir > r.In + 1e-9) v.warn.push({ f: 'In', t: 'Расчётный ток ' + fmt(v.Ir, 1) + ' А больше номинала ' + r.In + ' А' });
+        if (r.In >= B.inA) v.warn.push({ f: 'In', t: 'Номинал ' + r.In + ' А не меньше вводного ' + B.inA + ' А — нет селективности' });
+        if (v.dU != null && v.dU > DU_WARN) v.warn.push({ f: 'dU', t: 'Потери напряжения ' + fmt(v.dU, 1) + ' % — больше ' + DU_WARN + ' %' });
+        if (is3 && r.poles === 3 && r.p > 0) { ph.L1 += r.p / 3; ph.L2 += r.p / 3; ph.L3 += r.p / 3; phI.L1 += v.Ir; phI.L2 += v.Ir; phI.L3 += v.Ir; }
+        else if (is3 && ph[r.phase] != null) { ph[r.phase] += r.p; phI[r.phase] += v.Ir; }
+        sumP += r.p; sumS += r.p / c.cos;
+        if (v.rcd) { var u = byId[v.rcd]; u.sumIr += v.Ir; u.sumP += r.p; u.maxIn = Math.max(u.maxIn, r.In); }
+      }
+      modules += v.w;
+      rows.push(v); byId[v.id] = v;
+    });
+    rows.forEach(function (v) {
+      if (v.t !== 'u') return;
+      if (!v.members.length) v.warn.push({ f: 'empty', t: 'Под этим УЗО нет групп' });
+      if (v.sumIr > v.In + 1e-9) v.warn.push({ f: 'In', t: 'Суммарный расчётный ток групп ' + fmt(v.sumIr, 1) + ' А больше номинала УЗО ' + v.In + ' А' });
+      if (v.In < B.inA) v.warn.push({ f: 'In', t: 'Номинал УЗО ' + v.In + ' А меньше вводного ' + B.inA + ' А — УЗО не защищено от перегрузки' });
+      if (is3 && v.poles === 2) { /* нагрузка уже учтена по группам */ }
+    });
+    var cosAvg = sumS > 0 ? round(sumP / sumS, 2) : 0.9;
+    /* Kс: авто — наибольший, при котором щит укладывается в выделенную мощность и в вводной автомат (по самой нагруженной фазе) */
+    var PbyIn = is3 ? Math.sqrt(3) * 0.4 * B.inA * cosAvg : 0.23 * B.inA * cosAvg;
+    var Pall = num(B.pAllowed, null);
+    var Pcap = (Pall != null && Pall > 0) ? Math.min(Pall, PbyIn) : PbyIn;
+    var kcFit = 1;
+    if (sumP > 0) kcFit = Pcap / sumP;
+    var mxP = is3 ? Math.max(ph.L1, ph.L2, ph.L3) : sumP;
+    if (mxP > 0) kcFit = Math.min(kcFit, 0.23 * B.inA * cosAvg / mxP);
+    kcFit = Math.max(0.05, Math.min(1, Math.floor(kcFit * 100 + 1e-9) / 100));
+    var kcAuto = B.kcMode !== 'manual';
+    var kc = kcAuto ? kcFit : num(B.kc, 0.4);
+    var Pr = sumP * kc;
+    var Ir = is3 ? Pr / (Math.sqrt(3) * 0.4 * cosAvg) : Pr / (0.23 * cosAvg);
+    var phases = null, imb = null;
+    if (is3) {
+      phases = ['L1', 'L2', 'L3'].map(function (p) { return { ph: p, P: ph[p], Pr: ph[p] * kc, Ir: ph[p] * kc / (0.23 * cosAvg) }; });
+      var mx = Math.max(ph.L1, ph.L2, ph.L3), mn = Math.min(ph.L1, ph.L2, ph.L3);
+      imb = mx > 0 ? (mx - mn) / mx * 100 : 0;
+      Ir = Math.max(phases[0].Ir, phases[1].Ir, phases[2].Ir);
+    }
+    /* рейки: по порядку, аппарат не делится между рейками, запас 20 % */
+    var W = B.railW || 18, railsN = 0, used = 0;
+    fixed.concat(rows).forEach(function (d) { if (railsN === 0 || used + d.w > W) { railsN++; used = 0; } used += d.w; });
+    railsN = Math.max(railsN, Math.ceil(modules * 1.2 / W));
+    var warn = [];
+    if (Ir > B.inA + 0.05) warn.push('Расчётный ток ' + fmt(Ir, 1) + ' А больше вводного автомата ' + B.inA + ' А — уменьшите Kс или включите подбор «авто»');
+    if (Pall != null && Pall > 0 && Pr > Pall + 0.05) warn.push('Расчётная мощность ' + fmt(Pr, 1) + ' кВт больше выделенной ' + fmt(Pall, 1) + ' кВт');
+    var kcLevel = kc < KC_BAD - 1e-9 ? 'bad' : kc < KC_LOW - 1e-9 ? 'low' : 'ok';
+    if (kcLevel === 'bad') warn.push('Kс ' + fmt(kc, 2) + ' — критично мало: щит рассчитан почти на одновременную работу лишь пятой части нагрузки. Нужно реле приоритета (отключение части нагрузки) или больше мощности по ТУ');
+    else if (kcLevel === 'low') warn.push('Kс ' + fmt(kc, 2) + ' — низкий: рекомендуется реле приоритета, чтобы при включении мощной нагрузки не срабатывал вводной');
+    if (is3 && imb > IMB_WARN) warn.push('Перекос фаз ' + fmt(imb, 0) + ' %');
+    var nWarn = rows.reduce(function (a, v) { return a + (v.warn.length ? 1 : 0); }, 0);
+    return {
+      board: B, is3: is3, fixed: fixed, rows: rows, byId: byId, useKm: useKm,
+      tot: { P: sumP, kc: kc, kcAuto: kcAuto, kcFit: kcFit, kcLevel: kcLevel, Pcap: Pcap, PbyIn: PbyIn, Pall: Pall, Pr: Pr, cos: cosAvg, Ir: Ir, phases: phases, imb: imb, modules: modules, rails: railsN, cap: railsN * W, groups: nG, counts: counts, ser: serCount, warn: warn, nWarn: nWarn }
+    };
+  }
+
+  /* ------------------------------------------------------------------ правки */
+  /* Перенос строк. ids — что тащим (УЗО тянет свои группы). anchor: {after: id|null, into: rcdId|null}.
+     after — строка, после которой встаёт перенос (null — в начало); into — УЗО, под которое встаёт перенос. */
+  function moveRows(st, ids, anchor) {
+    var bl = blocks(st), take = {}, moving = [];
+    ids.forEach(function (id) {
+      var r = find(st, id); if (!r) return;
+      take[id] = 1;
+      if (r.t === 'u') bl.members[id].forEach(function (g) { take[g.id] = 1; });
+    });
+    var hasRcd = ids.some(function (id) { var r = find(st, id); return r && r.t === 'u'; });
+    st.rows.forEach(function (r) { if (take[r.id]) moving.push(r); });
+    if (!moving.length) return st;
+    var rest = st.rows.filter(function (r) { return !take[r.id]; });
+    var into = hasRcd ? null : (anchor.into || null);
+    /* куда вставлять */
+    var pos;
+    if (anchor.after == null) pos = 0;
+    else {
+      var i = -1;
+      for (var k = 0; k < rest.length; k++) if (rest[k].id === anchor.after) { i = k; break; }
+      if (i < 0) pos = rest.length;
+      else {
+        pos = i + 1;
+        if (!into) {
+          /* вне блока: если after — УЗО или группа под УЗО, встаём за весь блок */
+          var a = rest[i];
+          if (a.t === 'u' || a.prot === 'rcd') { while (pos < rest.length && rest[pos].t === 'g' && rest[pos].prot === 'rcd') pos++; }
+        }
+      }
+    }
+    if (!hasRcd) {
+      moving.forEach(function (g) {
+        if (into) { if (g.prot !== 'rcd') { g.prot = 'rcd'; g.km = false; } }
+        else if (g.prot === 'rcd') g.prot = catOf(g).prot === 'av' ? 'av' : 'dif';
+      });
+    }
+    /* группа, вставленная вне блока, не должна разорвать следующий блок: если следом идут группы под УЗО без УЗО — normalize снимет; поэтому вне блока вставляем только перед УЗО или свободной группой */
+    if (!into) { while (pos < rest.length && rest[pos].t === 'g' && rest[pos].prot === 'rcd') pos++; }
+    st.rows = rest.slice(0, pos).concat(moving, rest.slice(pos));
+    return normalize(st);
+  }
+
+  /* Сдвиг выделенных на одну позицию (dir = -1 вверх/влево, +1 вниз/вправо) — по видимым позициям */
+  function slots(st) {
+    /* видимый порядок: шапка УЗО, группы блока, «хвост» блока; щели между ними с признаком into */
+    var list = [], bl = blocks(st);
+    st.rows.forEach(function (r, i) {
+      if (r.t === 'u') { list.push({ kind: 'u', id: r.id }); return; }
+      list.push({ kind: 'g', id: r.id, rcd: bl.byRow[r.id] });
+      var nx = st.rows[i + 1];
+      if (bl.byRow[r.id] && !(nx && nx.t === 'g' && nx.prot === 'rcd')) list.push({ kind: 'end', id: bl.byRow[r.id] });
+    });
+    /* блок УЗО без групп — тоже хвост */
+    var out = [];
+    list.forEach(function (it, i) {
+      out.push(it);
+      if (it.kind === 'u' && !(list[i + 1] && list[i + 1].kind === 'g' && list[i + 1].rcd === it.id)) out.push({ kind: 'end', id: it.id });
+    });
+    return out;
+  }
+  function nudge(st, ids, dir) {
+    var sel = {}; ids.forEach(function (id) { sel[id] = 1; });
+    var isBlock = ids.length === 1 && find(st, ids[0]) && find(st, ids[0]).t === 'u';
+    var bl = blocks(st);
+    if (isBlock) {
+      var uid = ids[0];
+      /* позиции верхнего уровня: свободные группы и блоки */
+      var top = [];
+      st.rows.forEach(function (r) { if (r.t === 'u' || !bl.byRow[r.id]) top.push(r.id); });
+      var k = top.indexOf(uid), j = k + dir;
+      if (j < 0 || j >= top.length) return st;
+      if (dir < 0) return moveRows(st, [uid], { after: j - 1 >= 0 ? lastOfTop(st, bl, top[j - 1]) : null, into: null });
+      return moveRows(st, [uid], { after: lastOfTop(st, bl, top[j]), into: null });
+    }
+    var vis = slots(st).filter(function (it) { return !(it.kind === 'g' && sel[it.id]); });
+    /* позиция первой (dir<0) или последней (dir>0) выделенной группы в исходном видимом списке */
+    var full = slots(st), idxs = [];
+    full.forEach(function (it, i) { if (it.kind === 'g' && sel[it.id]) idxs.push(i); });
+    if (!idxs.length) return st;
+    /* щель, где сейчас стоит перенос: индекс в vis перед первым выделенным */
+    var before = 0;
+    for (var i = 0; i < idxs[0]; i++) if (!(full[i].kind === 'g' && sel[full[i].id])) before++;
+    var gap = before + dir; /* щель: перед vis[gap] */
+    if (gap < 0 || gap > vis.length) return st;
+    /* шапка УЗО не может быть «после» щели внутри — щель перед шапкой означает вне блока */
+    return moveRows(st, ids, gapAnchor(vis, gap));
+  }
+  function lastOfTop(st, bl, id) {
+    var r = find(st, id);
+    if (r.t === 'u' && bl.members[id].length) return bl.members[id][bl.members[id].length - 1].id;
+    return id;
+  }
+  /* щель перед vis[gap] → anchor */
+  function gapAnchor(vis, gap) {
+    var prev = gap > 0 ? vis[gap - 1] : null;
+    if (!prev) return { after: null, into: null };
+    if (prev.kind === 'u') return { after: prev.id, into: prev.id };
+    if (prev.kind === 'g') return { after: prev.id, into: prev.rcd || null };
+    /* prev — хвост блока: после последней группы блока, вне блока */
+    for (var i = gap - 2; i >= 0; i--) {
+      if (vis[i].kind === 'g' && vis[i].rcd === prev.id) return { after: vis[i].id, into: null };
+      if (vis[i].kind === 'u' && vis[i].id === prev.id) return { after: vis[i].id, into: null };
+    }
+    return { after: null, into: null };
+  }
+
+  function sameDefault(a, b) { return Math.abs(num(a, -1) - num(b, -2)) < 1e-9; }
+
+  function setField(st, id, field, value) {
+    var r = find(st, id); if (!r) return st;
+    var B = st.board;
+    if (r.t === 'u') {
+      if (field === 'In' || field === 'idn' || field === 'poles') r[field] = +value;
+      else if (field === 'phase') { r.phase = value; r.lock = true; }
+      else r[field] = value;
+      return normalize(st);
+    }
+    var old = catOf(r);
+    switch (field) {
+      case 'cat': {
+        var nc = CAT[value] || CAT.other;
+        if (r.name === old.label || !r.name) r.name = nc.label;
+        else if (r.name.indexOf(old.label + ': ') === 0) r.name = nc.label + ': ' + r.name.slice(old.label.length + 2);
+        if (sameDefault(r.p, old.p)) r.p = nc.p;
+        if (r.In === old.In) r.In = nc.In;
+        if (r.prot !== 'rcd' && r.prot === old.prot) r.prot = nc.prot;
+        r.cat = value;
+        r.km = !!(nc.light && value === 'light' && B.km && r.prot !== 'rcd');
+        if (nc.noCable) { r.cable = null; r.len = null; }
+        break;
+      }
+      case 'prot': {
+        if (value === 'av' || value === 'dif') {
+          var wasIn = r.prot === 'rcd';
+          r.prot = value;
+          if (wasIn) {
+            /* вынести за блок */
+            var bl = blocks(st), uid = null, i0 = indexOf(st, id);
+            for (var i = i0 - 1; i >= 0; i--) if (st.rows[i].t === 'u') { uid = st.rows[i].id; break; }
+            var mem = uid ? bl.members[uid] : [];
+            var after = mem.length ? mem[mem.length - 1].id : uid;
+            if (after === id) after = mem.length > 1 ? mem[mem.length - 2].id : uid;
+            r.prot = 'rcd';
+            moveRows(st, [id], { after: after, into: null });
+            find(st, id).prot = value;
+            return normalize(st);
+          }
+          break;
+        }
+        if (value === 'rcd:new') {
+          var i1 = indexOf(st, id);
+          var u = mkRcd(st, { In: Math.max(40, stdUp(B.inA, RCD_IN)), phase: r.phase === 'L123' ? 'L1' : r.phase, poles: r.poles === 3 ? 4 : 2 });
+          r.prot = 'rcd'; r.km = false;
+          st.rows.splice(i1, 0, u);
+          return normalize(st);
+        }
+        if (value.indexOf('rcd:') === 0) {
+          var rid = value.slice(4), bl2 = blocks(st), m2 = bl2.members[rid] || [];
+          var aft = m2.length ? m2[m2.length - 1].id : rid;
+          if (aft === id) return st;
+          return moveRows(st, [id], { after: aft, into: rid });
+        }
+        break;
+      }
+      case 'poles': {
+        var np = +value === 3 ? 3 : 1;
+        if (np === r.poles) break;
+        if (np === 3) { r.poles = 3; r.phase = 'L123'; r.In = stdUp(Math.max(10, r.In / 1.75), STD_IN); }
+        else { r.poles = 1; r.phase = 'L1'; r.In = stdUp(Math.max(16, r.In * 1.75), STD_IN); }
+        r.cable = null;
+        break;
+      }
+      case 'In': r.In = +value; break;
+      case 'idn': r.idn = +value; break;
+      case 'p': r.p = Math.max(0, num(value, r.p)); break;
+      case 'phase': r.phase = value; r.lock = true; break;
+      case 'lock': r.lock = !!value; break;
+      case 'cable': r.cable = value || null; break;
+      case 'len': { var L = num(value, null); r.len = (L == null || L < 0) ? null : round(L, 1); break; }
+      case 'km': r.km = !!value; break;
+      case 'name': r.name = String(value).trim() || old.label; break;
+      default: r[field] = value;
+    }
+    return normalize(st);
+  }
+
+  function setBoard(st, field, value) {
+    var B = st.board;
+    var wasPh = B.phases;
+    if (field === 'phases' || field === 'inA' || field === 'inPoles' || field === 'railW') B[field] = +value;
+    else if (field === 'area') B[field] = num(value, B[field]);
+    else if (field === 'kc') { var k = num(value, null); if (k != null && k > 0) { B.kc = Math.min(1, round(k, 2)); B.kcMode = 'manual'; } }
+    else if (field === 'pAllowed') { var pa = num(value, null); B.pAllowed = (pa != null && pa > 0) ? round(pa, 1) : null; }
+    else B[field] = value;
+    if (field === 'km' && value) {
+      st.rows.forEach(function (r) { if (r.t === 'g' && r.cat === 'light' && r.prot !== 'rcd') r.km = true; });
+    }
+    normalize(st);
+    if (field === 'phases' && wasPh !== B.phases && B.phases === 3) {
+      st.rows.forEach(function (r) { r.lock = false; });
+      balance(st, 'seq');
+    }
+    return st;
+  }
+
+  /* куда ставить новую строку: после выделенной (внутри блока, если она там) или в конец */
+  function anchorAfter(st, afterId) {
+    if (!afterId) return { after: st.rows.length ? st.rows[st.rows.length - 1].id : null, into: null, end: true };
+    var r = find(st, afterId); if (!r) return { after: null, into: null };
+    var bl = blocks(st);
+    if (r.t === 'u') return { after: r.id, into: r.id };
+    return { after: r.id, into: bl.byRow[r.id] || null };
+  }
+
+  function addGroup(st, cat, afterId) {
+    var c = CAT[cat] || CAT.other;
+    var g = mkGroup(st, cat, { km: !!(cat === 'light' && st.board.km) });
+    g.phase = st.board.phases === 3 ? leastPhase(st) : 'L';
+    var a = anchorAfter(st, afterId);
+    if (a.end) {
+      /* в конец: вне блоков */
+      st.rows.push(g);
+      if (g.prot === 'rcd') g.prot = 'dif';
+      normalize(st);
+      return { st: st, id: g.id };
+    }
+    st.rows.push(g);
+    if (a.into && c.prot !== 'av') { g.prot = 'rcd'; g.km = false; }
+    moveRows(st, [g.id], { after: a.after, into: (a.into && c.prot !== 'av') ? a.into : null });
+    return { st: st, id: g.id };
+  }
+
+  function leastPhase(st) {
+    var d = derive(st);
+    if (!d.tot.phases) return 'L';
+    var ps = d.tot.phases.slice().sort(function (a, b) { return a.P - b.P; });
+    return ps[0].ph;
+  }
+
+  function addRcd(st, afterId) {
+    var B = st.board;
+    var u = mkRcd(st, { In: Math.max(40, stdUp(B.inA, RCD_IN)), phase: B.phases === 3 ? leastPhase(st) : 'L' });
+    st.rows.push(u);
+    var a = anchorAfter(st, afterId);
+    if (a.end) { normalize(st); return { st: st, id: u.id }; }
+    moveRows(st, [u.id], { after: a.after, into: null });
+    return { st: st, id: u.id };
+  }
+
+  /* выделенные группы — под новое УЗО, на месте первой из них */
+  function wrapRcd(st, ids) {
+    var gs = st.rows.filter(function (r) { return r.t === 'g' && ids.indexOf(r.id) >= 0; });
+    if (!gs.length) return { st: st, id: null };
+    var B = st.board;
+    var any3 = gs.some(function (g) { return g.poles === 3; });
+    var phs = {}; gs.forEach(function (g) { phs[g.phase] = 1; });
+    var four = B.phases === 3 && (any3 || Object.keys(phs).length > 1);
+    var first = indexOf(st, gs[0].id);
+    var u = mkRcd(st, { In: Math.max(40, stdUp(B.inA, RCD_IN)), poles: four ? 4 : 2, phase: four ? 'L123' : (gs[0].phase || 'L1') });
+    /* убрать выбранные, вставить УЗО + их на место первой */
+    var take = {}; gs.forEach(function (g) { take[g.id] = 1; });
+    var before = st.rows.slice(0, first).filter(function (r) { return !take[r.id]; });
+    var after = st.rows.slice(first).filter(function (r) { return !take[r.id]; });
+    gs.forEach(function (g) { g.prot = 'rcd'; g.km = false; });
+    /* если место первой оказалось внутри чужого блока — встаём за этот блок */
+    var tail = [];
+    while (after.length && after[0].t === 'g' && after[0].prot === 'rcd' && before.length && (before[before.length - 1].t === 'u' || before[before.length - 1].prot === 'rcd')) tail.push(after.shift());
+    st.rows = before.concat(tail, [u], gs, after);
+    normalize(st);
+    return { st: st, id: u.id };
+  }
+
+  function removeRows(st, ids) {
+    var del = {}; ids.forEach(function (id) { del[id] = 1; });
+    var bl = blocks(st);
+    st.rows.forEach(function (r) {
+      if (r.t === 'u' && del[r.id]) bl.members[r.id].forEach(function (g) { if (!del[g.id]) g.prot = catOf(g).prot === 'av' ? 'av' : 'dif'; });
+    });
+    st.rows = st.rows.filter(function (r) { return !del[r.id]; });
+    return normalize(st);
+  }
+
+  function duplicate(st, ids) {
+    var out = [], made = [];
+    st.rows.forEach(function (r) {
+      out.push(r);
+      if (r.t === 'g' && ids.indexOf(r.id) >= 0) {
+        var c = clone(r); c.id = newId(st, 'g'); c.key = null; out.push(c); made.push(c.id);
+      }
+    });
+    st.rows = out;
+    normalize(st);
+    return { st: st, ids: made };
+  }
+
+  /* ------------------------------------------------------------------ фазы */
+  /* mode 'seq' — участками подряд (порядок не меняется, соседи одной фазы садятся на гребёнку);
+     mode 'power' — по мощности: крупные первыми в наименее загруженную фазу. Закреплённые не трогаем. */
+  function balance(st, mode) {
+    var B = st.board;
+    if (B.phases !== 3) return st;
+    normalize(st);
+    var bl = blocks(st);
+    var base = { L1: 0, L2: 0, L3: 0 };
+    var lightU = [], restU = [];
+    st.rows.forEach(function (r) {
+      if (r.t === 'u') {
+        if (r.poles === 4) return;
+        var P = bl.members[r.id].reduce(function (a, g) { return a + g.p; }, 0);
+        var unit = { rows: [r], p: P, light: false };
+        if (r.lock) base[r.phase] += P; else restU.push(unit);
+        return;
+      }
+      var inBlock = bl.byRow[r.id] ? find(st, bl.byRow[r.id]) : null;
+      if (inBlock && inBlock.poles === 2) return; /* фаза у УЗО */
+      if (r.poles === 3) { base.L1 += r.p / 3; base.L2 += r.p / 3; base.L3 += r.p / 3; return; }
+      if (r.lock) { base[r.phase] = (base[r.phase] || 0) + r.p; return; }
+      var u2 = { rows: [r], p: r.p, light: isLightCat(r.cat) };
+      (u2.light && mode === 'seq' ? lightU : restU).push(u2);
+    });
+    var P = ['L1', 'L2', 'L3'];
+    function setPh(unit, p) { unit.rows.forEach(function (x) { x.phase = p; }); }
+    if (mode === 'power') {
+      restU.slice().sort(function (a, b) { return b.p - a.p; }).forEach(function (u) {
+        var best = P.slice().sort(function (a, b) { return base[a] - base[b]; })[0];
+        setPh(u, best); base[best] += u.p;
+      });
+    } else {
+      lightU.forEach(function (u, k) { var p = P[Math.min(2, Math.floor(k * 3 / Math.max(lightU.length, 1)))]; setPh(u, p); base[p] += u.p; });
+      var cut = split3(restU.map(function (u) { return u.p; }), [base.L1, base.L2, base.L3]);
+      restU.forEach(function (u, k) { setPh(u, k < cut[0] ? 'L1' : k < cut[1] ? 'L2' : 'L3'); });
+    }
+    return normalize(st);
+  }
+
+  /* ------------------------------------------------------------------ экспорт */
+  root.GIPM = {
+    BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
+    DU_WARN: DU_WARN, IMB_WARN: IMB_WARN, KC_LOW: KC_LOW, KC_BAD: KC_BAD,
+    clone: clone, num: num, fmt: fmt, round: round, secStr: secStr, cableStr: cableStr,
+    defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
+    moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,
+    addGroup: addGroup, addRcd: addRcd, wrapRcd: wrapRcd, removeRows: removeRows, duplicate: duplicate, balance: balance,
+    split3: split3, find: find, autoCable: autoCable, autoLen: autoLen
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ГИП · Группы щита — интерфейс таблицы */
+(function () {
+  'use strict';
+  var M = window.GIPM;
+  var LS_STATE = 'gip-groups-state-v2', LS_TPL = 'gip-groups-templates-v1', LS_UI = 'gip-groups-ui-v1';
+  function lsGet(k) { try { var s = window.localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function lsSet(k, v) { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* хранилище недоступно */ } }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var tbody = $('tbody'), thead = $('thead'), wrap = $('wrap'), dropLine = $('dropLine'), tipEl = $('tip');
+  var state = null, D = null;
+  var undoS = [], redoS = [];
+  var sel = new Set(), selAnchor = null;
+  var uiS = lsGet(LS_UI) || {};
+  if (uiS.fx == null) uiS.fx = false;
+  var tplForm = null;
+  var rowCache = new Map();
+  var prevNum = {};
+  var host = (window.chrome && window.chrome.webview) ? window.chrome.webview : null;
+
+  var I = {
+    grip: '<svg viewBox="0 0 12 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="9" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="9" cy="13" r="1.4"/></g></svg>',
+    undo: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4H10a4 4 0 0 1 0 8H6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.5 1.5 4.5 4l3 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    redo: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 4H6a4 4 0 0 0 0 8h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.5 1.5 11.5 4l-3 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    trash: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    copy: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 10.5h-.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+    chev: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    lock: '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.3" fill="currentColor"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3.5M4 7.5l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9.5M4 8.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    x: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    rcd: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 6h5M5.5 10h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+  };
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function opt(v, label, cur, dis) { return '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + (dis ? ' disabled' : '') + '>' + esc(label) + '</option>'; }
+  var fmt = M.fmt;
+  function serCls(ser) { return ser === 'ЛО' ? 's-lo' : ser === 'ЛАО' ? 's-lao' : 's-ls'; }
+  function phLabel(p) { return p === 'L123' ? 'L1–L3' : p; }
+
+  /* ================================================================ состояние, отмена */
+  function initState() {
+    var s = lsGet(LS_STATE);
+    if (s && s.v === 2 && s.board && Array.isArray(s.rows)) {
+      try { return M.normalize(s); } catch (e) { /* испорчено — собираем пример */ }
+    }
+    var o = M.tplOptions('k3');
+    return M.generate(o);
+  }
+
+  function commit(fn, opts) {
+    opts = opts || {};
+    var before = JSON.stringify(state);
+    var work = M.clone(state);
+    var ret = fn(work);
+    var next = (ret && ret.st) ? ret.st : (ret && ret.rows) ? ret : work;
+    var after = JSON.stringify(next);
+    if (after === before) { return ret; }
+    undoS.push(before); if (undoS.length > 300) undoS.shift();
+    redoS = [];
+    state = next;
+    render(opts);
+    bridgeSend();
+    return ret;
+  }
+  function doUndo() {
+    if (!undoS.length) return;
+    redoS.push(JSON.stringify(state)); state = JSON.parse(undoS.pop());
+    render({ flip: true }); bridgeSend(); toast('Отменено');
+  }
+  function doRedo() {
+    if (!redoS.length) return;
+    undoS.push(JSON.stringify(state)); state = JSON.parse(redoS.pop());
+    render({ flip: true }); bridgeSend(); toast('Возвращено');
+  }
+
+  /* ================================================================ отрисовка */
+  function render(opts) {
+    opts = opts || {};
+    D = M.derive(state);
+    if (D.tot.kcAuto && state.board.kc !== D.tot.kc) state.board.kc = D.tot.kc; /* в чертёж уходит действующий Kс */
+    var ids = {}; state.rows.forEach(function (r) { ids[r.id] = 1; });
+    sel.forEach(function (id) { if (!ids[id]) sel.delete(id); });
+    syncTop(); syncBoard(); renderSum(); renderBar(); renderTable(opts);
+    lsSet(LS_STATE, state);
+  }
+
+  function syncTop() {
+    var B = state.board, t = M.TEMPLATES[B.tpl];
+    $('sub').textContent = [B.name || 'ЩР', t ? t.name : 'свой набор', (B.phases === 3 ? '3 фазы' : '1 фаза') + ', ' + B.inA + ' А', (M.BRANDS[B.brand] || {}).name].join(' · ');
+    $('undo').disabled = !undoS.length; $('redo').disabled = !redoS.length;
+  }
+
+  /* ---------------------------------------------------------------- параметры щита (строятся один раз) */
+  function buildBoard() {
+    var b = $('board');
+    var brands = Object.keys(M.BRANDS).map(function (k) { return opt(k, M.BRANDS[k].name, ''); }).join('');
+    b.innerHTML =
+      '<div class="fld"><label for="b-name">Щит</label><input id="b-name" class="w-s" data-b="name" autocomplete="off"></div>' +
+      '<div class="fld"><span class="lbl">Ввод</span><div class="seg" id="b-phases" role="group" aria-label="Число фаз"><button type="button" data-v="1">1 фаза</button><button type="button" data-v="3">3 фазы</button></div></div>' +
+      '<div class="fld"><label for="b-inA">Вводной, А</label><select id="b-inA" data-b="inA">' + M.IN_A.map(function (v) { return opt(v, v + ' А', ''); }).join('') + '</select></div>' +
+      '<div class="fld" id="b-inPolesF"><span class="lbl">Полюса</span><div class="seg" id="b-inPoles" role="group" aria-label="Полюса вводного"><button type="button" data-v="3">3P</button><button type="button" data-v="4">4P</button></div></div>' +
+      '<div class="fld"><label for="b-brand">Производитель</label><select id="b-brand" data-b="brand">' + brands + '</select></div>' +
+      '<div class="fld"><label for="b-area">Площадь, м²</label><input id="b-area" class="w-s" data-b="area" inputmode="decimal" autocomplete="off"></div>' +
+      '<div class="fld"><label for="b-pAllowed">Выделено по ТУ, кВт</label><input id="b-pAllowed" class="w-m" data-b="pAllowed" inputmode="decimal" autocomplete="off"></div>' +
+      '<div class="fld"><label for="b-kc">Kс</label><div class="kcbox"><input id="b-kc" class="w-s" data-b="kc" inputmode="decimal" autocomplete="off"><button type="button" class="kcmode" id="b-kcMode" data-tip="Авто: наибольший Kс, при котором щит укладывается в выделенную мощность и вводной автомат">авто</button></div></div>' +
+      '<div class="fld"><label for="b-mark">Марка кабеля</label><input id="b-mark" class="w-l" data-b="mark" autocomplete="off"></div>' +
+      '<div class="fld"><label for="b-railW">Рейка</label><select id="b-railW" data-b="railW">' + [12, 18, 24].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
+      '<div class="fld grow"><span class="lbl">Общие аппараты</span><div class="checks">' +
+        '<label class="chk"><input type="checkbox" id="b-relay" data-b="relay">Реле напряжения</label>' +
+        '<label class="chk"><input type="checkbox" id="b-km" data-b="km">Мастер-выключатель</label>' +
+        '<label class="chk"><input type="checkbox" id="b-fire" data-b="fire">УЗО 100 мА</label>' +
+        '<label class="chk"><input type="checkbox" id="b-kup" data-b="kup">КУП</label>' +
+      '</div></div>';
+    b.addEventListener('change', function (e) {
+      var el = e.target, f = el.getAttribute('data-b'); if (!f) return;
+      var v = el.type === 'checkbox' ? el.checked : el.value;
+      if (f === 'name' || f === 'mark') v = String(v).trim() || (f === 'name' ? 'ЩР' : 'ВВГнг(А)-LS');
+      commit(function (st) { return M.setBoard(st, f, v); });
+    });
+    b.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+    $('b-kcMode').addEventListener('click', function () {
+      var auto = state.board.kcMode !== 'manual';
+      commit(function (st) { st.board.kcMode = auto ? 'manual' : 'auto'; if (auto) st.board.kc = D.tot.kc; return st; });
+      toast(auto ? 'Kс задаётся вручную' : 'Kс подбирается под выделенную мощность и вводной автомат');
+    });
+    $('b-phases').addEventListener('click', function (e) {
+      var bt = e.target.closest('button'); if (!bt) return;
+      var v = +bt.getAttribute('data-v');
+      if (v === state.board.phases) return;
+      commit(function (st) { return M.setBoard(st, 'phases', v); }, { flip: true });
+      toast(v === 3 ? 'Три фазы: группы распределены участками подряд' : 'Одна фаза: трёхфазные группы стали однофазными', true);
+    });
+    $('b-inPoles').addEventListener('click', function (e) {
+      var bt = e.target.closest('button'); if (!bt) return;
+      var v = +bt.getAttribute('data-v');
+      commit(function (st) { return M.setBoard(st, 'inPoles', v); });
+    });
+  }
+  function syncBoard() {
+    var B = state.board, act = document.activeElement;
+    function setv(id, v) { var el = $(id); if (el && el !== act) el.value = v; }
+    setv('b-name', B.name); setv('b-inA', B.inA); setv('b-brand', B.brand); setv('b-area', fmt(B.area));
+    setv('b-kc', fmt(D.tot.kc, 2)); setv('b-mark', B.mark); setv('b-railW', B.railW);
+    setv('b-pAllowed', B.pAllowed != null ? fmt(B.pAllowed) : '');
+    $('b-pAllowed').placeholder = 'по вводному ≈' + fmt(D.tot.PbyIn, 1);
+    var km = $('b-kcMode'); km.setAttribute('aria-pressed', String(D.tot.kcAuto));
+    $('b-kc').classList.toggle('kc-auto', D.tot.kcAuto);
+    $('b-kc').classList.toggle('kc-low', D.tot.kcLevel === 'low'); $('b-kc').classList.toggle('kc-bad', D.tot.kcLevel === 'bad');
+    ['relay', 'km', 'fire', 'kup'].forEach(function (k) { $('b-' + k).checked = !!B[k]; });
+    [].forEach.call($('b-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === B.phases)); });
+    [].forEach.call($('b-inPoles').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === (B.inPoles === 4 ? 4 : 3))); });
+    $('b-inPolesF').hidden = B.phases !== 3;
+  }
+
+  /* ---------------------------------------------------------------- сборка по шаблону */
+  var APP = [['hob', 'Варочная панель'], ['oven', 'Духовой шкаф'], ['fridge', 'Холодильник'], ['dw', 'ПММ'], ['wash', 'Стиральная машина'], ['dry', 'Сушильная машина'], ['leak', 'Протечки и слаботочка']];
+  function myTpls() { var a = lsGet(LS_TPL); return Array.isArray(a) ? a : []; }
+  function resetTplForm(key) {
+    var o = M.tplOptions(key || state.board.tpl || 'k2');
+    if (!key) { o.phases = state.board.phases; o.inA = state.board.inA; o.area = state.board.area; o.mode = state.board.mode || 'dif'; }
+    tplForm = o;
+  }
+  function buildTpl() {
+    var t = $('tpl');
+    var objs = Object.keys(M.TEMPLATES).map(function (k) { return opt(k, M.TEMPLATES[k].name, ''); }).join('');
+    t.innerHTML =
+      '<div class="tpl-row">' +
+        '<div class="fld"><label for="t-tpl">Объект</label><select id="t-tpl">' + objs + '</select></div>' +
+        '<div class="fld"><label for="t-area">Площадь, м²</label><input id="t-area" class="w-s" inputmode="decimal" autocomplete="off"></div>' +
+        '<div class="fld"><span class="lbl">Ввод</span><div class="seg" id="t-phases"><button type="button" data-v="1">1 фаза</button><button type="button" data-v="3">3 фазы</button></div></div>' +
+        '<div class="fld"><label for="t-inA">Вводной, А</label><select id="t-inA">' + M.IN_A.map(function (v) { return opt(v, v + ' А', ''); }).join('') + '</select></div>' +
+        '<div class="fld"><span class="lbl">Защита розеток и техники</span><div class="seg" id="t-mode"><button type="button" data-v="dif">Дифавтоматы</button><button type="button" data-v="rcd">УЗО на несколько групп</button></div></div>' +
+      '</div>' +
+      '<div class="tpl-row">' +
+        '<div class="fld grow"><span class="lbl">Техника — отдельной линией</span><div class="checks" id="t-app">' +
+          APP.map(function (a) { return '<label class="chk"><input type="checkbox" data-app="' + a[0] + '">' + a[1] + '</label>'; }).join('') +
+        '</div></div>' +
+      '</div>' +
+      '<div class="tpl-row">' +
+        '<div class="fld"><span class="lbl">Тёплый пол, линий</span><div class="stepper" data-step="floor"><button type="button" data-d="-1" aria-label="Меньше">−</button><output id="t-floor"></output><button type="button" data-d="1" aria-label="Больше">+</button></div></div>' +
+        '<div class="fld"><span class="lbl">Кондиционеры</span><div class="stepper" data-step="ac"><button type="button" data-d="-1" aria-label="Меньше">−</button><output id="t-ac"></output><button type="button" data-d="1" aria-label="Больше">+</button></div></div>' +
+        '<div class="fld"><label for="t-heater">Водонагреватель</label><select id="t-heater">' + opt('none', 'Нет', '') + opt('boiler', 'Накопительный', '') + opt('flow', 'Проточный', '') + '</select></div>' +
+        '<div class="fld grow"></div>' +
+        '<button class="btn primary" type="button" id="t-build">Собрать щит</button>' +
+        '<button class="btn" type="button" id="t-close">Закрыть</button>' +
+      '</div>' +
+      '<div class="tpl-row" style="border-top:1px solid var(--line);padding-top:12px">' +
+        '<div class="fld"><label for="t-myname">Мои шаблоны</label><input id="t-myname" class="w-l" placeholder="Название, например «Коттедж 120 м²»" autocomplete="off" style="width:260px"></div>' +
+        '<button class="btn" type="button" id="t-save">Сохранить текущий щит как шаблон</button>' +
+        '<div class="mytpl" id="t-my"></div>' +
+      '</div>';
+    $('t-tpl').addEventListener('change', function (e) { resetTplForm(e.target.value); syncTpl(); });
+    $('t-area').addEventListener('change', function (e) { tplForm.area = M.num(e.target.value, tplForm.area); syncTpl(); });
+    $('t-inA').addEventListener('change', function (e) { tplForm.inA = +e.target.value; });
+    $('t-heater').addEventListener('change', function (e) { tplForm.heater = e.target.value; });
+    $('t-phases').addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; tplForm.phases = +bt.getAttribute('data-v'); tplForm.inA = tplForm.phases === 3 ? 25 : 40; syncTpl(); });
+    $('t-mode').addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; tplForm.mode = bt.getAttribute('data-v'); syncTpl(); });
+    $('t-app').addEventListener('change', function (e) { var k = e.target.getAttribute('data-app'); if (k) tplForm.app[k] = e.target.checked; });
+    t.addEventListener('click', function (e) {
+      var st = e.target.closest('.stepper button'); if (!st) return;
+      var k = st.parentNode.getAttribute('data-step'), d = +st.getAttribute('data-d');
+      tplForm[k] = Math.max(0, Math.min(6, (tplForm[k] | 0) + d)); syncTpl();
+    });
+    $('t-build').addEventListener('click', function () {
+      var o = M.clone(tplForm), name = (M.TEMPLATES[o.tpl] || {}).name;
+      commit(function (st) {
+        var ns = M.generate(o, st.board);
+        return ns;
+      }, { flip: false });
+      sel.clear(); applySel(); renderBar();
+      toast('Собран щит «' + name + '»: ' + D.tot.groups + ' групп', true);
+    });
+    $('t-close').addEventListener('click', function () { toggleTpl(false); });
+    $('t-save').addEventListener('click', function () {
+      var nm = $('t-myname').value.trim();
+      if (!nm) { $('t-myname').focus(); toast('Впишите название шаблона'); return; }
+      var a = myTpls().filter(function (x) { return x.name !== nm; });
+      a.push({ name: nm, state: M.clone(state) });
+      lsSet(LS_TPL, a); $('t-myname').value = ''; syncTpl();
+      toast('Шаблон «' + nm + '» сохранён в этом браузере');
+    });
+    $('t-my').addEventListener('click', function (e) {
+      var bt = e.target.closest('button'); if (!bt) return;
+      var i = +bt.getAttribute('data-i'), a = myTpls(), t1 = a[i]; if (!t1) return;
+      if (bt.getAttribute('data-a') === 'del') { a.splice(i, 1); lsSet(LS_TPL, a); syncTpl(); toast('Шаблон «' + t1.name + '» удалён'); return; }
+      commit(function () { return M.normalize(M.clone(t1.state)); });
+      sel.clear(); applySel(); renderBar();
+      toast('Собран щит по шаблону «' + t1.name + '»', true);
+    });
+  }
+  function syncTpl() {
+    var f = tplForm;
+    $('t-tpl').value = f.tpl; if (document.activeElement !== $('t-area')) $('t-area').value = fmt(f.area);
+    $('t-inA').value = f.inA; $('t-heater').value = f.heater;
+    [].forEach.call($('t-phases').children, function (bt) { bt.setAttribute('aria-pressed', String(+bt.getAttribute('data-v') === f.phases)); });
+    [].forEach.call($('t-mode').children, function (bt) { bt.setAttribute('aria-pressed', String(bt.getAttribute('data-v') === f.mode)); });
+    [].forEach.call($('t-app').querySelectorAll('input'), function (el) { el.checked = !!f.app[el.getAttribute('data-app')]; });
+    $('t-floor').textContent = f.floor; $('t-ac').textContent = f.ac;
+    var a = myTpls();
+    $('t-my').innerHTML = a.length ? a.map(function (x, i) {
+      return '<span class="t">' + esc(x.name) + '<button type="button" data-i="' + i + '" data-a="use">Собрать</button><button type="button" data-i="' + i + '" data-a="del" aria-label="Удалить шаблон ' + esc(x.name) + '">×</button></span>';
+    }).join('') : '<span class="muted" style="font-size:12.5px">Сохранённых пока нет — соберите щит под свой объект и сохраните его здесь.</span>';
+  }
+  function toggleTpl(on) {
+    var t = $('tpl'), b = $('tplBtn');
+    if (on == null) on = t.hidden;
+    if (on) { resetTplForm(); syncTpl(); }
+    t.hidden = !on; b.setAttribute('aria-expanded', String(on));
+  }
+
+  /* ---------------------------------------------------------------- сводка */
+  function renderSum() {
+    var T = D.tot, B = state.board, is3 = D.is3;
+    var load = Math.min(100, T.Ir / Math.max(B.inA, 1) * 100), over = T.Ir > B.inA;
+    var h = '';
+    var pillK = T.kcLevel === 'bad' ? '<span class="pill bad">Kс критично мал</span>' : T.kcLevel === 'low' ? '<span class="pill warn">низкий Kс</span>' : '';
+    h += '<div class="card"><h3>Нагрузка ' + (over ? '<span class="pill bad">больше вводного</span>' : (pillK || '<span class="pill ok">в пределах ввода</span>')) + '</h3>' +
+      '<div class="big">' + fmt(T.Ir, 1) + ' <small>А из ' + B.inA + ' А' + (is3 ? ' · макс. фаза' : '') + '</small></div>' +
+      '<div class="meter' + (over ? ' over' : '') + '"><i style="width:' + load.toFixed(1) + '%"></i></div>' +
+      '<div class="kv"><span>Pуст <b>' + fmt(T.P, 1) + '</b> кВт</span><span>Kс <b class="kcv-' + T.kcLevel + '">' + fmt(T.kc, 2) + '</b>' + (T.kcAuto ? ' авто' : '') + '</span><span>Pр <b>' + fmt(T.Pr, 1) + '</b> из ' + fmt(T.Pcap, 1) + ' кВт</span><span>cos φ <b>' + fmt(T.cos, 2) + '</b></span></div></div>';
+    if (is3) {
+      var mx = Math.max.apply(null, T.phases.map(function (p) { return p.P; })) || 1;
+      var imbCls = T.imb > M.IMB_WARN ? 'warn' : 'ok';
+      h += '<div class="card"><h3>Фазы <span class="pill ' + imbCls + '">перекос ' + fmt(T.imb, 0) + ' %</span></h3><div class="phases">' +
+        T.phases.map(function (p, i) {
+          return '<div class="ph-row"><span><span class="phd ph-' + p.ph + '"></span></span><div class="pbar"><i style="width:' + (p.P / mx * 100).toFixed(1) + '%;background:var(--ph' + (i + 1) + ')"></i></div><b>' + fmt(p.P, 1) + ' кВт · ' + fmt(p.Ir, 0) + ' А</b></div>';
+        }).join('') +
+        '</div><div class="acts"><div class="menu-wrap"><button class="btn" type="button" id="balBtn" aria-haspopup="true" aria-expanded="false">Распределить фазы</button>' +
+        '<div class="menu" id="balMenu" hidden>' +
+          '<button type="button" data-bal="seq">Участками подряд <small>порядок не меняется, соседи одной фазы — на одну гребёнку</small></button>' +
+          '<button type="button" data-bal="power">По мощности <small>ровнее, фазы вперемешку</small></button>' +
+          '<button type="button" data-bal="unlock">Открепить все фазы <small>сброс ручных фаз</small></button>' +
+        '</div></div></div></div>';
+    } else {
+      h += '<div class="card"><h3>Фазы</h3><div class="big">1 фаза <small>230 В</small></div><div class="kv"><span>Все группы на фазе L. Для трёх фаз переключите ввод выше.</span></div></div>';
+    }
+    var c = T.counts, sr = T.ser;
+    h += '<div class="card"><h3>Группы</h3><div class="big">' + T.groups + ' <small>' + plural(T.groups, 'группа', 'группы', 'групп') + '</small></div>' +
+      '<div class="kv"><span><span class="chip s-lo">ЛО</span> <b>' + sr['ЛО'] + '</b></span><span><span class="chip s-ls">ЛС</span> <b>' + sr['ЛС'] + '</b></span>' + (sr['ЛАО'] ? '<span><span class="chip s-lao">ЛАО</span> <b>' + sr['ЛАО'] + '</b></span>' : '') + '</div>' +
+      '<div class="kv"><span>автоматов <b>' + (c.av + c.rcd) + '</b></span><span>дифавтоматов <b>' + c.dif + '</b></span><span>УЗО <b>' + c.u + '</b></span></div></div>';
+    var used = T.modules, cap = T.cap;
+    h += '<div class="card"><h3>Корпус</h3><div class="big">' + used + ' <small>мод. · ' + T.rails + ' ' + plural(T.rails, 'рейка', 'рейки', 'реек') + ' по ' + B.railW + '</small></div>' +
+      '<div class="meter"><i style="width:' + Math.min(100, used / Math.max(cap, 1) * 100).toFixed(1) + '%"></i></div>' +
+      '<div class="kv"><span>свободно <b>' + Math.max(0, cap - used) + '</b> мод. — запас не меньше 20 %</span></div></div>';
+    var W = [];
+    T.warn.forEach(function (t) { W.push({ t: t }); });
+    D.rows.forEach(function (v) { v.warn.forEach(function (w) { W.push({ id: v.id, ref: v.t === 'u' ? v.ref : v.num, t: w.t }); }); });
+    h += '<div class="card"><h3>Проверки ' + (W.length ? '<span class="pill warn">' + W.length + ' ' + plural(W.length, 'замечание', 'замечания', 'замечаний') + '</span>' : '<span class="pill ok">без замечаний</span>') + '</h3>' +
+      (W.length ? '<ul class="warnlist">' + W.map(function (w) {
+        return '<li>' + (w.id ? '<button type="button" data-jump="' + esc(w.id) + '"><span class="gref">' + esc(w.ref) + '</span>' + esc(w.t) + '</button>' : '<span style="color:var(--warn)">' + esc(w.t) + '</span>') + '</li>';
+      }).join('') + '</ul>' : '<div class="kv"><span>Номиналы, кабели по току (ПУЭ 1.3.6), потери напряжения до ' + M.DU_WARN + ' %, УЗО по нагрузке.</span></div>') + '</div>';
+    $('sum').innerHTML = h;
+  }
+  function plural(n, a, b, c) { n = Math.abs(n) % 100; var k = n % 10; if (n > 10 && n < 20) return c; if (k > 1 && k < 5) return b; if (k === 1) return a; return c; }
+
+  /* ---------------------------------------------------------------- панель действий */
+  function buildBar() {
+    var cats = M.CAT_ORDER.map(function (k) { var c = M.CAT[k]; return '<button type="button" data-add="' + k + '">' + esc(c.label) + ' <small>' + c.ser + '</small></button>'; }).join('');
+    $('bar').innerHTML =
+      '<div class="menu-wrap"><button class="btn primary" type="button" id="addBtn" aria-haspopup="true" aria-expanded="false">' + I.plus + 'Группа</button><div class="menu" id="addMenu" hidden><div class="mh">Добавить после выделенной</div>' + cats + '</div></div>' +
+      '<button class="btn" type="button" id="addRcd">' + I.rcd + 'УЗО</button>' +
+      '<div class="seltools" id="seltools" hidden>' +
+        '<span class="count" id="selCount"></span>' +
+        '<button class="btn" type="button" id="sWrap" title="Объединить выделенные группы под новым УЗО">Под одно УЗО</button>' +
+        '<button class="btn icon" type="button" id="sUp" title="Сдвинуть влево по щиту (Alt+↑)" aria-label="Сдвинуть вверх">' + I.up + '</button>' +
+        '<button class="btn icon" type="button" id="sDown" title="Сдвинуть вправо по щиту (Alt+↓)" aria-label="Сдвинуть вниз">' + I.down + '</button>' +
+        '<button class="btn icon" type="button" id="sDup" title="Дублировать (Ctrl+D)" aria-label="Дублировать">' + I.copy + '</button>' +
+        '<button class="btn icon danger" type="button" id="sDel" title="Удалить (Del)" aria-label="Удалить">' + I.trash + '</button>' +
+        '<button class="btn ghost" type="button" id="sClear">Снять выделение</button>' +
+      '</div>' +
+      '<span class="hint">Порядок строк — порядок аппаратов в щите слева направо. Тащите за <span class="kbd">⠿</span>, номера ЛО/ЛС пересчитаются сами.</span>';
+    $('addBtn').addEventListener('click', function () { toggleMenu('addMenu', 'addBtn'); });
+    $('addMenu').addEventListener('click', function (e) {
+      var bt = e.target.closest('[data-add]'); if (!bt) return;
+      closeMenus();
+      var cat = bt.getAttribute('data-add');
+      var r = commit(function (st) { return M.addGroup(st, cat, lastSelected()); });
+      if (r && r.id) { sel.clear(); sel.add(r.id); selAnchor = r.id; applySel(); renderBar(); landRows([r.id]); focusCell(r.id, 'name', true); }
+    });
+    $('addRcd').addEventListener('click', function () {
+      var r = commit(function (st) { return M.addRcd(st, lastSelected()); });
+      if (r && r.id) { sel.clear(); sel.add(r.id); applySel(); renderBar(); landRows([r.id]); toast('Новое УЗО: перетащите под него группы или нажмите «+ Группа под это УЗО»'); }
+    });
+    $('sWrap').addEventListener('click', wrapSelected);
+    $('sUp').addEventListener('click', function () { nudgeSel(-1); });
+    $('sDown').addEventListener('click', function () { nudgeSel(1); });
+    $('sDup').addEventListener('click', dupSelected);
+    $('sDel').addEventListener('click', delSelected);
+    $('sClear').addEventListener('click', function () { sel.clear(); applySel(); renderBar(); });
+  }
+  function renderBar() {
+    var n = sel.size;
+    $('seltools').hidden = !n;
+    $('bar').classList.toggle('has-sel', !!n);
+    if (n) {
+      var g = selGroups().length, u = n - g;
+      $('selCount').textContent = 'Выбрано: ' + (g ? g + ' ' + plural(g, 'группа', 'группы', 'групп') : '') + (g && u ? ' + ' : '') + (u ? u + ' УЗО' : '');
+      $('sWrap').disabled = !g; $('sDup').disabled = !g;
+    }
+  }
+  function lastSelected() {
+    var last = null; D.rows.forEach(function (v) { if (sel.has(v.id)) last = v.id; }); return last;
+  }
+  function selGroups() { return D.rows.filter(function (v) { return v.t === 'g' && sel.has(v.id); }).map(function (v) { return v.id; }); }
+  function selAll() { return D.rows.filter(function (v) { return sel.has(v.id); }).map(function (v) { return v.id; }); }
+  function wrapSelected() {
+    var ids = selGroups(); if (!ids.length) return;
+    var r = commit(function (st) { return M.wrapRcd(st, ids); }, { flip: true });
+    if (r && r.id) { sel.clear(); sel.add(r.id); applySel(); renderBar(); landRows([r.id].concat(ids)); toast(ids.length + ' ' + plural(ids.length, 'группа', 'группы', 'групп') + ' под новым УЗО ' + D.byId[r.id].ref, true); }
+  }
+  function nudgeSel(dir) {
+    var g = selGroups(), all = selAll(), ids;
+    if (g.length) ids = g; else if (all.length === 1) ids = all; else return;
+    commit(function (st) { return M.nudge(st, ids, dir); }, { flip: true });
+    landRows(ids);
+  }
+  function dupSelected() {
+    var ids = selGroups(); if (!ids.length) return;
+    var r = commit(function (st) { return M.duplicate(st, ids); }, { flip: true });
+    if (r && r.ids) { sel.clear(); r.ids.forEach(function (id) { sel.add(id); }); applySel(); renderBar(); landRows(r.ids); toast('Добавлено копий: ' + r.ids.length, true); }
+  }
+  function delSelected() {
+    var ids = selAll(); if (!ids.length) return;
+    var names = ids.map(function (id) { var v = D.byId[id]; return v.t === 'u' ? 'УЗО ' + v.ref : v.num + ' ' + v.name; });
+    commit(function (st) { return M.removeRows(st, ids); }, { flip: true });
+    sel.clear(); applySel(); renderBar();
+    toast('Удалено: ' + (names.length > 2 ? names.length + ' строк' : names.join(', ')) + '. Номера пересчитаны', true);
+  }
+
+  /* ---------------------------------------------------------------- меню */
+  function toggleMenu(mid, bid) {
+    var m = $(mid), b = $(bid), open = m.hidden;
+    closeMenus();
+    if (open) { m.hidden = false; b.setAttribute('aria-expanded', 'true'); var f = m.querySelector('button'); if (f) f.focus(); }
+  }
+  function closeMenus() {
+    ['addMenu', 'balMenu'].forEach(function (id) { var m = $(id); if (m) m.hidden = true; });
+    ['addBtn', 'balBtn'].forEach(function (id) { var b = $(id); if (b) b.setAttribute('aria-expanded', 'false'); });
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.menu-wrap')) closeMenus();
+  });
+  $('sum').addEventListener('click', function (e) {
+    var bb = e.target.closest('#balBtn'); if (bb) { toggleMenu('balMenu', 'balBtn'); return; }
+    var bal = e.target.closest('[data-bal]');
+    if (bal) {
+      var mode = bal.getAttribute('data-bal'); closeMenus();
+      if (mode === 'unlock') { commit(function (st) { st.rows.forEach(function (r) { r.lock = false; }); return st; }); toast('Ручные фазы откреплены', true); return; }
+      var before = D.tot.imb;
+      commit(function (st) { return M.balance(st, mode); });
+      toast('Фазы распределены ' + (mode === 'seq' ? 'участками подряд' : 'по мощности') + ': перекос ' + fmt(before, 0) + ' → ' + fmt(D.tot.imb, 0) + ' %', true);
+      return;
+    }
+    var j = e.target.closest('[data-jump]');
+    if (j) jumpTo(j.getAttribute('data-jump'));
+  });
+
+  /* ---------------------------------------------------------------- таблица */
+  function cols() {
+    var c = ['h', 'ref', 'num', 'cat', 'name', 'prot', 'in', 'p', 'ir'];
+    if (D.is3) c.push('ph');
+    c.push('cab', 'len', 'du');
+    if (state.board.km) c.push('km');
+    c.push('act');
+    return c;
+  }
+  var HEAD = { h: '', ref: 'Поз.', num: 'Группа', cat: 'Назначение', name: 'Наименование', prot: 'Защита', 'in': 'Ном., А', p: 'P, кВт', ir: 'Iр, А', ph: 'Фаза', cab: 'Кабель', len: 'L, м', du: 'ΔU, %', km: 'КМ', act: '' };
+  var HEAD_TIP = { ref: 'Позиционное обозначение на схеме', num: 'Номер группы на планах: ЛО — освещение, ЛАО — аварийное, ЛС — всё остальное', ir: 'Расчётный ток группы', len: 'Пусто — оценка по площади квартиры', du: 'Потери напряжения ΔU = P·L/(C·S), медь: C = 12,8 (230 В), 77 (400 В)', km: 'Через мастер-выключатель (контактор)' };
+  var COLW = { h: 32, ref: 58, num: 68, cat: 142, prot: 172, p: 64, ir: 58, ph: 82, cab: 112, len: 58, du: 56, km: 36, act: 82 };
+  function renderHead(C) {
+    var w = {}; for (var k in COLW) w[k] = COLW[k];
+    w['in'] = D.is3 ? 102 : 68;
+    var minW = 230; C.forEach(function (k) { if (w[k]) minW += w[k]; });
+    var cg = '<colgroup>' + C.map(function (k) { return '<col' + (w[k] ? ' style="width:' + w[k] + 'px"' : '') + '>'; }).join('') + '</colgroup>';
+    var h = '<tr>' + C.map(function (k) {
+      var n = (k === 'p' || k === 'ir' || k === 'len' || k === 'du') ? ' num' : '';
+      return '<th class="c-' + k + n + '"' + (HEAD_TIP[k] ? ' data-tip="' + esc(HEAD_TIP[k]) + '"' : '') + '>' + esc(HEAD[k]) + '</th>';
+    }).join('') + '</tr>';
+    if (thead.__h !== h + cg) {
+      var g = $('grid'), old = g.querySelector('colgroup'); if (old) old.remove();
+      g.insertAdjacentHTML('afterbegin', cg);
+      thead.innerHTML = h; thead.__h = h + cg;
+      g.style.minWidth = minW + 'px';
+    }
+  }
+  function protSelect(v) {
+    var cur = v.prot === 'rcd' ? 'rcd:' + v.rcd : v.prot;
+    var o = opt('av', 'Автомат', cur) + opt('dif', 'Дифавтомат', cur);
+    D.rows.forEach(function (u) {
+      if (u.t !== 'u') return;
+      o += opt('rcd:' + u.id, 'Под УЗО ' + u.ref + (D.is3 && u.poles === 2 ? ' · ' + u.phase : ''), cur, v.poles === 3 && u.poles === 2);
+    });
+    o += opt('rcd:new', 'Под новое УЗО', cur);
+    var h = '<select class="cell" id="c-' + v.id + '-prot" data-f="prot" aria-label="Защита">' + o + '</select>';
+    if (v.prot === 'dif') h = '<div class="duo">' + h + '<select class="cell xs" id="c-' + v.id + '-idn" data-f="idn" aria-label="Ток утечки, мА" data-tip="Ток утечки, мА">' + M.IDN.map(function (x) { return opt(x, x, v.idn); }).join('') + '</select></div>';
+    else h = '<div class="duo">' + h + '</div>';
+    return h;
+  }
+  function planMark() { return String(state.board.mark || '').replace(/\((А|A)\)/g, ''); }
+  function groupRow(v, C) {
+    var cells = {};
+    var noCab = M.CAT[v.cat] && M.CAT[v.cat].noCable;
+    var wf = {}; v.warn.forEach(function (w) { wf[w.f] = 1; });
+    cells.h = '<td class="c-h"><button type="button" class="handle" aria-label="Перетащить ' + esc(v.num) + '">' + I.grip + '</button></td>';
+    cells.ref = '<td class="c-ref" data-tip="' + esc(v.model) + '">' + esc(v.ref) + '</td>';
+    var plan = v.num + (v.cableEff ? ' · ' + planMark() + ' ' + v.cableEff : '');
+    cells.num = '<td class="c-num" data-tip="На плане: ' + esc(plan) + '"><span class="chip ' + serCls(v.ser) + '">' + esc(v.num) + '</span></td>';
+    cells.cat = '<td class="c-cat td-pad"><select class="cell" id="c-' + v.id + '-cat" data-f="cat" aria-label="Назначение">' + M.CAT_ORDER.map(function (k) { return opt(k, M.CAT[k].label, v.cat); }).join('') + '</select></td>';
+    cells.name = '<td class="c-name td-pad"><input class="cell" id="c-' + v.id + '-name" data-f="name" value="' + esc(v.name) + '" aria-label="Наименование" autocomplete="off"></td>';
+    cells.prot = '<td class="c-prot">' + protSelect(v) + '</td>';
+    var inSel = '<select class="cell" id="c-' + v.id + '-In" data-f="In" aria-label="Номинал, А">' + M.STD_IN.map(function (x) { return opt(x, x, v.In); }).join('') + '</select>';
+    cells['in'] = '<td class="c-in' + (wf.In ? ' w-cell' : '') + '"' + (wf.In ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'In'; }).map(function (w) { return w.t; }).join('\n')) + '"' : '') + '><div class="duo">' +
+      (D.is3 ? '<select class="cell xs" id="c-' + v.id + '-poles" data-f="poles" aria-label="Полюса">' + opt(1, '1P', v.poles) + opt(3, '3P', v.poles) + '</select>' : '') + inSel + '</div></td>';
+    cells.p = noCab ? '<td class="c-p num"><span class="muted" style="padding:0 8px">—</span></td>' :
+      '<td class="c-p td-pad"><input class="cell num" id="c-' + v.id + '-p" data-f="p" value="' + esc(fmt(v.p)) + '" inputmode="decimal" aria-label="Мощность, кВт" autocomplete="off"></td>';
+    cells.ir = '<td class="c-ir num">' + (noCab ? '<span class="muted">—</span>' : fmt(v.Ir, 1)) + '</td>';
+    if (D.is3) {
+      if (v.poles === 3) cells.ph = '<td class="c-ph"><span class="phtxt"><span class="phd ph-L123"></span>L1–L3</span></td>';
+      else if (v.rcd && D.byId[v.rcd].poles === 2) cells.ph = '<td class="c-ph" data-tip="Фаза задаётся у УЗО ' + esc(D.byId[v.rcd].ref) + '"><span class="phtxt"><span class="phd ph-' + v.phase + '"></span>' + v.phase + '</span></td>';
+      else cells.ph = '<td class="c-ph"><div class="phcell"><span class="phd ph-' + v.phase + '"></span><select class="cell" id="c-' + v.id + '-phase" data-f="phase" aria-label="Фаза">' + ['L1', 'L2', 'L3'].map(function (p) { return opt(p, p, v.phase); }).join('') + '</select>' +
+        (v.lock ? '<button type="button" class="lockb" data-act="unlock" data-tip="Фаза задана вручную — «Распределить фазы» её не меняет. Щёлкните, чтобы открепить" aria-label="Открепить фазу">' + I.lock + '</button>' : '') + '</div></td>';
+    }
+    if (noCab) {
+      cells.cab = '<td class="c-cab"><span class="phtxt">—</span></td>';
+      cells.len = '<td class="c-len num"><span class="muted" style="padding:0 8px">—</span></td>';
+      cells.du = '<td class="c-du num"><span class="muted">—</span></td>';
+    } else {
+      var cores = v.poles === 3 ? 5 : 3;
+      var co = opt('', 'авто · ' + v.cableAuto, v.cable || '') + M.SECTIONS.map(function (S) { var s = M.cableStr(cores, S); return opt(s, s, v.cable || ''); }).join('');
+      if (v.cable && co.indexOf('value="' + esc(v.cable) + '"') < 0) co += opt(v.cable, v.cable, v.cable);
+      var cTip = wf.cable ? v.warn.filter(function (w) { return w.f === 'cable'; })[0].t : (state.board.mark + ' ' + v.cableEff + (v.Iz ? ' · Iдоп ' + fmt(v.Iz) + ' А' : ''));
+      cells.cab = '<td class="c-cab td-pad' + (wf.cable ? ' w-cell' : '') + '" data-tip="' + esc(cTip) + '"><select class="cell' + (v.cable ? '' : ' auto') + '" id="c-' + v.id + '-cable" data-f="cable" aria-label="Кабель">' + co + '</select></td>';
+      cells.len = '<td class="c-len td-pad"' + (v.len == null ? ' data-tip="Оценка по площади ' + esc(fmt(state.board.area)) + ' м². Впишите свою длину"' : '') + '><input class="cell num' + (v.len == null ? ' auto' : '') + '" id="c-' + v.id + '-len" data-f="len" value="' + (v.len != null ? esc(fmt(v.len)) : '') + '" placeholder="' + v.lenAuto + '" inputmode="decimal" aria-label="Длина кабеля, м" autocomplete="off"></td>';
+      cells.du = '<td class="c-du num' + (wf.dU ? ' w-cell' : '') + '"' + (wf.dU ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'dU'; })[0].t) + '"' : '') + '>' + fmt(v.dU, 1) + '</td>';
+    }
+    if (state.board.km) cells.km = '<td class="c-km">' + (v.prot === 'rcd' ? '' : '<input type="checkbox" id="c-' + v.id + '-km" data-f="km"' + (v.km ? ' checked' : '') + ' aria-label="Через мастер-выключатель" style="width:15px;height:15px;accent-color:var(--accent)">') + '</td>';
+    cells.act = '<td class="c-act"><div class="acts-row">' +
+      (v.warn.length ? '<button type="button" class="wbadge" data-act="warn" data-tip="' + esc(v.warn.map(function (w) { return w.t; }).join('\n')) + '" aria-label="Замечания: ' + v.warn.length + '">!' + (v.warn.length > 1 ? v.warn.length : '') + '</button>' : '') +
+      '<button type="button" class="ib" data-act="dup" data-tip="Дублировать" aria-label="Дублировать">' + I.copy + '</button>' +
+      '<button type="button" class="ib del" data-act="del" data-tip="Удалить" aria-label="Удалить">' + I.trash + '</button></div></td>';
+    return '<tr class="r-g' + (v.rcd ? ' in-blk' : '') + '" data-key="' + v.id + '" data-id="' + v.id + '" data-kind="g">' + C.map(function (k) { return cells[k]; }).join('') + '</tr>';
+  }
+  function rcdRow(v, C) {
+    var cells = {};
+    var wf = {}; v.warn.forEach(function (w) { wf[w.f] = 1; });
+    var n = v.members.length;
+    cells.h = '<td class="c-h"><button type="button" class="handle" aria-label="Перетащить УЗО ' + esc(v.ref) + ' вместе с группами">' + I.grip + '</button></td>';
+    cells.ref = '<td class="c-ref" data-tip="' + esc(v.model) + '">' + esc(v.ref) + '</td>';
+    cells.num = '<td class="c-num"><span class="chip s-u">УЗО</span></td>';
+    cells.cat = '<td class="c-cat td-pad">' + (D.is3 ? '<select class="cell" id="c-' + v.id + '-poles" data-f="poles" aria-label="Полюса УЗО">' + opt(2, '2P · однофазное', v.poles) + opt(4, '4P · трёхфазное', v.poles) + '</select>' : '<span class="u-model">2P</span>') + '</td>';
+    cells.name = '<td class="c-name"><span class="u-model"><b>' + esc(v.model) + '</b> · ' + n + ' ' + plural(n, 'группа', 'группы', 'групп') + '</span></td>';
+    cells.prot = '<td class="c-prot"><div class="duo"><select class="cell sm" id="c-' + v.id + '-type" data-f="type" aria-label="Тип УЗО">' + opt('A', 'тип A', v.type) + opt('AC', 'тип AC', v.type) + '</select>' +
+      '<select class="cell sm" id="c-' + v.id + '-idn" data-f="idn" aria-label="Ток утечки">' + [10, 30, 100, 300].map(function (x) { return opt(x, x + ' мА', v.idn); }).join('') + '</select></div></td>';
+    cells['in'] = '<td class="c-in' + (wf.In ? ' w-cell' : '') + '"' + (wf.In ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'In'; }).map(function (w) { return w.t; }).join('\n')) + '"' : '') + '><div class="duo"><select class="cell" id="c-' + v.id + '-In" data-f="In" aria-label="Номинал УЗО">' + M.RCD_IN.map(function (x) { return opt(x, x, v.In); }).join('') + '</select></div></td>';
+    cells.p = '<td class="c-p num" style="padding:0 8px">' + fmt(v.sumP, 1) + '</td>';
+    cells.ir = '<td class="c-ir num' + (wf.In ? ' w-cell' : '') + '">' + fmt(v.sumIr, 1) + '</td>';
+    if (D.is3) {
+      if (v.poles === 4) cells.ph = '<td class="c-ph"><span class="phtxt"><span class="phd ph-L123"></span>L1–L3</span></td>';
+      else cells.ph = '<td class="c-ph"><div class="phcell"><span class="phd ph-' + v.phase + '"></span><select class="cell" id="c-' + v.id + '-phase" data-f="phase" aria-label="Фаза УЗО">' + ['L1', 'L2', 'L3'].map(function (p) { return opt(p, p, v.phase); }).join('') + '</select>' +
+        (v.lock ? '<button type="button" class="lockb" data-act="unlock" data-tip="Фаза задана вручную. Щёлкните, чтобы открепить" aria-label="Открепить фазу">' + I.lock + '</button>' : '') + '</div></td>';
+    }
+    cells.cab = '<td class="c-cab"></td>'; cells.len = '<td class="c-len"></td>'; cells.du = '<td class="c-du"></td>';
+    if (state.board.km) cells.km = '<td class="c-km"></td>';
+    cells.act = '<td class="c-act"><div class="acts-row">' +
+      (v.warn.length ? '<button type="button" class="wbadge" data-act="warn" data-tip="' + esc(v.warn.map(function (w) { return w.t; }).join('\n')) + '" aria-label="Замечания">!' + (v.warn.length > 1 ? v.warn.length : '') + '</button>' : '') +
+      '<button type="button" class="ib del" data-act="del" data-tip="Удалить УЗО — группы останутся, станут дифавтоматами" aria-label="Удалить УЗО">' + I.trash + '</button></div></td>';
+    return '<tr class="r-u" data-key="' + v.id + '" data-id="' + v.id + '" data-kind="u">' + C.map(function (k) { return cells[k]; }).join('') + '</tr>';
+  }
+  function endRow(v, C) {
+    return '<tr class="r-end" data-key="e-' + v.id + '" data-id="' + v.id + '" data-kind="end"><td class="c-h"></td><td colspan="' + (C.length - 1) + '"><div class="endtxt"><span>Конец блока ' + esc(v.ref) + '</span>' +
+      '<button type="button" class="lnk" data-act="add-in">+ Группа под это УЗО</button></div></td></tr>';
+  }
+  function fixedRows(C) {
+    var F = D.fixed, out = [];
+    var brief = F.map(function (f) { return f.ref; });
+    var sum = F[0].model + ' · ' + (brief.length > 1 ? brief.slice(1).join(', ') : '');
+    out.push({ key: 'sec-fx', html: '<tr class="r-sec" data-key="sec-fx"><td colspan="' + C.length + '"><button type="button" class="sec-btn" data-act="fx" aria-expanded="' + (uiS.fx ? 'true' : 'false') + '">' + I.chev + '<b>Ввод и общие аппараты</b><span>' + esc(F[0].ref + ' ' + sum) + '</span></button></td></tr>' });
+    if (uiS.fx) F.forEach(function (f) {
+      out.push({ key: 'f-' + f.id, html: '<tr class="r-fx" data-key="f-' + f.id + '"><td class="c-h"></td><td class="c-ref">' + esc(f.ref) + '</td><td class="c-num"></td><td class="c-fx" colspan="2"><b>' + esc(f.name) + '</b></td><td class="c-fx">' + esc(f.model) + '</td><td class="c-fx">' + (f.In ? f.In + ' А' : '') + '</td><td class="c-fx" colspan="' + (C.length - 7) + '">' + f.w + ' мод.</td></tr>' });
+    });
+    out.push({ key: 'sec-g', html: '<tr class="r-sec" data-key="sec-g"><td colspan="' + C.length + '"><div class="sec-btn" style="cursor:default"><b>Групповые линии</b><span>по порядку слева направо, как в щите</span></div></td></tr>' });
+    return out;
+  }
+
+  function renderTable(opts) {
+    var C = cols();
+    renderHead(C);
+    var want = fixedRows(C);
+    D.rows.forEach(function (v, i) {
+      if (v.t === 'u') {
+        want.push({ key: v.id, html: rcdRow(v, C) });
+        if (!v.members.length) want.push({ key: 'e-' + v.id, html: endRow(v, C) });
+      } else {
+        want.push({ key: v.id, html: groupRow(v, C) });
+        var nx = D.rows[i + 1];
+        if (v.rcd && !(nx && nx.t === 'g' && nx.rcd === v.rcd)) want.push({ key: 'e-' + v.rcd, html: endRow(D.byId[v.rcd], C) });
+      }
+    });
+    if (!D.rows.length) want.push({ key: 'empty', html: '<tr class="r-empty" data-key="empty"><td colspan="' + C.length + '">Групп пока нет. Добавьте кнопкой «Группа» или соберите щит по шаблону.</td></tr>' });
+
+    /* FLIP: запомнить положение строк */
+    var first = null;
+    if (opts.flip && !reduceMotion()) {
+      first = {};
+      tbody.querySelectorAll('tr[data-key]').forEach(function (tr) { first[tr.getAttribute('data-key')] = tr.getBoundingClientRect().top; });
+    }
+    var act = document.activeElement, actId = act && act.id && tbody.contains(act) ? act.id : null;
+    var selStart = null, selEnd = null;
+    if (actId && act.tagName === 'INPUT') { try { selStart = act.selectionStart; selEnd = act.selectionEnd; } catch (e) { /* */ } }
+    var keep = new Map();
+    want.forEach(function (w) {
+      var c = rowCache.get(w.key), el;
+      if (c && c.html === w.html) el = c.el;
+      else {
+        var tmp = document.createElement('tbody'); tmp.innerHTML = w.html; el = tmp.firstChild;
+      }
+      keep.set(w.key, { html: w.html, el: el });
+    });
+    var i = 0;
+    keep.forEach(function (c) {
+      var at = tbody.children[i];
+      if (at !== c.el) tbody.insertBefore(c.el, at || null);
+      i++;
+    });
+    while (tbody.children.length > keep.size) tbody.removeChild(tbody.lastChild);
+    rowCache = keep;
+    if (actId && document.activeElement !== $(actId)) {
+      var ne = $(actId);
+      if (ne) { ne.focus({ preventScroll: true }); if (selStart != null) { try { ne.setSelectionRange(selStart, selEnd); } catch (e) { /* */ } } }
+    }
+    applySel();
+    /* смена номеров — подсветить */
+    var nums = {};
+    D.rows.forEach(function (v) { if (v.t === 'g') { nums[v.id] = v.num; if (prevNum[v.id] && prevNum[v.id] !== v.num) { var tr = rowEl(v.id); var ch = tr && tr.querySelector('.chip'); if (ch) { ch.classList.remove('changed'); void ch.offsetWidth; ch.classList.add('changed'); } } } });
+    prevNum = nums;
+    if (first) {
+      tbody.querySelectorAll('tr[data-key]').forEach(function (tr) {
+        var k = tr.getAttribute('data-key'); if (first[k] == null) return;
+        var dy = first[k] - tr.getBoundingClientRect().top;
+        if (Math.abs(dy) < 1) return;
+        tr.style.transition = 'none'; tr.style.transform = 'translateY(' + dy + 'px)';
+        requestAnimationFrame(function () { requestAnimationFrame(function () { tr.style.transition = 'transform .22s cubic-bezier(.2,.7,.2,1)'; tr.style.transform = ''; }); });
+        tr.addEventListener('transitionend', function te() { tr.style.transition = ''; tr.removeEventListener('transitionend', te); });
+      });
+    }
+  }
+  function reduceMotion() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
+  function rowEl(key) { var c = rowCache.get(key); return c ? c.el : null; }
+  function applySel() {
+    rowCache.forEach(function (c, k) { if (c.el.getAttribute('data-kind') === 'g' || c.el.getAttribute('data-kind') === 'u') c.el.classList.toggle('sel', sel.has(k)); });
+  }
+  function landRows(ids) {
+    setTimeout(function () {
+      ids.forEach(function (id) { var el = rowEl(id); if (!el) return; el.classList.remove('landed'); void el.offsetWidth; el.classList.add('landed'); });
+    }, 30);
+  }
+  function scrollRowIntoView(id) {
+    var el = rowEl(id); if (!el) return;
+    var wr = wrap.getBoundingClientRect(), r = el.getBoundingClientRect();
+    var head = 30;
+    if (r.top < wr.top + head) wrap.scrollTop -= (wr.top + head - r.top) + 20;
+    else if (r.bottom > wr.bottom) wrap.scrollTop += (r.bottom - wr.bottom) + 20;
+    var top = wrap.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight - 100) wrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+  function focusCell(id, f, selectAll) {
+    scrollRowIntoView(id);
+    var el = $('c-' + id + '-' + f);
+    if (el) { el.focus({ preventScroll: true }); if (selectAll && el.select) el.select(); }
+  }
+  function jumpTo(id) {
+    sel.clear(); sel.add(id); selAnchor = id; applySel(); renderBar();
+    scrollRowIntoView(id); landRows([id]);
+  }
+
+  /* ---------------------------------------------------------------- правки в ячейках */
+  tbody.addEventListener('change', function (e) {
+    var el = e.target, f = el.getAttribute('data-f'); if (!f) return;
+    var tr = el.closest('tr[data-id]'); if (!tr) return;
+    var id = tr.getAttribute('data-id');
+    var v = el.type === 'checkbox' ? el.checked : el.value;
+    var before = D.byId[id];
+    var structural = f === 'prot' || f === 'poles' || f === 'cat';
+    commit(function (st) { return M.setField(st, id, f, v); }, { flip: structural });
+    var after = D.byId[id];
+    if (!after || !before) return;
+    if (f === 'prot') {
+      if (after.rcd && after.rcd !== before.rcd) toast(after.num + ' теперь под УЗО ' + D.byId[after.rcd].ref, true);
+      else if (!after.rcd && before.rcd) toast(after.num + ' вынесена из-под УЗО — ' + (after.prot === 'dif' ? 'дифавтомат' : 'автомат'), true);
+      landRows([id]);
+    }
+    if (f === 'cat' && before.num !== after.num) toast('Новое назначение: ' + before.num + ' → ' + after.num + '. Остальные номера пересчитаны', true);
+    if (f === 'poles') landRows([id]);
+  });
+  tbody.addEventListener('keydown', function (e) {
+    var el = e.target;
+    if (el.tagName !== 'INPUT' || el.type === 'checkbox') return;
+    if (e.key === 'Enter' || (e.key === 'ArrowDown' && e.altKey === false && e.ctrlKey) || (e.key === 'ArrowUp' && e.ctrlKey)) {
+      e.preventDefault();
+      var tr = el.closest('tr[data-id]'), id = tr.getAttribute('data-id'), f = el.getAttribute('data-f');
+      var dir = (e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey)) ? -1 : 1;
+      var gs = D.rows.filter(function (v) { return v.t === 'g'; }), k = -1;
+      gs.forEach(function (v, i) { if (v.id === id) k = i; });
+      el.blur();
+      var nx = gs[k + dir];
+      if (nx) focusCell(nx.id, f, true);
+    } else if (e.key === 'Escape') {
+      el.value = el.defaultValue; el.blur();
+    }
+  });
+  tbody.addEventListener('focusin', function (e) {
+    var el = e.target; if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.select) setTimeout(function () { if (document.activeElement === el) { try { el.select(); } catch (er) { /* */ } } }, 0);
+  });
+  tbody.addEventListener('click', function (e) {
+    var bt = e.target.closest('[data-act]');
+    var tr = e.target.closest('tr[data-key]');
+    if (bt) {
+      var act = bt.getAttribute('data-act');
+      var id = tr && tr.getAttribute('data-id');
+      if (act === 'fx') { uiS.fx = !uiS.fx; lsSet(LS_UI, uiS); renderTable({}); return; }
+      if (act === 'dup') { var r = commit(function (st) { return M.duplicate(st, [id]); }, { flip: true }); if (r && r.ids) { sel.clear(); sel.add(r.ids[0]); applySel(); renderBar(); landRows(r.ids); focusCell(r.ids[0], 'name', true); } return; }
+      if (act === 'del') {
+        var v = D.byId[id], name = v.t === 'u' ? 'УЗО ' + v.ref : v.num + ' ' + v.name;
+        commit(function (st) { return M.removeRows(st, [id]); }, { flip: true });
+        toast('Удалено: ' + name + (v.t === 'u' ? '. Группы остались дифавтоматами' : '. Номера пересчитаны'), true);
+        return;
+      }
+      if (act === 'unlock') { commit(function (st) { return M.setField(st, id, 'lock', false); }); return; }
+      if (act === 'add-in') {
+        var u = D.byId[id], last = u.members.length ? u.members[u.members.length - 1] : u.id;
+        var r2 = commit(function (st) { return M.addGroup(st, 'sock', last); });
+        if (r2 && r2.id) { sel.clear(); sel.add(r2.id); applySel(); renderBar(); landRows([r2.id]); focusCell(r2.id, 'name', true); }
+        return;
+      }
+      if (act === 'warn') { sel.clear(); sel.add(id); applySel(); renderBar(); showTip(bt, true); return; }
+      return;
+    }
+    if (!tr) return;
+    var kind = tr.getAttribute('data-kind');
+    if (kind !== 'g' && kind !== 'u') return;
+    var hit = e.target.closest('.handle, td.c-ref, td.c-num');
+    if (hit && e.detail > 0) return; /* мышью — уже обработано при нажатии */
+    if (!hit && e.target.closest('input,select,button,label')) return;
+    clickSelect(tr.getAttribute('data-id'), e);
+  });
+  function clickSelect(id, e) {
+    if (e.shiftKey && selAnchor) {
+      var order = D.rows.map(function (v) { return v.id; });
+      var a = order.indexOf(selAnchor), b = order.indexOf(id);
+      if (a < 0) a = b;
+      if (!(e.ctrlKey || e.metaKey)) sel.clear();
+      for (var i = Math.min(a, b); i <= Math.max(a, b); i++) sel.add(order[i]);
+    } else if (e.ctrlKey || e.metaKey) {
+      if (sel.has(id)) sel.delete(id); else sel.add(id);
+      selAnchor = id;
+    } else {
+      if (sel.size === 1 && sel.has(id)) sel.clear(); else { sel.clear(); sel.add(id); }
+      selAnchor = id;
+    }
+    applySel(); renderBar();
+  }
+
+  /* ================================================================ перетаскивание */
+  var drag = null, ghost = null, raf = 0;
+  tbody.addEventListener('pointerdown', function (e) {
+    var h = e.target.closest('.handle, td.c-ref, td.c-num'); if (!h) return;
+    var tr = h.closest('tr[data-id]'); if (!tr) return;
+    var id = tr.getAttribute('data-id'), kind = tr.getAttribute('data-kind');
+    if (kind !== 'g' && kind !== 'u') return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    var ctrl = e.ctrlKey || e.metaKey, was = sel.has(id), size = sel.size;
+    if (e.shiftKey && selAnchor) clickSelect(id, e);
+    else if (kind === 'g') {
+      if (ctrl) { if (!was) sel.add(id); }
+      else if (!was) { sel.clear(); sel.add(id); }
+      selAnchor = id;
+      applySel(); renderBar();
+    }
+    drag = { id: id, kind: kind, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, started: false, h: h, pid: e.pointerId, was: was, size: size, ctrl: ctrl, shift: e.shiftKey };
+    try { h.setPointerCapture(e.pointerId); } catch (er) { /* */ }
+    h.addEventListener('pointermove', onMove);
+    h.addEventListener('pointerup', onUp);
+    h.addEventListener('pointercancel', onCancel);
+    h.addEventListener('lostpointercapture', onLost);
+  });
+  function dragIds() {
+    if (drag.kind === 'u') return [drag.id];
+    return selGroups();
+  }
+  function beginDrag() {
+    drag.started = true;
+    drag.ids = dragIds();
+    document.documentElement.classList.add('dragging-on');
+    hideTip();
+    var dim = {};
+    if (drag.kind === 'u') { dim[drag.id] = 1; dim['e-' + drag.id] = 1; D.byId[drag.id].members.forEach(function (m) { dim[m] = 1; }); }
+    else drag.ids.forEach(function (i) { dim[i] = 1; });
+    drag.dim = dim;
+    rowCache.forEach(function (c, k) { if (dim[k]) c.el.classList.add('ghosted'); });
+    /* бывшая «хвостовая» строка блока, из которого уходят все группы, остаётся видимой */
+    ghost = document.createElement('div'); ghost.className = 'drag-ghost';
+    if (drag.kind === 'u') {
+      var u = D.byId[drag.id];
+      ghost.innerHTML = '<span class="chip s-u">УЗО</span><span>' + esc(u.ref) + ' · ' + esc(u.model) + '</span><span class="more">+ ' + u.members.length + ' гр.</span>';
+    } else {
+      var v = D.byId[drag.ids[0]];
+      ghost.innerHTML = '<span class="chip ' + serCls(v.ser) + '">' + esc(v.num) + '</span><span>' + esc(v.name) + '</span>' + (drag.ids.length > 1 ? '<span class="more">и ещё ' + (drag.ids.length - 1) + '</span>' : '');
+    }
+    document.body.appendChild(ghost);
+    computeSlots();
+    loop();
+  }
+  function computeSlots() {
+    var full = M.slots(state);
+    var dim = drag.dim, U = drag.kind === 'u' ? drag.id : null;
+    var vis = full.filter(function (it) {
+      if (U) { if ((it.kind === 'u' || it.kind === 'end') && it.id === U) return false; if (it.kind === 'g' && it.rcd === U) return false; return true; }
+      return !(it.kind === 'g' && dim[it.id]);
+    });
+    var wr = wrap.getBoundingClientRect(), st = wrap.scrollTop;
+    function elOf(it) { return rowEl(it.kind === 'end' ? 'e-' + it.id : it.id); }
+    var any3 = !U && drag.ids.some(function (id) { return D.byId[id].poles === 3; });
+    var slots = [];
+    var catCell = thead.querySelector('.c-cat');
+    var insideX = catCell ? catCell.offsetLeft : 160;
+    for (var k = 0; k <= vis.length; k++) {
+      var y;
+      if (k < vis.length) { var el = elOf(vis[k]); if (!el) continue; y = el.getBoundingClientRect().top; }
+      else { var le = vis.length ? elOf(vis[vis.length - 1]) : rowEl('sec-g'); if (!le) continue; y = le.getBoundingClientRect().bottom; }
+      var a = M.gapAnchor(vis, k), ok = true;
+      if (a.into) {
+        if (U) ok = false;
+        else if (any3 && D.byId[a.into].poles === 2) ok = false;
+      }
+      slots.push({ y: y - wr.top + st, a: a, ok: ok, into: a.into });
+    }
+    drag.slots = slots; drag.insideX = insideX;
+  }
+  function onMove(e) {
+    if (!drag) return;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!drag.started) {
+      if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 5) return;
+      beginDrag();
+    }
+    place();
+  }
+  function place() {
+    ghost.style.left = Math.min(drag.x + 16, window.innerWidth - 200) + 'px';
+    ghost.style.top = (drag.y + 12) + 'px';
+    var wr = wrap.getBoundingClientRect();
+    var yc = drag.y - wr.top + wrap.scrollTop;
+    var best = null;
+    drag.slots.forEach(function (s) { if (!s.ok) return; var d = Math.abs(s.y - yc); if (!best || d < best.d - 0.5) best = { s: s, d: d }; });
+    drag.target = best ? best.s : null;
+    if (!drag.target) { dropLine.hidden = true; return; }
+    var s = drag.target;
+    dropLine.hidden = false;
+    dropLine.style.top = (s.y - 1) + 'px';
+    var left = s.into ? drag.insideX : 0;
+    dropLine.style.left = left + 'px';
+    dropLine.style.width = Math.max(120, $('grid').offsetWidth - left) + 'px';
+    dropLine.className = 'drop-line' + (s.into ? ' inside' : '');
+    dropLine.innerHTML = s.into ? '<span class="dl-tag" style="left:12px">под УЗО ' + esc(D.byId[s.into].ref) + '</span>' : '';
+  }
+  function loop() {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function step() {
+      if (!drag || !drag.started) return;
+      var wr = wrap.getBoundingClientRect(), y = drag.y, sp = 0;
+      var top = Math.max(wr.top, 0) + 36, bot = Math.min(wr.bottom, window.innerHeight) - 30;
+      if (y < top) sp = -Math.min(18, (top - y) / 2 + 2);
+      else if (y > bot) sp = Math.min(18, (y - bot) / 2 + 2);
+      if (sp) {
+        var before = wrap.scrollTop; wrap.scrollTop += sp;
+        if (wrap.scrollTop === before) window.scrollBy(0, sp);
+        place();
+      }
+      raf = requestAnimationFrame(step);
+    });
+  }
+  function endDrag() {
+    cancelAnimationFrame(raf);
+    if (drag && drag.h) {
+      drag.h.removeEventListener('pointermove', onMove); drag.h.removeEventListener('pointerup', onUp);
+      drag.h.removeEventListener('pointercancel', onCancel); drag.h.removeEventListener('lostpointercapture', onLost);
+      try { drag.h.releasePointerCapture(drag.pid); } catch (e) { /* */ }
+    }
+    document.documentElement.classList.remove('dragging-on');
+    rowCache.forEach(function (c) { c.el.classList.remove('ghosted'); });
+    dropLine.hidden = true;
+    if (ghost) { ghost.remove(); ghost = null; }
+  }
+  function onUp(e) {
+    if (!drag) return;
+    var d = drag;
+    if (!d.started) {
+      endDrag(); drag = null;
+      if (d.shift) return;
+      if (d.kind === 'u') { clickSelect(d.id, { ctrlKey: d.ctrl, metaKey: false, shiftKey: false }); return; }
+      if (d.ctrl) { if (d.was) sel.delete(d.id); }
+      else if (d.was) { if (d.size === 1) sel.clear(); else { sel.clear(); sel.add(d.id); } }
+      applySel(); renderBar();
+      return;
+    }
+    var t = d.target, ids = d.ids;
+    endDrag(); drag = null;
+    if (!t) return;
+    var before = {}; ids.forEach(function (id) { var v = D.byId[id]; before[id] = { rcd: v.rcd, num: v.num, prot: v.prot }; });
+    var changed = false, oldJson = JSON.stringify(state.rows);
+    commit(function (st) { return M.moveRows(st, ids, t.a); }, { flip: true });
+    changed = JSON.stringify(state.rows) !== oldJson;
+    if (!changed) return;
+    landRows(d.kind === 'u' ? [d.id].concat(D.byId[d.id].members) : ids);
+    if (d.kind === 'g') {
+      var a0 = D.byId[ids[0]], b0 = before[ids[0]];
+      var what = ids.length > 1 ? ids.length + ' ' + plural(ids.length, 'группа', 'группы', 'групп') : a0.num;
+      if (a0.rcd && a0.rcd !== b0.rcd) toast(what + ' — под УЗО ' + D.byId[a0.rcd].ref + '. Номера пересчитаны', true);
+      else if (!a0.rcd && b0.rcd) toast(what + ' — вынесены из-под УЗО, ' + (a0.prot === 'dif' ? 'дифавтомат' : 'автомат') + '. Номера пересчитаны', true);
+      else toast((b0.num !== a0.num ? b0.num + ' → ' + a0.num : 'Порядок изменён') + '. Номера пересчитаны', true);
+    } else toast('УЗО ' + D.byId[d.id].ref + ' перенесено вместе с группами', true);
+  }
+  function onCancel() { endDrag(); drag = null; }
+  function onLost() { if (drag && drag.started) { /* отпускание вне окна */ } }
+
+  /* ================================================================ подсказки */
+  var tipFor = null;
+  function showTip(el, force) {
+    var t = el.getAttribute('data-tip'); if (!t) return;
+    if (drag && drag.started) return;
+    tipEl.textContent = t; tipEl.hidden = false; tipFor = el;
+    tipEl.style.whiteSpace = 'pre-line';
+    var r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    var x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+    var y = r.bottom + 6; if (y + h > window.innerHeight - 8) y = r.top - h - 6;
+    tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+    if (force) { clearTimeout(showTip.t); showTip.t = setTimeout(hideTip, 4000); }
+  }
+  function hideTip() { tipEl.hidden = true; tipFor = null; }
+  var tipTimer = 0;
+  document.addEventListener('pointerover', function (e) {
+    var el = e.target.closest && e.target.closest('[data-tip]');
+    if (el === tipFor) return;
+    clearTimeout(tipTimer);
+    if (!el) { hideTip(); return; }
+    tipTimer = setTimeout(function () { showTip(el); }, el.classList.contains('wbadge') ? 0 : 450);
+  });
+  document.addEventListener('pointerdown', function () { clearTimeout(tipTimer); });
+  window.addEventListener('scroll', hideTip, true);
+
+  /* ================================================================ сообщения */
+  var toastT = 0;
+  function toast(msg, withUndo) {
+    var t = $('toast');
+    $('toastTxt').textContent = msg;
+    $('toastBtn').hidden = !withUndo;
+    t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, withUndo ? 6000 : 3200);
+  }
+  $('toastBtn').addEventListener('click', function () { $('toast').hidden = true; doUndo(); });
+
+  /* ================================================================ клавиатура */
+  document.addEventListener('keydown', function (e) {
+    var tag = e.target.tagName, inField = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+    var mod = e.ctrlKey || e.metaKey;
+    if (e.key === 'Escape') {
+      if (drag && drag.started) { onCancel(); return; }
+      closeMenus(); hideTip();
+      if (!inField && sel.size) { sel.clear(); applySel(); renderBar(); }
+      return;
+    }
+    if (mod && !inField && (e.key === 'z' || e.key === 'Z' || e.key === 'я' || e.key === 'Я')) { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
+    if (mod && !inField && (e.key === 'y' || e.key === 'Y' || e.key === 'н' || e.key === 'Н')) { e.preventDefault(); doRedo(); return; }
+    if (inField) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size) { e.preventDefault(); delSelected(); return; }
+    if (mod && (e.key === 'd' || e.key === 'D' || e.key === 'в' || e.key === 'В') && sel.size) { e.preventDefault(); dupSelected(); return; }
+    if (mod && (e.key === 'a' || e.key === 'A' || e.key === 'ф' || e.key === 'Ф')) { e.preventDefault(); sel.clear(); D.rows.forEach(function (v) { if (v.t === 'g') sel.add(v.id); }); applySel(); renderBar(); return; }
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && sel.size) { e.preventDefault(); nudgeSel(e.key === 'ArrowUp' ? -1 : 1); return; }
+  });
+
+  /* ================================================================ связь с AutoCAD (панель WebView2 в плагине GIP.bundle)
+     страница -> AutoCAD: строка «тип\nJSON» (ready, apply); AutoCAD -> страница: объект {type: load|unlinked|linked, state, doc, origin} */
+  var bridgeT = 0;
+  var hostS = { linked: false, doc: '', auto: uiS.auto !== false, dirty: false, waiting: !!host };
+  function hostPost(type, payload) { if (!host) return; try { host.postMessage(type + '\n' + (payload || '')); } catch (e) { /* */ } }
+  function pushNow() { clearTimeout(bridgeT); hostPost('apply', JSON.stringify(state)); hostS.dirty = false; syncHost(); }
+  function bridgeSend() {
+    if (!host || !hostS.linked) return;
+    if (hostS.auto) { clearTimeout(bridgeT); bridgeT = setTimeout(pushNow, 150); }
+    else { hostS.dirty = true; syncHost(); }
+  }
+  function syncHost() {
+    if (!host) return;
+    var L = $('link');
+    L.classList.toggle('on', hostS.linked);
+    L.title = hostS.linked ? 'Таблица связана с чертежом ' + hostS.doc : 'В этом чертеже щита ещё нет';
+    $('linkTxt').textContent = hostS.waiting ? 'Чтение чертежа…' : (hostS.linked ? 'Чертёж: ' : 'Нет щита: ') + (hostS.doc || 'без имени');
+    $('autoWrap').hidden = !hostS.linked;
+    $('autoChk').checked = hostS.auto;
+    $('pushBtn').hidden = !hostS.linked || (hostS.auto && !hostS.dirty);
+    $('pushBtn').classList.toggle('primary', hostS.dirty);
+    $('hostBar').hidden = hostS.linked || hostS.waiting;
+    $('hostBarTxt').textContent = 'В чертеже «' + (hostS.doc || 'без имени') + '» щита ещё нет. Таблица ниже — последняя, с которой вы работали; соберите нужную и постройте альбом. Нужен чертёж из шаблона ГИП.';
+  }
+  if (host) {
+    host.addEventListener('message', function (ev) {
+      var m = ev.data;
+      if (typeof m === 'string') { try { m = JSON.parse(m); } catch (e) { return; } }
+      if (!m || !m.type) return;
+      if (m.type === 'load' && m.state && Array.isArray(m.state.rows)) {
+        var ns;
+        try { ns = M.normalize(m.state); } catch (e) { toast('Не удалось прочитать щит из чертежа'); return; }
+        if (m.origin === 'activate') { undoS = []; redoS = []; sel.clear(); }
+        else if (JSON.stringify(ns) !== JSON.stringify(state)) { undoS.push(JSON.stringify(state)); redoS = []; }
+        var wasLinked = hostS.linked;
+        state = ns; hostS.linked = true; hostS.waiting = false; hostS.doc = m.doc || ''; hostS.dirty = false;
+        render({ flip: m.origin === 'drawing' }); syncHost();
+        if (m.origin === 'drawing' && wasLinked) toast('Таблица обновлена по чертежу', true);
+      } else if (m.type === 'linked') {
+        hostS.linked = true; hostS.waiting = false; if (m.doc) hostS.doc = m.doc; syncHost(); toast('Альбом построен, таблица связана с чертежом');
+      } else if (m.type === 'unlinked') {
+        hostS.linked = false; hostS.waiting = false; hostS.doc = m.doc || ''; hostS.dirty = false; syncHost();
+      }
+    });
+    $('autoChk').addEventListener('change', function (e) {
+      hostS.auto = e.target.checked; uiS.auto = hostS.auto; lsSet(LS_UI, uiS);
+      if (hostS.auto && hostS.dirty) pushNow(); else syncHost();
+    });
+    $('pushBtn').addEventListener('click', pushNow);
+    $('buildHere').addEventListener('click', function () { pushNow(); toast('Строю альбом в чертеже…'); });
+  }
+
+  /* ================================================================ старт */
+  $('undo').innerHTML = I.undo; $('redo').innerHTML = I.redo;
+  $('undo').addEventListener('click', doUndo); $('redo').addEventListener('click', doRedo);
+  $('tplBtn').addEventListener('click', function () { toggleTpl(); });
+  state = initState();
+  buildBoard(); buildBar(); resetTplForm(); buildTpl();
+  render({});
+  if (host) { syncHost(); hostPost('ready', ''); }
+  window.GIP = {
+    get state() { return state; }, get derived() { return D; }, commit: commit, M: M,
+    select: function (ids) { sel.clear(); ids.forEach(function (i) { sel.add(i); }); applySel(); renderBar(); }
+  };
+})();
+
+</script>

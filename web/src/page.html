@@ -1,0 +1,56 @@
+<title>Группы щита ГИП</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/*CSS*/
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Группы щита</h1><span class="sub" id="sub"></span></div>
+  <div class="spacer"></div>
+  <span class="link" id="link" title="Отдельная страница — всё сохраняется в этом браузере"><span class="dot"></span><span id="linkTxt">Отдельная страница — всё сохраняется в этом браузере</span></span>
+  <label class="chk" id="autoWrap" hidden title="Перестраивать однолинейку, монтажную схему и спецификацию после каждого изменения"><input type="checkbox" id="autoChk">Сразу в чертёж</label>
+  <button class="btn" type="button" id="pushBtn" hidden>Обновить чертёж</button>
+  <button class="btn icon" type="button" id="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
+  <button class="btn icon" type="button" id="redo" title="Вернуть (Ctrl+Shift+Z)" aria-label="Вернуть"></button>
+  <button class="btn" type="button" id="tplBtn" aria-expanded="false" aria-controls="tpl">Собрать по шаблону</button>
+</header>
+
+<div class="hostbar" id="hostBar" hidden><span id="hostBarTxt"></span><button class="btn primary" type="button" id="buildHere">Построить альбом в этом чертеже</button></div>
+
+<section class="panel" aria-label="Параметры щита">
+  <div class="board" id="board"></div>
+  <div class="tpl" id="tpl" hidden></div>
+</section>
+
+<section class="sum" id="sum" aria-label="Сводка"></section>
+
+<div class="bar" id="bar"></div>
+<div class="grid-wrap" id="wrap">
+  <table class="grid" id="grid">
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="drop-line" id="dropLine" hidden></div>
+</div>
+
+<p class="foot">
+  <span><span class="kbd">щелчок</span> — выделить, <span class="kbd">Ctrl</span> — добавить к выделению, <span class="kbd">Shift</span> — диапазон</span>
+  <span><span class="kbd">Alt+↑↓</span> — сдвиг на позицию</span>
+  <span><span class="kbd">Del</span> — удалить</span>
+  <span><span class="kbd">Ctrl+D</span> — дублировать</span>
+  <span><span class="kbd">Ctrl+Z</span> — отменить</span>
+  <span><span class="kbd">Enter</span> в ячейке — к следующей строке</span>
+</p>
+
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastTxt"></span><button type="button" id="toastBtn">Отменить</button></div>
+
+<script>
+/*MODEL*/
+</script>
+<script>
+/*UI*/
+</script>

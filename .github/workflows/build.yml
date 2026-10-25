@@ -1,0 +1,58 @@
+# Сборка плагина GIP.bundle для AutoCAD 2021–2024 и выпуск архива в Releases.
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Сборка DLL
+        run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
+
+      - name: Комплект GIP.bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $b = 'out/GIP.bundle'
+          New-Item -ItemType Directory -Force "$b/Contents/web" | Out-Null
+          Copy-Item plugin/bundle/PackageContents.xml $b/
+          Copy-Item out/bin/GipShchit.dll "$b/Contents/"
+          Copy-Item out/bin/Microsoft.Web.WebView2.Core.dll, out/bin/Microsoft.Web.WebView2.WinForms.dll "$b/Contents/"
+          $loader = Get-ChildItem out/bin -Recurse -Filter WebView2Loader.dll | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+          if (-not $loader) { $loader = Get-ChildItem out/bin -Recurse -Filter WebView2Loader.dll | Select-Object -First 1 }
+          if (-not $loader) { throw 'WebView2Loader.dll not found' }
+          Copy-Item $loader.FullName "$b/Contents/WebView2Loader.dll"
+          Copy-Item dist/GIP_SHCHIT.lsp "$b/Contents/"
+          Copy-Item dist/panel.html "$b/Contents/web/panel.html"
+          Get-ChildItem -Recurse $b | ForEach-Object { $_.FullName }
+          New-Item -ItemType Directory -Force out/zip | Out-Null
+          Copy-Item -Recurse $b out/zip/
+          Copy-Item docs/INSTALL.txt "out/zip/УСТАНОВКА.txt"
+          Compress-Archive -Path out/zip/* -DestinationPath out/GIP_SHCHIT_AutoCAD.zip -Force
+          Compress-Archive -Path template/GIP_EOM_Shablon.dxf -DestinationPath out/GIP_EOM_Shablon.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GIP_SHCHIT_AutoCAD
+          path: |
+            out/GIP_SHCHIT_AutoCAD.zip
+            out/GIP_EOM_Shablon.zip
+
+      - name: Выпуск (Releases)
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v1.0.${{ github.run_number }}"
+          $msg = (git log -1 --pretty=%s)
+          gh release create $tag out/GIP_SHCHIT_AutoCAD.zip out/GIP_EOM_Shablon.zip --title "GIP-ЩИТ $tag" --notes "$msg`n`nУстановка — в файле УСТАНОВКА.txt внутри архива." --latest

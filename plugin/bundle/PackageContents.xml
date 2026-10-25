@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AutodeskProduct="AutoCAD"
+                    ProductType="Application"
+                    Name="GIP-SHCHIT"
+                    Description="Квартирный щит, однолинейная схема, монтажная схема и спецификация; панель «Группы щита»"
+                    AppVersion="1.0.0"
+                    Author="gipproekt.ru"
+                    ProductCode="{E43B7A74-0AB3-40CD-A98F-50A7EE218586}"
+                    UpgradeCode="{440CBB26-6850-47B1-A67F-E40A700084D5}">
+  <CompanyDetails Name="ГИП" Url="https://gipproekt.ru" />
+  <Components Description="AutoCAD 2021–2024">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.0" SeriesMax="R24.3" />
+    <ComponentEntry AppName="GipShchitPanel" ModuleName="./Contents/GipShchit.dll"
+                    AppDescription="Панель «Группы щита»" LoadOnAutoCADStartup="True">
+      <Commands GroupName="GIP">
+        <Command Global="GIPPANEL" Local="GIPPANEL" />
+      </Commands>
+    </ComponentEntry>
+    <ComponentEntry AppName="GipShchitLisp" ModuleName="./Contents/GIP_SHCHIT.lsp"
+                    AppDescription="GIP-ЩИТ: построение альбома" LoadOnAutoCADStartup="True" PerDocument="True" />
+  </Components>
+</ApplicationPackage>

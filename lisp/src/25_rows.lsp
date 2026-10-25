@@ -1,0 +1,273 @@
+;;; ============================================================================
+;;; Состав щита из таблицы групп (панель AutoCAD): строки групп ("t" "g") и УЗО ("t" "u") по порядку
+;;; слева направо. Группы под УЗО (защита "rcd") идут сразу за своим УЗО.
+;;; Хранение: словарь чертежа GIPPANEL — JSON таблицы (только ASCII, русский как \uXXXX).
+;;; ============================================================================
+
+(setq *gip:row-cat* '(("light" . "light") ("elight" . "light") ("sock" . "sock") ("hob" . "hob") ("oven" . "app") ("app" . "app")
+                      ("floor" . "floor") ("heat" . "heat") ("ac" . "ac") ("leak" . "leak") ("other" . "custom") ("reserve" . "custom")))
+
+(defun gip:row-ser (cat) (cond ((= cat "elight") "ЛАО") ((member cat '("light")) "ЛО") (T "ЛС")))
+(defun gip:sec-for (In) (cond ((<= In 10) "1,5") ((<= In 20) "2,5") ((<= In 25) "4") ((<= In 32) "6") ((<= In 50) "10") (T "16")))
+(defun gip:row-cable (r light / p)
+  (setq p (gip:nz (gip:g r "poles") 1))
+  (cond ((gip:g r "cable"))
+        ((and (= (gip:g r "cat") "hob") (= p 3)) "5×4")
+        (light (if (= p 3) "5×1,5" "3×1,5"))
+        (T (strcat (if (= p 3) "5" "3") "×" (gip:sec-for (gip:nz (gip:g r "In") 16))))))
+(defun gip:num-float (v d) (cond ((numberp v) (float v)) (T d)))
+
+;; строки таблицы -> групповые линии (поля как у gip:build-lines)
+(defun gip:rows-lines (s / is3 rows cur cnt res r rc cat ser n p light ph l lens)
+  (setq is3 (= (gip:g s "phases") 3) rows (gip:g s "rows") cur nil res nil)
+  (setq cnt (list (cons "ЛО" 0) (cons "ЛАО" 0) (cons "ЛС" 0)))
+  (foreach r rows
+    (if (= (gip:g r "t") "u")
+      (setq cur r)
+      (progn
+        (if (/= (gip:g r "prot") "rcd") (setq cur nil))
+        (setq rc (gip:g r "cat") cat (gip:gn *gip:row-cat* rc "custom") ser (gip:row-ser rc))
+        (setq n (1+ (gip:g cnt ser)) cnt (gip:s cnt ser n))
+        (setq p (gip:nz (gip:g r "poles") 1) light (= cat "light"))
+        (if (and (not is3) (= p 3)) (setq p 1))
+        (setq ph (cond ((not is3) (if (= p 3) "L123" "L"))
+                       ((= p 3) "L123")
+                       ((and cur (/= (gip:g cur "poles") 4) (member (gip:g cur "phase") '("L1" "L2" "L3"))) (gip:g cur "phase"))
+                       ((member (gip:g r "phase") '("L1" "L2" "L3")) (gip:g r "phase"))
+                       (T "L1")))
+        (setq l (list (cons "id" (gip:g r "id")) (cons "name" (gip:gn r "name" "Группа")) (cons "cat" cat) (cons "rcat" rc)
+                      (cons "prot" (cond ((= (gip:g r "prot") "av") "a") ((and (= (gip:g r "prot") "dif") (= p 3)) "d3") (T "d")))
+                      (cons "gprot" (gip:gn r "prot" "dif")) (cons "poles" p) (cons "In" (gip:nz (gip:g r "In") 16))
+                      (cons "p" (if (= rc "reserve") 0.0 (gip:num-float (gip:g r "p") 0.0))) (cons "phase" ph)
+                      (cons "cable" (if (= rc "reserve") "" (gip:row-cable r light)))
+                      (cons "km" (and (gip:g s "km") (gip:g r "km") (/= (gip:g r "prot") "rcd")))
+                      (cons "num" (strcat ser "-" (itoa n))) (cons "idn" (gip:nz (gip:g r "idn") 30))
+                      (cons "rcd" (if (and cur (= (gip:g r "prot") "rcd")) (gip:g cur "id")))
+                      (cons "key" (cond ((gip:g r "key")) ((= rc "oven") "oven") (T nil)))))
+        (if (= rc "reserve") (setq l (append l (list (cons "reserve" T) (cons "len" 0)))))
+        (if (and (/= rc "reserve") (numberp (gip:g r "len"))) (setq l (append l (list (cons "len" (gip:ceil (gip:g r "len")))))))
+        (if (= rc "custom") (setq l (gip:s l "custom" T)))
+        (setq res (cons l res)))))
+  (reverse res))
+
+;; модель аппарата с током утечки и типом УЗО
+(defun gip:model-idn (m idn typ)
+  (if (and idn (/= idn 30))
+    (setq m (gip:repl (gip:repl (gip:repl m "/0,03" (strcat "/" (gip:repl (rtos (/ idn 1000.0) 2 (if (< idn 100) 2 1)) "." ","))) "A30" (strcat "A" (itoa idn))) "30мА" (strcat (itoa idn) "мА"))))
+  (if (= typ "AC") (setq m (gip:repl m " A-" " AC-")))
+  m)
+
+;; строки таблицы -> аппараты щита в порядке строк
+(defun gip:rows-devices (s lines / b is3 D useKm rcdN cur r l dv k w ps id rid lid)
+  (setq b (gip:brand (gip:g s "brand")) is3 (= (gip:g s "phases") 3))
+  (setq useKm (and (gip:g s "km") (vl-some '(lambda (l) (gip:g l "km")) lines)))
+  (setq D (reverse (gip:fixed-devs s lines)) rcdN 0 cur nil)
+  (foreach r (gip:g s "rows")
+    (if (= (gip:g r "t") "u")
+      (progn
+        (setq rcdN (1+ rcdN) w (if (and is3 (= (gip:g r "poles") 4)) 4 2) rid (strcat "rcd:" (gip:g r "id")) cur rid)
+        (setq ps (if (= w 4) '("L1" "L2" "L3" "N") '("L" "N")))
+        (setq D (cons (list (cons "id" rid) '("kind" . "rcd") (cons "w" w) (cons "poles" ps) (cons "bot" ps)
+                            (cons "phase" (cond ((= w 4) "L123") ((not is3) "L") ((member (gip:g r "phase") '("L1" "L2" "L3")) (gip:g r "phase")) (T "L1")))
+                            (cons "In" (gip:nz (gip:g r "In") 40)) (cons "idn" (gip:nz (gip:g r "idn") 30)) (cons "type" (gip:gn r "type" "A"))
+                            (cons "model" (gip:model-idn (gip:fmt-model (gip:g b (if (= w 4) "rcd4" "rcd2")) (gip:nz (gip:g r "In") 40)) (gip:nz (gip:g r "idn") 30) (gip:gn r "type" "A")))
+                            (cons "name" (strcat "УЗО группы " (itoa rcdN))) (cons "brand" (gip:g b "name")) '("feed" . "src")
+                            (cons "rcdNo" rcdN) (cons "row" (gip:g r "id"))) D)))
+      (progn
+        (setq lid (gip:g r "id") l (vl-some '(lambda (x) (if (= (gip:g x "id") lid) x)) lines))
+        (if (/= (gip:g r "prot") "rcd") (setq cur nil))
+        (setq dv (list (cons "id" (strcat "L:" lid)) (cons "line" l) (cons "name" (gip:g l "name")) (cons "In" (gip:g l "In"))
+                      (cons "phase" (gip:g l "phase")) (cons "brand" (gip:g b "name")) (cons "row" lid) (cons "idn" (gip:g l "idn"))
+                      (cons "feed" (cond ((and cur (= (gip:g r "prot") "rcd")) cur) ((and useKm (gip:g l "km")) "km") (T "src")))))
+        (if (and cur (= (gip:g r "prot") "rcd")) (setq dv (append dv (list (cons "rcdNo" rcdN)))))
+        (setq k (if (= (gip:g r "prot") "dif") (if (= (gip:g l "poles") 3) "dif4" "dif") (if (= (gip:g l "poles") 3) "a3" "a1")))
+        (setq dv (append dv (cond ((= k "dif4") (list '("kind" . "dif4") '("w" . 4) '("poles" "L1" "L2" "L3" "N") '("bot" "L1" "L2" "L3" "N")))
+                                ((= k "dif") (list '("kind" . "dif") '("w" . 2) '("poles" "L" "N") '("bot" "L" "N")))
+                                ((= k "a3") (list '("kind" . "a3") '("w" . 3) '("poles" "L1" "L2" "L3") '("bot" "L1" "L2" "L3")))
+                                (T (list '("kind" . "a1") '("w" . 1) '("poles" "L") '("bot" "L"))))))
+        (setq dv (append dv (list (cons "model" (gip:model-idn (gip:fmt-model (gip:g b k) (gip:g l "In")) (if (member k '("dif" "dif4")) (gip:g l "idn")) nil)))))
+        (setq D (cons dv D)))))
+  (reverse D))
+
+;; порядок: общие аппараты — на местах с монтажной схемы, групповые и УЗО — в порядке таблицы
+(defun gip:rows-order (s lst / O seq)
+  (if (null (gip:g s "order"))
+    lst
+    (progn
+      (setq O (gip:apply-order s lst) seq (vl-remove-if-not '(lambda (x) (gip:g x "row")) lst))
+      (mapcar '(lambda (x / y) (if (gip:g x "row") (progn (setq y (car seq) seq (cdr seq)) y) x)) O))))
+
+;; ---------------------------------------------------------------- JSON (запись) — только ASCII
+(defun gip:hex4 (n / h d r)
+  (setq r "" h "0123456789ABCDEF")
+  (repeat 4 (setq d (rem n 16) r (strcat (substr h (1+ d) 1) r) n (/ n 16)))
+  r)
+(defun gip:js-str (s / r)
+  (if (null s) "null"
+    (progn
+      (setq r "")
+      (foreach c (vl-string->list s)
+        (setq r (strcat r (cond ((= c 34) "\\\"") ((= c 92) "\\\\") ((or (< c 32) (> c 126)) (strcat "\\u" (gip:hex4 c))) (T (chr c))))))
+      (strcat "\"" r "\""))))
+(defun gip:js-num (v / s)
+  (cond ((null v) "null")
+        ((= (type v) 'INT) (itoa v))
+        ((not (numberp v)) "null")
+        ((equal v (fix v) 1e-9) (itoa (fix v)))
+        (T (setq s (rtos v 2 4))
+           (while (and (vl-string-search "." s) (= (substr s (strlen s)) "0")) (setq s (substr s 1 (1- (strlen s)))))
+           (if (= (substr s (strlen s)) ".") (setq s (substr s 1 (1- (strlen s)))))
+           s)))
+(defun gip:js-val (v typ)
+  (cond ((= typ "s") (gip:js-str (if (= (type v) 'STR) v nil)))
+        ((= typ "n") (gip:js-num v))
+        ((= typ "i") (if (numberp v) (itoa (fix (+ v (if (minusp v) -0.5 0.5)))) "null"))
+        ((= typ "b") (if v "true" "false"))
+        (T "null")))
+(defun gip:js-obj (al schema / parts)
+  (setq parts nil)
+  (foreach f schema
+    (setq parts (cons (strcat (gip:js-str (car f)) ":" (gip:js-val (gip:g al (car f)) (cdr f))) parts)))
+  (strcat "{" (gip:join (reverse parts) ",") "}"))
+(setq *gip:js-board* '(("name" . "s") ("tpl" . "s") ("area" . "n") ("phases" . "i") ("inA" . "i") ("inPoles" . "i") ("brand" . "s")
+                       ("relay" . "b") ("km" . "b") ("fire" . "b") ("kup" . "b") ("kc" . "n") ("kcMode" . "s") ("pAllowed" . "n")
+                       ("mark" . "s") ("railW" . "i") ("mode" . "s")))
+(setq *gip:js-g* '(("t" . "s") ("id" . "s") ("cat" . "s") ("name" . "s") ("prot" . "s") ("poles" . "i") ("In" . "i") ("p" . "n") ("idn" . "i")
+                   ("phase" . "s") ("lock" . "b") ("cable" . "s") ("len" . "n") ("km" . "b") ("key" . "s")))
+(setq *gip:js-u* '(("t" . "s") ("id" . "s") ("In" . "i") ("idn" . "i") ("type" . "s") ("poles" . "i") ("phase" . "s") ("lock" . "b")))
+
+;; состояние таблицы (alist board + rows) -> JSON
+(defun gip:panel-json (B rows seq)
+  (strcat "{\"v\":2,\"seq\":" (itoa seq) ",\"board\":" (gip:js-obj B *gip:js-board*) ",\"rows\":["
+          (gip:join (mapcar '(lambda (r) (gip:js-obj r (if (= (gip:g r "t") "u") *gip:js-u* *gip:js-g*))) rows) ",")
+          "]}"))
+
+;; щит параметров GIP-ЩИТ (S) -> поля board таблицы
+(defun gip:panel-board (S / P)
+  (setq P (gip:g S "panel"))
+  (foreach kv (list (cons "name" (gip:gn S "board" "ЩР")) (cons "tpl" (gip:gn S "tpl" "k2")) (cons "area" (gip:gn S "area" 50.0))
+                    (cons "phases" (gip:gn S "phases" 1)) (cons "inA" (gip:gn S "inA" 40)) (cons "inPoles" (gip:gn S "inPoles" 3))
+                    (cons "brand" (gip:gn S "brand" "abb")) (cons "relay" (gip:g S "relay")) (cons "km" (gip:g S "km"))
+                    (cons "fire" (gip:g S "fire")) (cons "kup" (gip:g S "kup")) (cons "kc" (gip:gn S "kc" 0.4)) (cons "railW" (gip:gn S "railW" 18)))
+    (setq P (gip:s P (car kv) (cdr kv))))
+  (if (null (gip:g P "kcMode")) (setq P (gip:s P "kcMode" "manual")))
+  (if (null (gip:g P "mark")) (setq P (gip:s P "mark" "ВВГнг(А)-LS")))
+  (if (null (gip:g P "mode")) (setq P (gip:s P "mode" (if (= (gip:g S "prot") "rcd") "rcd" "dif"))))
+  P)
+
+;; щит, собранный окном ГИПЩИТ (по шаблону) -> строки таблицы
+(defun gip:rows-from-board (S BRD / rows n un d l k rc prot ph rcds)
+  (setq rows nil n 0 un 0 rcds nil)
+  (foreach d (gip:g BRD "all")
+    (setq k (gip:g d "kind"))
+    (cond
+      ((= k "rcd")
+       (setq un (1+ un) rcds (cons (cons (gip:g d "id") (strcat "u" (itoa un))) rcds))
+       (setq rows (cons (list '("t" . "u") (cons "id" (strcat "u" (itoa un))) (cons "In" (gip:g d "In")) '("idn" . 30) '("type" . "A") '("poles" . 2)
+                              (cons "phase" (if (member (gip:g d "phase") '("L1" "L2" "L3")) (gip:g d "phase") "L1")) '("lock")) rows)))
+      ((setq l (gip:g d "line"))
+       (setq n (1+ n))
+       (setq rc (cond ((= (gip:g l "cat") "light") "light") ((= (gip:g l "cat") "app") (if (= (gip:g l "id") "oven") "oven" "app"))
+                      ((= (gip:g l "cat") "custom") "other") (T (gip:g l "cat"))))
+       (setq prot (cond ((member k '("dif" "dif4")) "dif") ((and (gip:g d "feed") (gip:starts (gip:g d "feed") "rcd")) "rcd") (T "av")))
+       (setq ph (gip:gn l "phase" "L"))
+       (setq rows (cons (list '("t" . "g") (cons "id" (strcat "g" (itoa n))) (cons "cat" rc) (cons "name" (gip:g l "name")) (cons "prot" prot)
+                              (cons "poles" (gip:g l "poles")) (cons "In" (gip:g l "In")) (cons "p" (gip:g l "p")) '("idn" . 30)
+                              (cons "phase" (if (= ph "L123") "L123" ph)) '("lock") (cons "cable" (gip:g (gip:g (gip:g S "edit") (gip:g l "id")) "cable"))
+                              '("len") (cons "km" (= (gip:g d "feed") "km"))
+                              (cons "key" (if (member (gip:g l "id") '("hob" "oven" "fridge" "dw" "wash" "dry" "heater" "leak")) (gip:g l "id"))))
+                        rows)))))
+  (list (reverse rows) (+ n un)))
+
+;; JSON таблицы для текущего щита
+(defun gip:panel-text (S BRD / x)
+  (if (= (gip:g S "v") 2)
+    (gip:panel-json (gip:panel-board S) (gip:g S "rows") (max (gip:gn S "seq" 0) (length (gip:g S "rows"))))
+    (progn (setq x (gip:rows-from-board S BRD))
+           (gip:panel-json (gip:panel-board S) (car x) (cadr x)))))
+
+;; JSON таблицы (разобранный) + прежнее состояние -> состояние GIP-ЩИТ
+(defun gip:state-from-panel (j old / B S rows k)
+  (setq B (gip:g j "board"))
+  (setq S (if (and old (= (gip:g old "v") 2)) old
+            (gip:s (gip:s (gip:s (if old old (gip:default-state (gip:gn B "tpl" "k2"))) "order" nil) "breaks" nil) "breakAt" nil)))
+  (foreach k '("phases" "inA" "inPoles" "railW") (if (numberp (gip:g B k)) (setq S (gip:s S k (fix (gip:g B k))))))
+  (if (= (type (gip:g B "brand")) 'STR) (setq S (gip:s S "brand" (gip:g B "brand"))))
+  (foreach k '("relay" "km" "fire" "kup") (setq S (gip:s S k (if (gip:g B k) T nil))))
+  (setq S (gip:s S "kc" (gip:num-float (gip:g B "kc") 0.4)))
+  (setq S (gip:s S "area" (gip:num-float (gip:g B "area") 50.0)))
+  (setq S (gip:s S "board" (gip:gn B "name" "ЩР")))
+  (setq S (gip:s S "tpl" (gip:gn B "tpl" "k2")))
+  (setq S (gip:s S "prot" (if (= (gip:g B "mode") "rcd") "rcd" "dif")))
+  (setq rows (gip:g j "rows"))
+  (setq S (gip:s S "rows" rows) S (gip:s S "v" 2) S (gip:s S "seq" (gip:nz (gip:g j "seq") 0)) S (gip:s S "panel" B))
+  ;; для спецификации: помещения освещения (санузлы для КУП) и число линий тёплого пола
+  (setq S (gip:s S "light" (mapcar '(lambda (r / nm) (setq nm (gip:gn r "name" "")) (if (gip:starts nm "Освещение: ") (substr nm 12) nm))
+                                   (vl-remove-if-not '(lambda (r) (member (gip:g r "cat") '("light"))) rows))))
+  (setq S (gip:s S "floor" (length (vl-remove-if-not '(lambda (r) (= (gip:g r "cat") "floor")) rows))))
+  S)
+
+;; ---------------------------------------------------------------- обмен с панелью
+(setq *gip:panel-file* "gip_panel_in.json")
+(defun gip:read-file (fn / f l s)
+  (if (and fn (findfile fn) (setq f (open fn "r")))
+    (progn (setq s "")
+           (while (setq l (read-line f)) (setq s (strcat s l)))
+           (close f) s)))
+(defun gip:panel-save (S BRD)
+  (gip:dict-put "GIPPANEL" (if *gip:panel-raw* *gip:panel-raw* (gip:panel-text S BRD)))
+  (setq *gip:panel-raw* nil))
+
+;; панель -> чертёж: таблица записана в TEMPPREFIX\gip_panel_in.json, строим альбом
+(defun c:GIPPANELAPPLY (/ txt j S)
+  (setq txt (gip:read-file (strcat (getvar "TEMPPREFIX") *gip:panel-file*)))
+  (if (and txt (setq j (vl-catch-all-apply 'gip:json (list txt))) (not (vl-catch-all-error-p j)) (assoc "board" j))
+    (progn
+      (setq S (gip:state-from-panel j (gip:load-state)))
+      (setq *gip:panel-raw* txt)
+      (gip:run S)
+      (setq *gip:panel-raw* nil))
+    (princ "\nGIP-ЩИТ: нет данных из панели."))
+  (princ))
+
+;; чертёж с щитом, собранным раньше окном ГИПЩИТ, -> таблица для панели (без перестроения)
+(defun gip:panel-export (/ S)
+  (if (and (null (gip:dict-get "GIPPANEL")) (setq S (gip:load-state)))
+    (progn (setq *gip:b* (gip:brand (gip:g S "brand")))
+           (gip:dict-put "GIPPANEL" (gip:panel-text S (gip:board S)))))
+  (princ))
+
+;; ---------------------------------------------------------------- монтажная схема -> строки таблицы
+;; порядок УЗО-блоков и свободных групп — по месту их аппаратов на рейках; группы внутри блока — по своим местам.
+;; items — аппараты монтажной схемы по порядку (id рейка x номинал)
+(defun gip:rows-from-montage (S items / pos p rows units cur kill r id out cu)
+  (setq pos nil p 0)
+  (foreach it items (setq pos (cons (cons (car it) p) pos) p (1+ p)))
+  (setq rows (gip:g S "rows") units nil cur nil kill nil)
+  ;; удалённые с монтажной схемы аппараты
+  (foreach r rows
+    (setq id (gip:g r "id"))
+    (if (null (assoc (if (= (gip:g r "t") "u") (strcat "rcd:" id) (strcat "L:" id)) pos)) (setq kill (cons id kill))))
+  ;; единицы порядка: (место строка-УЗО-или-группа группы-блока)
+  (foreach r rows
+    (cond ((member (gip:g r "id") kill)
+           (if (= (gip:g r "t") "u") (setq cur nil)))
+          ((= (gip:g r "t") "u")
+           (setq units (cons (list (cdr (assoc (strcat "rcd:" (gip:g r "id")) pos)) r nil) units) cur T))
+          ((and cur (= (gip:g r "prot") "rcd"))
+           (setq cu (car units) units (cons (list (car cu) (cadr cu) (append (caddr cu) (list r))) (cdr units))))
+          (T
+           (setq cur nil)
+           (if (= (gip:g r "prot") "rcd") (setq r (gip:s r "prot" (if (member (gip:g r "cat") '("light" "elight" "hob" "ac" "reserve")) "av" "dif"))))
+           (setq units (cons (list (cdr (assoc (strcat "L:" (gip:g r "id")) pos)) r nil) units)))))
+  (setq units (gip:msort (reverse units) '(lambda (a b) (< (car a) (car b)))))
+  (setq out nil)
+  (foreach u units
+    (setq out (append out (list (cadr u))))
+    (if (caddr u)
+      (setq out (append out (gip:msort (caddr u) '(lambda (a b) (< (cdr (assoc (strcat "L:" (gip:g a "id")) pos)) (cdr (assoc (strcat "L:" (gip:g b "id")) pos)))))))))
+  ;; номиналы, исправленные на монтажной схеме
+  (mapcar '(lambda (r / it In)
+             (if (and (= (gip:g r "t") "g") (setq it (assoc (strcat "L:" (gip:g r "id")) items)) (setq In (gip:parse-in (nth 3 it))) (/= In (gip:g r "In")))
+               (gip:s (gip:s r "In" In) "cable" nil)
+               r)) out))
