@@ -25,6 +25,9 @@ jobs:
           python lisp/build_lsp.py
           python web/build.py
 
+      - name: Проверка модели панели
+        run: node web/test/test_model.js
+
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
 
