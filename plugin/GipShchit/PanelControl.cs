@@ -29,6 +29,7 @@ namespace Gip.Shchit
         private readonly Label _msg;
         private bool _pageReady;
         private bool _dirty;
+        private bool _activatePending;
         private string _pendingApply;
         private Document _pendingDoc;
         private readonly Dictionary<Document, DocLink> _docs = new Dictionary<Document, DocLink>();
@@ -79,7 +80,7 @@ namespace Gip.Shchit
                 _msg.Visible = false;
 
                 var dm = AcAp.DocumentManager;
-                dm.DocumentActivated += (s, e) => { if (_pageReady) PushActive("activate"); };
+                dm.DocumentActivated += (s, e) => _activatePending = true;
                 dm.DocumentToBeDestroyed += (s, e) => { _docs.Remove(e.Document); _exportAsked.Remove(e.Document); };
                 dm.DocumentCreated += (s, e) => Watch(e.Document);
                 foreach (Document d in dm) Watch(d);
@@ -96,7 +97,7 @@ namespace Gip.Shchit
 
         public void OnShown()
         {
-            if (_pageReady) PushActive("activate");
+            _activatePending = true;
         }
 
         // ------------------------------------------------------------------ события чертежа
@@ -115,13 +116,19 @@ namespace Gip.Shchit
             if (doc == null) return;
             try
             {
+                if (_activatePending && IsQuiet(doc))
+                {
+                    _activatePending = false;
+                    PushActive("activate");
+                    return;
+                }
                 if (_pendingApply != null && doc == _pendingDoc && IsQuiet(doc))
                 {
                     var text = _pendingApply;
                     _pendingApply = null;
                     WriteInput(text);
                     Link(doc).Last = text;
-                    doc.SendStringToExecute("_GIPPANELAPPLY ", true, false, false);
+                    doc.SendStringToExecute("GIPPANELAPPLY ", true, false, false);
                     return;
                 }
                 if (_dirty && IsQuiet(doc))
@@ -201,7 +208,7 @@ namespace Gip.Shchit
             {
                 case "ready":
                     _pageReady = true;
-                    PushActive("activate");
+                    _activatePending = true;
                     break;
                 case "apply":
                     if (body.Length > 2)

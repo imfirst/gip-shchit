@@ -37,6 +37,7 @@ jobs:
           New-Item -ItemType Directory -Force out/zip | Out-Null
           Copy-Item -Recurse $b out/zip/
           Copy-Item docs/INSTALL.txt "out/zip/УСТАНОВКА.txt"
+          Copy-Item docs/README_GIP_SHCHIT.txt "out/zip/ОПИСАНИЕ.txt"
           Compress-Archive -Path out/zip/* -DestinationPath out/GIP_SHCHIT_AutoCAD.zip -Force
           Compress-Archive -Path template/GIP_EOM_Shablon.dxf -DestinationPath out/GIP_EOM_Shablon.zip -Force
 
