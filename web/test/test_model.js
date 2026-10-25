@@ -23,6 +23,13 @@ for (const k of Object.keys(M.TEMPLATES)) for (const mode of ['dif', 'rcd']) for
   }
 }
 
+for (const k of ['studio', 'k1', 'k2']) {
+  ok(M.TEMPLATES[k].light.includes('СУ'), 'SU light label ' + k);
+  ok(M.TEMPLATES[k].sockets.includes('Розетки СУ'), 'SU socket label ' + k);
+}
+ok(M.TEMPLATES.k3.light.includes('СУ 1') && M.TEMPLATES.k3.light.includes('СУ 2'), 'SU room labels k3');
+ok(M.TEMPLATES.k3.sockets.includes('Розетки СУ 1') && M.TEMPLATES.k3.sockets.includes('Розетки СУ 2'), 'SU socket labels k3');
+
 // 2. 3-комнатная, 3 фазы, УЗО на группы
 let o = M.tplOptions('k3'); o.mode = 'rcd';
 let st = M.generate(o);
