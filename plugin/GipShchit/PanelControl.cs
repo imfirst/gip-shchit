@@ -31,6 +31,8 @@ namespace Gip.Shchit
         private bool _dirty;
         private bool _activatePending;
         private string _pendingApply;
+        private string _pendingPlan;
+        private const string PlanFile = "gip_plan_in.txt";
         private Document _pendingDoc;
         private readonly Dictionary<Document, DocLink> _docs = new Dictionary<Document, DocLink>();
         private readonly HashSet<Document> _exportAsked = new HashSet<Document>();
@@ -131,6 +133,14 @@ namespace Gip.Shchit
                     doc.SendStringToExecute("GIPPANELAPPLY ", true, false, false);
                     return;
                 }
+                if (_pendingPlan != null && doc == _pendingDoc && IsQuiet(doc))
+                {
+                    var plan = _pendingPlan;
+                    _pendingPlan = null;
+                    WriteText(PlanFile, plan);
+                    doc.SendStringToExecute("GIPPLANIMPORT ", true, false, false);
+                    return;
+                }
                 if (_dirty && IsQuiet(doc))
                 {
                     _dirty = false;
@@ -217,6 +227,14 @@ namespace Gip.Shchit
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
                     }
                     break;
+                case "plan":
+                    // страница «План из PDF»: подложка и значки — файлом для LISP-команды GIPPLANIMPORT
+                    if (body.Length > 10)
+                    {
+                        _pendingPlan = body;
+                        _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
+                    }
+                    break;
             }
         }
 
@@ -246,6 +264,16 @@ namespace Gip.Shchit
                 }
             }
             catch (System.Exception ex) { Log("Read " + key + ": " + ex); return null; }
+        }
+
+        /// <summary>Текст для LISP во временную папку AutoCAD (только ASCII: русские буквы уже записаны как \U+XXXX).</summary>
+        private static void WriteText(string name, string text)
+        {
+            var temp = AcAp.GetSystemVariable("TEMPPREFIX") as string;
+            if (string.IsNullOrEmpty(temp)) temp = Path.GetTempPath();
+            var sb = new StringBuilder(text.Length + 16);
+            foreach (var c in text) sb.Append(c > 126 ? '?' : c);
+            File.WriteAllText(Path.Combine(temp, name), sb.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n"), Encoding.ASCII);
         }
 
         private static void WriteInput(string text)

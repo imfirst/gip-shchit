@@ -33,6 +33,9 @@ jobs:
           Copy-Item $loader.FullName "$b/Contents/WebView2Loader.dll"
           Copy-Item dist/GIP_SHCHIT.lsp "$b/Contents/"
           Copy-Item dist/panel.html "$b/Contents/web/panel.html"
+          Copy-Item dist/plan.html "$b/Contents/web/plan.html"
+          New-Item -ItemType Directory -Force "$b/Contents/web/pdfjs" | Out-Null
+          Copy-Item dist/pdfjs/* "$b/Contents/web/pdfjs/"
           Get-ChildItem -Recurse $b | ForEach-Object { $_.FullName }
           New-Item -ItemType Directory -Force out/zip | Out-Null
           Copy-Item -Recurse $b out/zip/

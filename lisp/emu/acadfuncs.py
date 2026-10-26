@@ -243,6 +243,11 @@ class Preview(object):
         for p, pre in extra_paths:
             P = load(p); S = sections(P)
             self.load_blocks(S, pre)
+        # блоки, созданные программой через entmake BLOCK
+        for nm, ents in getattr(A, 'newblocks', {}).items():
+            self.blocks[nm] = [[[0, 'BLOCK'], [8, '0'], [2, nm], [70, '0'], [10, '0.0'], [20, '0.0'], [30, '0.0'], [3, nm]]] + \
+                [self.data2rec(t, d) for t, d in ents] + [[[0, 'ENDBLK'], [8, '0']]]
+            self.attdefs[nm] = []
 
     def load_blocks(self, S, pre):
         T = records(S['TABLES']); B = records(S['BLOCKS']); O = records(S['OBJECTS']); E = records(S['ENTITIES'])

@@ -17,6 +17,7 @@
   var rowCache = new Map();
   var prevNum = {};
   var host = (window.chrome && window.chrome.webview) ? window.chrome.webview : null;
+  if (host) { var pb = document.getElementById('planBtn'); if (pb) pb.hidden = false; }
 
   var I = {
     grip: '<svg viewBox="0 0 12 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="9" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="9" cy="13" r="1.4"/></g></svg>',

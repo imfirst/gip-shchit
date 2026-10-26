@@ -9,6 +9,7 @@
 | Часть | Где | Что делает |
 |---|---|---|
 | Панель «Группы щита» | `web/` → `dist/panel.html` | Таблица групп: перетаскивание, номера ЛО/ЛАО/ЛС, УЗО-блоки, фазы, Kс под выделенную мощность, проверки |
+| План из PDF | `web/src/plan` → `dist/plan.html` + `dist/pdfjs` (pdf.js, Apache-2.0) | Разбор векторного PDF дизайнера: легенда, поиск значков по образцу, подложка; LISP `GIPPLANIMPORT` вставляет блоки ГИП |
 | Плагин | `plugin/GipShchit` → `GipShchit.dll` | Палитра AutoCAD с WebView2, обмен с чертежом, команда `GIPPANEL` |
 | Построение альбома | `lisp/src` → `dist/GIP_SHCHIT.lsp` | Однолинейка, монтажка, спецификация, ведомость; команды `ГИПЩИТ`, `ГИППАНЕЛЬ`, `ГИПОБН`, `ГИПАВТО` |
 | Шаблон | `template/GIP_EOM_Shablon.dxf` | Листы альбома и блоки ГИП |
@@ -26,3 +27,4 @@
 - `node web/test/test_model.js` — модель таблицы.
 - `node web/test/ui_test.js`, `ui_test2.js`, `host_test.js` — страница в Chromium (Playwright), в т.ч. обмен с имитацией AutoCAD.
 - `node web/test/gen_states.js && python3 lisp/emu/test_panel.py` — построение альбома по таблице на эмуляторе AutoLISP/AutoCAD и обратная связь монтажка → таблица.
+- `node web/test/plan_test.mjs <pdf>` и `node web/test/plan_ui_test.js dist <pdf>`, затем `python3 lisp/emu/test_plan.py` — план из PDF дизайнера (PDF проекта в репозиторий не кладём).

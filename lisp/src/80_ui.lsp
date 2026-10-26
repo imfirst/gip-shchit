@@ -380,7 +380,7 @@
   (if (and (getvar "LISPSYS") (= (getvar "LISPSYS") 0))
     (alert "GIP-SHCHIT: set LISPSYS = 1 and restart AutoCAD (Unicode AutoLISP is required)."))
   (setq *gip:panel-raw* nil)
-  (foreach c (list (cons "ГИПЩИТ" 'c:GIPSHCHIT) (cons "ГИПОБН" 'c:GIPUPD) (cons "ГИПССЫЛКА" 'c:GIPLINK) (cons "ГИПАВТО" 'c:GIPAUTO) (cons "ГИППАНЕЛЬ" 'c:GIPPANELRU))
+  (foreach c (list (cons "ГИПЩИТ" 'c:GIPSHCHIT) (cons "ГИПОБН" 'c:GIPUPD) (cons "ГИПССЫЛКА" 'c:GIPLINK) (cons "ГИПАВТО" 'c:GIPAUTO) (cons "ГИППАНЕЛЬ" 'c:GIPPANELRU) (cons "ГИППЛАН" 'c:GIPPLAN))
     (vl-catch-all-apply 'vlax-add-cmd (list (car c) (cdr c))))
   (setq *gip:auto* T)
   (if (null *gip:reactor*) (setq *gip:reactor* (vlr-command-reactor nil '((:vlr-commandEnded . gip:on-cmd-ended)))))

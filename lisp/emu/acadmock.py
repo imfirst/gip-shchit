@@ -211,8 +211,23 @@ class Acad(object):
             nm = [p.cdr for p in data if isinstance(p, DPair) and p.car == 2][0]
             self.tables[typ][nm.upper()] = [[0, typ], [2, nm], [62, str([p.cdr for p in data if isinstance(p, DPair) and p.car == 62][0] if any(isinstance(p, DPair) and p.car == 62 for p in data) else 7)]]
             return Ename(self.new_handle(), self)
+        if typ == 'BLOCK':
+            nm = [p.cdr for p in data if isinstance(p, DPair) and p.car == 2][0]
+            self._newblk = {'name': nm, 'ents': []}
+            return L([DPair(0, 'BLOCK'), DPair(2, nm)])
+        if typ == 'ENDBLK':
+            nb = getattr(self, '_newblk', None)
+            if nb is None: raise LispError('entmake ENDBLK without BLOCK')
+            if not hasattr(self, 'newblocks'): self.newblocks = collections.OrderedDict()
+            self.newblocks[nb['name']] = nb['ents']
+            self.blockinfo[nb['name']] = {'attdefs': [], 'dyn': {}}
+            if hasattr(self, '_bu'): del self._bu
+            self._newblk = None
+            return nb['name']
         self.check_ent(typ, data)
-        if typ in ('BLOCK', 'ENDBLK'): raise LispError('entmake BLOCK not supported in emulator')
+        if getattr(self, '_newblk', None) is not None and typ not in ('XRECORD', 'DICTIONARY'):
+            self._newblk['ents'].append((typ, data))
+            return L([DPair(0, typ)])
         h = self.new_handle()
         e = Ent(h, typ, data, owner_h if typ in ('XRECORD', 'DICTIONARY') else '1F')
         e.xdata = xd

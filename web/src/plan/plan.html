@@ -1,0 +1,69 @@
+<title>План из PDF · ГИП</title>
+<style>
+/*CSS*/
+/*PLANCSS*/
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>План из PDF</h1><span class="sub" id="sub">квартира, мебель и значки дизайнера → подложка и блоки ГИП</span></div>
+  <div class="spacer"></div>
+  <a class="btn" id="backBtn" href="panel.html" hidden>← Группы щита</a>
+</header>
+
+<main class="pl">
+  <section class="pl-side" aria-label="Настройки импорта">
+    <div class="panel pl-step">
+      <h2>1. PDF дизайнера</h2>
+      <label class="drop" id="drop"><input type="file" id="file" accept="application/pdf,.pdf" hidden>
+        <span class="drop-t" id="dropT">Перетащите PDF сюда или <u>выберите файл</u></span>
+        <span class="drop-s">Векторный PDF из AutoCAD/ArchiCAD: листы с розетками и с выключателями/светильниками</span></label>
+      <div class="pl-prog" id="prog" hidden><div class="bar"><i id="progBar"></i></div><span id="progT"></span></div>
+    </div>
+
+    <div class="panel pl-step" id="pagesBox" hidden>
+      <h2>2. Листы</h2>
+      <table class="pl-t" id="pages"><thead><tr><th>Лист</th><th>Что на нём</th><th title="С какого листа брать квартиру и мебель для подложки">Подл.</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div class="panel pl-step" id="symBox" hidden>
+      <h2>3. Значки → блоки ГИП</h2>
+      <div class="seg pl-tabs" id="tabs" role="tablist"></div>
+      <p class="pl-hint" id="symHint"></p>
+      <div id="syms"></div>
+      <details class="pl-more" id="shapesWrap"><summary>Значки без легенды <span id="shapesN"></span></summary><p class="pl-hint">Фигуры, которых нет в легенде (обычно светильники). Укажите, чем их заменить — для этой студии запомнится.</p><div id="shapes"></div></details>
+    </div>
+
+    <div class="panel pl-step" id="layBox" hidden>
+      <details class="pl-more"><summary>Слои дизайнера</summary>
+        <p class="pl-hint">Квартира и мебель идут в подложку, значки — в поиск. Выбор запоминается.</p>
+        <table class="pl-t" id="layers"><tbody></tbody></table></details>
+    </div>
+
+    <div class="panel pl-step" id="goBox" hidden>
+      <h2>4. В чертёж</h2>
+      <div class="pl-row">
+        <label class="fld"><span class="lbl">Масштаб</span><span class="pl-sc">1 : <input id="den" class="w-s" inputmode="numeric"></span></label>
+        <label class="chk"><input type="checkbox" id="fills">Заливка стен</label>
+      </div>
+      <p class="pl-sum" id="sum"></p>
+      <div class="pl-row"><button class="btn primary" type="button" id="go">Вставить в чертёж</button><button class="btn" type="button" id="save">Сохранить файл для AutoCAD</button></div>
+      <p class="pl-hint" id="goHint">Подложка встанет одним блоком на листы «План … силовыми сетями», «… сетями освещения» и ДСУП шаблона ГИП, блоки ГИП — на места значков. Повторная вставка заменяет прежнюю.</p>
+    </div>
+  </section>
+
+  <section class="pl-view panel" aria-label="Просмотр">
+    <div class="pl-vbar"><span id="vTitle">Просмотр</span><span class="spacer"></span>
+      <span class="pl-legend"><i class="k-r"></i>розетки <i class="k-v"></i>выключатели <i class="k-c"></i>светильники <i class="k-n"></i>не ставить</span>
+      <button class="btn" type="button" id="fit">Вписать</button></div>
+    <canvas id="cv"></canvas>
+    <div class="pl-empty" id="empty">Здесь появится план дизайнера с найденными значками</div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/*PLAN*/
+</script>
+<script type="module">
+/*PLANUI*/
+</script>
