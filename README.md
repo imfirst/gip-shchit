@@ -28,3 +28,4 @@
 - `node web/test/ui_test.js`, `ui_test2.js`, `host_test.js` — страница в Chromium (Playwright), в т.ч. обмен с имитацией AutoCAD.
 - `node web/test/gen_states.js && python3 lisp/emu/test_panel.py` — построение альбома по таблице на эмуляторе AutoLISP/AutoCAD и обратная связь монтажка → таблица.
 - `node web/test/plan_test.mjs <pdf>` и `node web/test/plan_ui_test.js dist <pdf>`, затем `python3 lisp/emu/test_plan.py` — план из PDF дизайнера (PDF проекта в репозиторий не кладём).
+- `python3 lisp/emu/test_order.py` — порядок прорисовки монтажной схемы: DIN-рейки под аппаратами, надписи блоков GIPM_* поверх заливок (`lisp/patch_template_order.py` правит шаблон).

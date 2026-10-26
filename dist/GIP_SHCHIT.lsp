@@ -2101,8 +2101,47 @@
       (entmod (append (entget e) (list (list -3 (list *gip:app* (cons 1000 *gip:tag*)) (list *gip:dev-app* (cons 1000 (gip:g d "id")))))))
       obj)))
 
+;; ---------------------------------------------------------------- порядок прорисовки
+;; таблица порядка прорисовки (ACAD_SORTENTS) пространства/блока owner; mk — создать, если нет
+(defun gip:sortents (owner mk / ext st)
+  (setq ext (vl-catch-all-apply 'vla-getextensiondictionary (list owner)))
+  (if (not (vl-catch-all-error-p ext))
+    (progn
+      (setq st (vl-catch-all-apply 'vla-getobject (list ext "ACAD_SORTENTS")))
+      (if (and (vl-catch-all-error-p st) mk) (setq st (vl-catch-all-apply 'vla-addobject (list ext "ACAD_SORTENTS" "AcDbSortentsTable"))))
+      (if (not (vl-catch-all-error-p st)) st))))
+;; переместить объекты (enames) на задний (bottom=T) или передний план в owner
+(defun gip:draworder (owner enames bottom / st objs arr)
+  (setq objs (vl-remove nil (mapcar '(lambda (e) (if (and e (entget e)) (vlax-ename->vla-object e))) enames)))
+  (if (and objs (setq st (gip:sortents owner T)))
+    (progn
+      (setq arr (vlax-make-safearray vlax-vbObject (cons 0 (1- (length objs)))))
+      (vlax-safearray-fill arr objs)
+      (vl-catch-all-apply (if bottom 'vla-movetobottom 'vla-movetotop) (list st arr)))))
+;; объекты, созданные после mark (entlast до рисования)
+(defun gip:ents-after (mark / e r)
+  (setq e (if mark (entnext mark) (entnext)) r nil)
+  (while e (setq r (cons e r) e (entnext e)))
+  (reverse r))
+;; блоки аппаратов GIPM_* из прежних шаблонов: надписи шли раньше заливок (DEKraft) и закрывались ими —
+;; поднять надписи наверх в самом блоке (один раз: у блока появляется таблица порядка прорисовки)
+(defun gip:fix-mblocks (/ blks b nm e ed seenT bad late)
+  (setq blks (vla-get-blocks (vla-get-activedocument (vlax-get-acad-object))))
+  (vlax-for b blks
+    (setq nm (vla-get-name b))
+    (if (and (wcmatch nm "GIPM_*") (null (gip:sortents b nil)))
+      (progn
+        (setq e (cdr (assoc -2 (tblsearch "BLOCK" nm))) seenT nil bad nil late nil)
+        (while e
+          (setq ed (entget e))
+          (cond ((= (cdr (assoc 0 ed)) "HATCH") (if seenT (setq bad T)))
+                ((member (cdr (assoc 0 ed)) '("TEXT" "MTEXT" "ATTDEF")) (setq seenT T late (cons e late))))
+          (setq e (entnext e)))
+        ;; заливка идёт после надписи — надписи наверх
+        (if bad (gip:draworder b (reverse late) nil))))))
+
 ;; ---------------------------------------------------------------- построение монтажной схемы
-(defun gip:montage (S BRD Fm / box tall is3 TAGH COMB rails all NR ri acc i d runs cur k jm seen dd chain CONN buses busOrder inD xb fire km c2 rns
+(defun gip:montage (S BRD Fm / mark0 backs box tall is3 TAGH COMB rails all NR ri acc i d runs cur k jm seen dd chain CONN buses busOrder inD xb fire km c2 rns
                      down INN-k use used ph rs net src g w rn xbSlot lanes trunks TL TR x0 SWD y chY railC hasTag maxH h busY SH bx b nl inc
                      peN peW peX SWX swPts hasSw e PA B2 pts l ya yb xt ly xr ca cb XEXT xa xbx mid ty tx sc BW BH)
   (setq is3 (= (gip:g S "phases") 3) TAGH 50.0 COMB 16.0)
@@ -2288,6 +2327,8 @@
     x)
   ;; ---- рисование
   (gip:layer *gip:mlay*)
+  (vl-catch-all-apply 'gip:fix-mblocks nil)
+  (setq mark0 (entlast))
   (gip:mrrect 2.0 2.0 (- SWD 4) (- SH 4) 16.0 9079434)
   (gip:mrrect 22.0 22.0 (- SWD 44) (- SH 44) 8.0 10132122)
   (foreach p (list (list 34.0 34.0) (list (- SWD 34) 34.0) (list 34.0 (- SH 34)) (list (- SWD 34) (- SH 34)))
@@ -2295,6 +2336,8 @@
   (foreach c railC
     (gip:mrect (- x0 14) (- c 50) (+ (* (gip:g S "railW") *gip:MW*) 28) 100.0 16053492 11908533)
     (gip:mrect (- x0 14) (- c 17) (+ (* (gip:g S "railW") *gip:MW*) 28) 34.0 14474460 10132122))
+  ;; корпус и DIN-рейки — на задний план (под аппараты), независимо от прежних DRAWORDER в чертеже
+  (setq backs (gip:ents-after mark0))
   ;; шина PE
   (setq peN (min 26 (max 12 (+ 4 (length (vl-remove-if-not '(lambda (d) (gip:g d "line")) all))))))
   (setq peW (+ (* peN 13) 22) peX (max x0 (- SWD TR peW)))
@@ -2359,6 +2402,7 @@
     (if (gip:g d "line")
       (gip:loadtag (+ x0 (gip:g d "xo") 2) (+ (nth (gip:g d "rail") railC) (/ (nth (gip:g d "rail") maxH) 2.0) 6) (- w 4) TAGH d)
       (gip:facetag (+ x0 (gip:g d "xo")) (+ (gip:m-devtop d) (* (gip:g d "h") 0.56)) w d)))
+  (vl-catch-all-apply 'gip:draworder (list (gip:ms) backs T))
   all)
 
 (defun gip:end-mark (p net)

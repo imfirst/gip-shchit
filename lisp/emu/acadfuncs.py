@@ -192,6 +192,12 @@ def install_acad(I, A):
     def findfile(n):
         return n if os.path.exists(n) else None
 
+    def _draworder(sa, bottom):
+        hs = [obj2ename(o).h for o in sa.ref]; hs_set = set(hs)
+        rest = [h for h in A.order if h not in hs_set]
+        mv = [h for h in A.order if h in hs_set]
+        A.order[:] = (mv + rest) if bottom else (rest + mv)
+        return None
     d = {
         'ENTMAKE': lambda l: (A.entmake(l) and l), 'ENTMAKEX': lambda l: A.entmake(l), 'ENTGET': lambda e, apps=None: A.entget(e, apps),
         'ENTMOD': A.entmod, 'ENTDEL': A.entdel, 'HANDENT': A.handent, 'ENTLAST': A.entlast, 'ENTNEXT': entnext,
@@ -202,6 +208,12 @@ def install_acad(I, A):
         'GETVAR': getvar, 'SETVAR': setvar,
         'VLAX-GET-ACAD-OBJECT': lambda: Vla('APP'), 'VLA-GET-ACTIVEDOCUMENT': lambda app: Vla('DOC'),
         'VLA-GET-MODELSPACE': lambda doc: Vla('MS'),
+        # порядок прорисовки пространства модели (ACAD_SORTENTS): перестановка в A.order
+        'VLAX-MAKE-SAFEARRAY': lambda typ, *dims: Vla('SA', []), 'VLAX-SAFEARRAY-FILL': lambda sa, l: (sa.ref.extend(aslist(l)), sa)[1],
+        'VLA-GETEXTENSIONDICTIONARY': lambda o: Vla('XD', o.kind) if isinstance(o, Vla) and o.kind == 'MS' else (_ for _ in ()).throw(LispError('no xdict')),
+        'VLA-GETOBJECT': lambda d, k: Vla('SORT') if d.kind == 'XD' and k == 'ACAD_SORTENTS' and A.__dict__.get('sortents') else (_ for _ in ()).throw(LispError('no key')),
+        'VLA-ADDOBJECT': lambda d, k, c: (A.__dict__.__setitem__('sortents', True), Vla('SORT'))[1],
+        'VLA-MOVETOBOTTOM': lambda st, sa: _draworder(sa, True), 'VLA-MOVETOTOP': lambda st, sa: _draworder(sa, False),
         'VLAX-3D-POINT': lambda x, y=None, z=0.0: VPt(aslist(x)[:3] if y is None else [x, y, z]),
         'VLAX-GET': vget, 'VLAX-PUT': vput, 'VLAX-INVOKE': vinvoke,
         'VLAX-GET-PROPERTY': vget, 'VLAX-PUT-PROPERTY': vput, 'VLAX-INVOKE-METHOD': vinvoke,
