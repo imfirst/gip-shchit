@@ -75,14 +75,66 @@
                             (cons 90 (length pts)) (cons 70 (if (eq (car it) 'C) 1 0)))
                       pts)))))
 
-;; листы планов шаблона ГИП: силовой (p), освещения (l), ДСУП (d)
+;; Роль листа для импорта: распознаём только заголовки трёх планов квартиры.
+(defun gip:plan-title-role (ttl / t1)
+  (setq t1 (gip:lower (gip:mt-strip ttl)))
+  (cond ((and (gip:has t1 "план") (gip:has t1 "силовыми")) "plan_p")
+        ((and (gip:has t1 "план") (gip:has t1 "освещения")) "plan_l")
+        ((and (gip:has t1 "план") (gip:has t1 "дсуп")) "plan_d")
+        (T nil)))
+
+;; Отдельный поиск рамок для импорта плана.
+;; В отличие от общего поиска альбома, НЕ отбрасываем рамки и заголовки с GIPGEN XData:
+;; импорт должен работать и после запуска других инструментов ГИП.
+;; Ищем MTEXT и TEXT около штатного места названия листа; если оно сдвинуто,
+;; используем ближайший подходящий заголовок внутри рамки.
+(defun gip:plan-template-sheets (/ ss tss i e o nm F ttl role bestRole bestScore j te tp dx dy cand cr sc sw shh res)
+  (setq res nil
+        sw (if (and (boundp '*gip:SW*) *gip:SW*) *gip:SW* 20960.5)
+        shh (if (and (boundp '*gip:SHH*) *gip:SHH*) *gip:SHH* 14850.0)
+        ss (ssget "_X" '((0 . "INSERT")))
+        tss (ssget "_X" '((0 . "MTEXT,TEXT"))))
+  (if ss
+    (progn
+      (setq i 0)
+      (while (< i (sslength ss))
+        (setq e (ssname ss i) i (1+ i)
+              o (vlax-ename->vla-object e)
+              nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
+        (if (and (= (type nm) 'STR) (= nm "А3-GIP-ALBOM"))
+          (progn
+            (setq F (cdr (assoc 10 (entget e)))
+                  ttl "" bestRole nil bestScore nil j 0)
+            (if tss
+              (while (< j (sslength tss))
+                (setq te (ssname tss j) j (1+ j)
+                      tp (cdr (assoc 10 (entget te)))
+                      dx (- (car tp) (car F))
+                      dy (- (cadr tp) (cadr F))
+                      cand (gip:mt-plain (entget te))
+                      cr (gip:plan-title-role cand))
+                (if (and cr (<= (- sw) dx) (< dx -1000.0) (>= dy -100.0) (<= dy shh))
+                  (progn
+                    ;; Предпочитаем штатную точку названия: X=-6250, Y=625 относительно рамки.
+                    (setq sc (+ (* (+ dx 6250.0) (+ dx 6250.0))
+                                (* (- dy 625.0) (- dy 625.0))))
+                    (if (or (null bestScore) (< sc bestScore))
+                      (setq bestScore sc ttl cand bestRole cr)))))
+            (setq res (cons (list (cons "F" F) (cons "e" e) (cons "title" ttl)
+                                  (cons "no" nil) (cons "tot" nil)
+                                  (cons "role" (if bestRole bestRole "other")))
+                            res)))))
+      (reverse res))
+    nil))
+
+;; Листы с планами шаблона ГИП: силовой (p), освещения (l), ДСУП (d).
 (defun gip:plan-sheets (/ sh r)
   (setq r nil)
-  (foreach sh (gip:template-sheets)
+  (foreach sh (gip:plan-template-sheets)
     (cond ((= (gip:g sh "role") "plan_p") (setq r (cons (cons "p" (gip:g sh "F")) r)))
           ((= (gip:g sh "role") "plan_l") (setq r (cons (cons "l" (gip:g sh "F")) r)))
           ((= (gip:g sh "role") "plan_d") (setq r (cons (cons "d" (gip:g sh "F")) r)))))
-  r)
+  (reverse r))
 
 ;; вставка с меткой GIPPLAN
 (defun gip:plan-insert (name x y rot lay / obj e)
