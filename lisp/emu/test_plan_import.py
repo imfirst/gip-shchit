@@ -30,7 +30,7 @@ for en in frames:
 generic = run('(gip:template-sheets)')
 assert not generic, "Тест ожидал помеченные рамки, которые общий поиск альбома должен исключить"
 
-sheet_rows = run('(mapcar \'(lambda (x) (list (gip:g x "role") (gip:g x "F"))) (gip:plan-template-sheets)')
+sheet_rows = run('(mapcar \'(lambda (x) (list (gip:g x "role") (gip:g x "F"))) (gip:plan-template-sheets))')
 roles = {row[0] for row in sheet_rows}
 assert {"plan_p", "plan_l", "plan_d"}.issubset(roles), "Импорт не распознал все три листа планов: %r" % (roles,)
 power_frame = next(row[1] for row in sheet_rows if row[0] == "plan_p")
