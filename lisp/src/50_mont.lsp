@@ -64,11 +64,12 @@
   (setq st (gip:g d "st") k (gip:g d "kind"))
   (cond (st (strcat "GIPM_" st))
         ((= k "xb") (strcat "GIPM_G_xb_" (itoa (gip:g d "w"))))
+        ((and (= k "in") (= (gip:g d "inType") "qs")) (strcat "GIPM_G_qs_" (itoa (gip:g d "w")))
         ((member (gip:g s "brand") '("iek" "chint" "abb" "dekraft"))
          (strcat "GIPM_G_" (gip:g s "brand") "_" (if (and (= k "rcd") (= (gip:g d "w") 4)) "fire" k) "_" (itoa (gip:g d "w"))))
         (T (strcat "GIPM_G_iek_" k "_" (itoa (gip:g d "w"))))))
 
-(defun gip:rating (d) (if (member (gip:g d "kind") '("rcd" "fire")) (strcat (itoa (gip:g d "In")) "A") (strcat "C" (itoa (gip:g d "In")))))
+(defun gip:rating (d) (if (or (member (gip:g d "kind") '("rcd" "fire")) (and (= (gip:g d "kind") "in") (= (gip:g d "inType") "qs"))) (strcat (itoa (gip:g d "In")) "A") (strcat "C" (itoa (gip:g d "In")))))
 
 ;; клемма аппарата относительно левого верхнего угла
 (defun gip:term (d side pole / st tr lst t1 kx arr i)
@@ -255,7 +256,7 @@
   (foreach ln lines (gip:mtext (+ x (/ w 2.0)) (+ y 18.5 (* i 9.5)) 8.2 ln 1118481 1) (setq i (1+ i))))
 (defun gip:facetag (x y w d / n ww)
   (setq n (cond ((= (gip:g d "id") "c2") "Защита катушки KM1")
-                ((= (gip:g d "kind") "in") "Вводной автомат") ((= (gip:g d "kind") "rn") "Реле напряжения")
+                ((and (= (gip:g d "kind") "in") (= (gip:g d "inType") "qs")) "Вводной рубильник") ((= (gip:g d "kind") "in") "Вводной автомат") ((= (gip:g d "kind") "rn") "Реле напряжения")
                 ((= (gip:g d "kind") "fire") "УЗО противопожарное") ((= (gip:g d "kind") "km") "Контактор")
                 ((= (gip:g d "kind") "rcd") (strcat "УЗО гр. " (itoa (gip:gn d "rcdNo" 0)))) (T nil)))
   (cond ((= (gip:g d "kind") "xb") (gip:tagbox (+ x 4) (+ y (* (gip:g d "h") 0.32)) (strcat (gip:gn d "ref" "") " Кросс-модуль") (- w 8)))
@@ -271,11 +272,31 @@
     (gip:mline (- cx 3) (+ y 5) (+ cx 3) (+ y 11) 7829367 0.0) (gip:mline (+ cx 3) (+ y 5) (- cx 3) (+ y 11) 7829367 0.0)
     (setq i (1+ i))))
 
+;; Условный трафарет выключателя нагрузки — не изображает расцепитель автомата.
+(defun gip:make-qs-block (bn w / i x xmax)
+  (if (not (tblsearch "BLOCK" bn))
+    (progn
+      (setq xmax (* (max 1 w) 50.2))
+      (entmake (list '(0 . "BLOCK") (cons 2 bn) '(70 . 0) '(10 0.0 0.0 0.0)))
+      (entmake (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "0") '(62 . 7) '(100 . "AcDbPolyline") '(90 . 4) '(70 . 1)
+                     '(10 2.0 42.0) (cons 10 (list (- xmax 2.0) 42.0)) (cons 10 (list (- xmax 2.0) 182.0)) '(10 2.0 182.0)))
+      (setq i 0)
+      (while (< i (max 1 w))
+        (setq x (+ 25.1 (* i 50.2)))
+        (entmake (list '(0 . "LINE") '(100 . "AcDbEntity") '(8 . "0") '(62 . 7) '(100 . "AcDbLine") (list 10 x 10.0 0.0) (list 11 x 42.0 0.0)))
+        (entmake (list '(0 . "LINE") '(100 . "AcDbEntity") '(8 . "0") '(62 . 7) '(100 . "AcDbLine") (list 10 x 182.0 0.0) (list 11 x 214.0 0.0)))
+        (entmake (list '(0 . "LINE") '(100 . "AcDbEntity") '(8 . "0") '(62 . 7) '(100 . "AcDbLine") (list 10 x 42.0 0.0) (list 11 (+ x 17.0) 112.0 0.0)))
+        (entmake (list '(0 . "LINE") '(100 . "AcDbEntity") '(8 . "0") '(62 . 7) '(100 . "AcDbLine") (list 10 (+ x 21.0) 112.0 0.0) (list 11 (+ x 25.0) 112.0 0.0)))
+        (setq i (1+ i)))
+      (entmake '((0 . "ENDBLK")))))
+  (tblsearch "BLOCK" bn))
+
 ;; вставка аппарата: блок GIPM_*, атрибуты номинала, метки GIPGEN + GIPDEV(id)
 (defun gip:mfill (tpl rt ma In)
   (gip:repl (gip:repl (gip:repl tpl "{R}" (strcat " " rt)) "{M}" (strcat " " ma)) "{I}" (if In (itoa In) "")))
 (defun gip:mdev (d x y s is3 / bn obj e rt ma pairs sx vb)
   (setq bn (gip:mblock d s is3) sx (caddr *gip:mo*))
+  (if (and (= (gip:g d "kind") "in") (= (gip:g d "inType") "qs") (not (tblsearch "BLOCK" bn))) (gip:make-qs-block bn (gip:g d "w")))
   ;; контактор шире трафарета (ESB40/63 — 3 модуля): растянуть по ширине
   (if (and (= (gip:g d "kind") "km") (gip:g d "st") (setq vb (cdr (assoc (gip:g d "st") *gip:st-vbw*))))
     (setq sx (* sx (/ (* (gip:g d "w") *gip:MW*) vb))))
