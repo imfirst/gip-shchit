@@ -72,10 +72,13 @@ assert exp_refs[0].ins["pt"][1] == power_frame[1] + 500.0
 
 # Центр подложки должен находиться в габаритах целевой рамки, а не по внешней
 # координате листа или в произвольной точке модели.
+plan_frame_ys = [row[1][1] for row in sheet_rows if row[0] in ("plan_p", "plan_l", "plan_d")]
 for e in plan_refs:
     x, y, _ = e.ins["pt"]
     assert power_frame[0] - 20960.5 < x < power_frame[0]
-    assert power_frame[1] < y < power_frame[1] + 14850.0
+    # Каждый план проверяется относительно своей рамки; все три листа разнесены по Y.
+    frame_y = min(plan_frame_ys, key=lambda fy: abs(y - (fy + 5890.0)))
+    assert frame_y < y < frame_y + 14850.0
 
 assert any(name.startswith("GIP_PLAN_EXP_") for name in A.newblocks), "Геометрия экспликации не создана"
 print("PDF plan import: 3 frames, explication and NUM-POM_GIP — ALL OK")
