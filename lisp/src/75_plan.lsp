@@ -113,7 +113,7 @@
                       dy (- (cadr tp) (cadr F))
                       cand (gip:mt-plain (entget te))
                       cr (gip:plan-title-role cand))
-                (if (and cr (<= (- sw) dx) (< dx -1000.0) (>= dy -100.0) (<= dy shh))
+                (if (and cr (>= dx -8750.0) (<= dx -3750.0) (>= dy -1875.0) (<= dy 3125.0))
                   (progn
                     ;; Предпочитаем штатную точку названия: X=-6250, Y=625 относительно рамки.
                     (setq sc (+ (* (+ dx 6250.0) (+ dx 6250.0))

@@ -33,6 +33,8 @@ assert not generic, "Тест ожидал помеченные рамки, ко
 sheet_rows = run('(mapcar \'(lambda (x) (list (gip:g x "role") (gip:g x "F"))) (gip:plan-template-sheets))')
 roles = {row[0] for row in sheet_rows}
 assert {"plan_p", "plan_l", "plan_d"}.issubset(roles), "Импорт не распознал все три листа планов: %r" % (roles,)
+assert sum(1 for row in sheet_rows if row[0] in {"plan_p", "plan_l", "plan_d"}) == 3, "Импорт должен выбирать ровно три целевых листа: %r" % (roles,)
+assert all(sum(1 for row in sheet_rows if row[0] == role) == 1 for role in ("plan_p", "plan_l", "plan_d")), "Целевой лист распознан повторно: %r" % (roles,)
 power_frame = next(row[1] for row in sheet_rows if row[0] == "plan_p")
 
 with tempfile.TemporaryDirectory() as tmp:
