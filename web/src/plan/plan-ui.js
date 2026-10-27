@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const host = window.chrome && window.chrome.webview;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const BCOL = { R: '#2563eb', V: '#d33f3f', C: '#23935a', '': '#8798b6' };
-const ROLE = { p: 'Розетки (силовой план)', l: 'Выключатели и светильники', '': 'Не брать' };
+const ROLE = { p: 'План для подложки', '': 'Не использовать' };
 const LCLS = { flat: 'Квартира', mebel: 'Мебель', sym: 'Значки', skip: 'Не брать' };
 if (host || /[?&]panel\b/.test(location.search)) $('backBtn').hidden = false;
 
@@ -14,7 +14,7 @@ function loadMem() { try { return Object.assign({ lay: {}, tpl: {}, shp: {} }, J
 function saveMem() { try { localStorage.setItem(MEM_KEY, JSON.stringify(S.mem)); } catch (e) { /* без памяти */ } }
 const labKey = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
 
-const S = { name: '', doc: null, pages: [], under: null, cur: null, mem: loadMem(), den: null, fills: false, hot: null, busy: false };
+const S = { name: '', doc: null, pages: [], under: null, cur: null, rooms: [], roomPageNo: null, mem: loadMem(), den: null, fills: false, hot: null, busy: false };
 
 /* ------------------------------------------------------------------ pdf.js */
 let pdfjs = null;
@@ -41,7 +41,7 @@ async function titleOf(no) {
   const top = items.filter((t) => t.y > vp.height * 0.75).sort((a, b) => b.h - a.h)[0];
   return ((plan || top || { s: 'Лист ' + no }).s).slice(0, 80);
 }
-const roleOf = (t) => /розет|силов/i.test(t) ? 'p' : /выключ|освещ|светил/i.test(t) ? 'l' : '';
+const roleOf = (t) => /план|квартир|помещ|мебел/i.test(t) ? 'p' : '';
 
 async function openFile(file) {
   if (!file) return;
@@ -61,6 +61,7 @@ async function openFile(file) {
     S.under = (pPage || lPage || S.pages[0]).no;
     S.cur = (pPage || lPage || S.pages[0]).no;
     await analyzeAll();
+    await scanRoomSchedules(pj);
   } catch (e) {
     console.error(e); toast('Не удалось открыть PDF: ' + (e && e.message || e), 6000);
   } finally { S.busy = false; prog(false); }
@@ -76,7 +77,7 @@ async function analyzePage(pg) {
   pg.A.shapes.forEach((g) => { if (!pg.mapping[g.key]) pg.mapping[g.key] = S.mem.shp[g.sig] || { b: '', v: 0, n: 1 }; });
 }
 async function analyzeAll() {
-  const need = S.pages.filter((p) => p.role || p.no === S.under);
+  const need = S.pages.filter((p) => p.no === S.under);
   for (let i = 0; i < need.length; i++) {
     prog(true, (i + 0.3) / need.length, 'Разбираю лист ' + need[i].no + ' из ' + S.doc.numPages + '…');
     await new Promise((r) => setTimeout(r, 0));
@@ -85,13 +86,44 @@ async function analyzeAll() {
   prog(false);
 }
 
+
+function parseRoomLines(value) {
+  const out = [], seen = new Set();
+  String(value || '').split(/\r?\n/).forEach((line) => {
+    const m = /^\s*(\d{1,2})\s*[;|,\t]\s*(.+?)\s*$/.exec(line);
+    if (!m) return;
+    const no = +m[1], name = m[2].trim();
+    if (no < 1 || no > 99 || !name || seen.has(no)) return;
+    seen.add(no); out.push({ no, name });
+  });
+  return out.sort((a, b) => a.no - b.no);
+}
+async function scanRoomSchedules(pj) {
+  let best = { no: null, rooms: [], score: 0, title: '' };
+  for (const pg of S.pages) {
+    let D;
+    try { D = pg.D || await P.extractTextPage(pj, S.doc, pg.no); } catch (e) { continue; }
+    const r = P.extractRooms(D);
+    if (r && r.rooms && r.rooms.length && (r.rooms.length > best.rooms.length || (r.rooms.length === best.rooms.length && r.score > best.score)))
+      best = { no: pg.no, rooms: r.rooms, score: r.score, title: r.title || '' };
+  }
+  S.rooms = best.rooms;
+  S.roomPageNo = best.no;
+  $('roomsText').value = S.rooms.map((r) => r.no + '; ' + r.name).join('\n');
+  $('roomInfo').textContent = S.rooms.length
+    ? 'Найдено помещений: ' + S.rooms.length + ' на листе ' + S.roomPageNo + '. Проверьте распознанные названия и номера.'
+    : 'Автоматическая экспликация не найдена. Введите строки вручную в формате «1; Прихожая». Сканированные PDF автоматически не распознаются.';
+}
+
 /* ------------------------------------------------------------------ отрисовка панели */
 function renderAll(fit) {
   const has = !!S.doc;
-  ['pagesBox', 'symBox', 'layBox', 'goBox'].forEach((id) => { $(id).hidden = !has; });
+  ['pagesBox', 'roomBox', 'layBox', 'goBox'].forEach((id) => { $(id).hidden = !has; });
+  $('symBox').hidden = true;
+  $('tabs').hidden = true;
   $('empty').hidden = has;
   if (!has) return;
-  renderPages(); renderTabs(); renderSyms(); renderLayers(); renderSum();
+  renderPages(); renderLayers(); renderSum();
   $('den').value = S.den || 50;
   view.page = null; drawView(fit);
 }
@@ -165,12 +197,11 @@ function placedCounts() {
   return c;
 }
 function renderSum() {
-  const c = placedCounts(), up = S.pages.find((p) => p.no === S.under);
-  $('sum').innerHTML = 'Будет вставлено: розеток и выводов <b>' + c.R + '</b>, выключателей <b>' + c.V + '</b>, светильников <b>' + c.C + '</b>' +
-    (up && up.A ? '. Подложка с листа ' + up.no + '.' : '.');
+  const up = S.pages.find((p) => p.no === S.under), markers = up && up.A ? P.findRoomMarkers(up.A, S.rooms) : [];
+  $('sum').innerHTML = 'Подложка: <b>' + (up ? 'лист ' + up.no : 'не выбран') + '</b>; помещений в экспликации: <b>' + S.rooms.length + '</b>; найдено номеров на плане: <b>' + markers.length + '</b>.';
   $('go').hidden = !host; $('save').classList.toggle('primary', !host);
   $('goHint').textContent = host
-    ? 'Подложка встанет одним блоком на листы планов шаблона ГИП (силовой, освещения, ДСУП), блоки ГИП — на места значков. Повторная вставка заменяет прежнюю.'
+    ? 'Подложка вставляется одним блоком на листы силовых сетей, освещения и ДСУП; экспликация — на силовом плане. Перенос значков электрики дизайнера отключён. Размеры и выноски на общих слоях нужно проверить и при необходимости удалить вручную.'
     : 'Откройте эту страницу в панели AutoCAD (ГИППАНЕЛЬ → «План из PDF»), чтобы вставить сразу. Или сохраните файл и выполните в AutoCAD команду ГИППЛАН.';
 }
 
@@ -275,6 +306,7 @@ $('layers').addEventListener('change', async (e) => {
   S.pages.forEach((p) => { p.A = null; });
   await analyzeAll(); view.cache = null; renderAll(true);
 });
+$('roomsText').addEventListener('input', () => { S.rooms = parseRoomLines($('roomsText').value); $('roomInfo').textContent = 'В экспликации: ' + S.rooms.length + ' строк. Формат: номер; наименование. Повторные номера пропускаются.'; renderSum(); });
 $('den').addEventListener('change', (e) => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) S.den = v; e.target.value = S.den; });
 $('fills').addEventListener('change', (e) => { S.fills = e.target.checked; });
 
@@ -290,20 +322,20 @@ function offsetTo(pg, U) {
 function build() {
   const U = S.pages.find((p) => p.no === S.under);
   if (!U || !U.A) { toast('Выберите лист для подложки'); return null; }
-  const pages = S.pages.filter((p) => p.role && p.A).map((p) => { const o = offsetTo(p, U.A); return { A: p.A, sheet: p.role, mapping: p.mapping, dx: o[0], dy: o[1] }; });
-  return P.buildOutput({ underlay: U.A, pages, scaleDen: S.den || U.A.scaleDen, fills: S.fills, name: S.name });
+  const markers = P.findRoomMarkers(U.A, S.rooms);
+  return P.buildOutput({ underlay: U.A, pages: [], includeSymbols: false, rooms: S.rooms, markers: markers, scaleDen: S.den || U.A.scaleDen, fills: S.fills, name: S.name });
 }
 $('go').addEventListener('click', () => {
   const out = build(); if (!out) return;
   host.postMessage('plan\n' + out.text);
-  toast('Отправлено в AutoCAD: подложка и ' + out.nSym + ' блоков ГИП. Смотрите листы планов.', 6000);
+  toast('Отправлено в AutoCAD: подложка, экспликация и ' + out.nRoomMarkers + ' номеров помещений. Смотрите листы планов.', 6000);
 });
 $('save').addEventListener('click', () => {
   const out = build(); if (!out) return;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([out.text], { type: 'text/plain' }));
   a.download = 'gip_plan_in.txt'; document.body.appendChild(a); a.click(); a.remove();
-  toast('Файл сохранён. В AutoCAD: команда ГИППЛАН и выберите этот файл.', 6000);
+  toast('Файл сохранён: подложка, экспликация и номера помещений. В AutoCAD: ГИППЛАН.', 6000);
 });
 window.GIPPLANUI = { S, openFile, build, drawView };
 renderAll(true);
