@@ -37,6 +37,16 @@ const underlay = {
 const markers = P.findRoomMarkers(underlay, exp.rooms);
 assert.deepEqual(markers.map((m) => m.no), [1, 2]);
 
+const merged = P.mergeRoomMarkers(markers, [
+  { no: 1, x: 180, y: 190, pageNo: 1 },
+  { no: 3, x: 260, y: 210, pageNo: 2 }
+], exp.rooms, 1);
+assert.deepEqual(merged.map((m) => m.no), [1, 2]);
+assert.equal(merged.find((m) => m.no === 1).x, 180, 'manual position overrides automatic detection');
+assert.equal(merged.find((m) => m.no === 2).x, 254, 'automatic position is retained for unassigned rooms');
+assert.deepEqual(P.mergeRoomMarkers(markers, [{ no: 1, x: 180, y: 190, pageNo: 2 }], exp.rooms, 1), markers,
+  'manual markers belong to their selected PDF page');
+
 const out = P.buildOutput({
   underlay, pages: [], includeSymbols: false, scaleDen: 50,
   rooms: exp.rooms, markers: markers.concat([{ no: 17, x: 210, y: 220 }]),

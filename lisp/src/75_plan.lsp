@@ -161,7 +161,7 @@
                   ((member (car it) '(L C F)) (if (gip:plan-ent it) (setq nU (1+ nU))))
                   ((eq (car it) 'S) (setq syms (cons it syms)))
                   ((and (eq (car it) 'R) (numberp (nth 1 it)) (<= 1 (nth 1 it)) (<= (nth 1 it) 99) (= (type (nth 2 it)) 'STR))
-                   (setq rooms (cons (cons (nth 1 it) (nth 2 it)) rooms)))
+                   (setq rooms (cons (cons (nth 1 it) (gip:u (nth 2 it))) rooms)))
                   ((and (eq (car it) 'N) (numberp (nth 1 it)) (numberp (nth 2 it)) (numberp (nth 3 it)))
                    (setq markers (cons (list (nth 1 it) (nth 2 it) (nth 3 it)) markers)))))))
           (close f)
