@@ -278,7 +278,7 @@
                         (progn
                           (setq obj (gip:plan-insert (cadr bl) (+ (car org) (nth 4 s)) (+ (cadr org) (nth 5 s)) (nth 6 s) (caddr bl)))
                           (if (setq sd (nth (nth 3 s) (cdr (assoc (nth 2 s) *gip:plan-vis*)))) (gip:set-vis obj (cadr bl) sd))
-                          (setq nS (1+ nS)))))))
+                          (setq nS (1+ nS))))))))
               (setq framePt (cdr (assoc "p" sheets)))
               (if (and expBlk framePt templateP) (gip:plan-exp-insert expBlk framePt))
               (setq ok (and sheets (or (not rooms) (and expBlk framePt templateP))))
@@ -288,7 +288,7 @@
                 (if (> n0 0) ", прежний импорт заменён" "") "."))
               (princ (strcat "\\nГИП: план из PDF — " msg))
               (gip:plan-report ok msg)
-              (if ok blk nil)))))))
+              (if ok blk nil)))))))))
 
 ;; из панели: файл во временной папке
 (defun c:GIPPLANIMPORT ()
