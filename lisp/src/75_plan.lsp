@@ -172,7 +172,7 @@
             (if (setq pt (getpoint "\nГИП: точка левого нижнего угла плана: "))
               (setq sheets (list
                 (cons "p" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0)) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))
-                (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0))))))))
+                (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))))))
           (foreach sh sheets
             (setq org (list (- (+ (car (cdr sh)) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr (cdr sh)) (cadr *gip:plan-at*)) (/ H 2.0))))
             (gip:plan-insert blk (car org) (cadr org) 0.0 "GIP_Подложка")
@@ -192,7 +192,7 @@
             " лист(ах), блоков ГИП: " (itoa nS) ", номеров помещений: " (itoa nM)
             (if (and expBlk framePt templateP) ", экспликация обновлена" (if rooms ", экспликация не вставлена (не найден шаблон ГИП)" ""))
             (if (> n0 0) ", прежний импорт заменён" "") "."))
-          blk)))))
+          blk))))))
 
 
 ;; из панели: файл во временной папке
