@@ -196,7 +196,7 @@
 ;; лист si однолинейной схемы с началом координат OX OY
 (defun gip:ol-sheet (S BRD sc si npages OX OY / is3 b isfirst islast kup by km inD fire rns bname nC lastX XR XT XTr dxr nChain
                       sub chain y0 xi yb kk2 tx ty w1 hh px2 w2 HD hh2 phs Kc LNS spw sqv cosl ph PRAS Ip rows lb lxx rcdBus
-                      ci x AX d l pl members xe yL yN srcY vr nY isD proto tk cs nmt AXk title titleF ks k1 k2 cn kk yy base px py rr q ii xx on)
+                      ci x AX d l pl members xe yL yN srcY vr nY isD proto tk cs nmt AXk title titleF ks k1 k2 cn kk yy base px py rr q ii xx on inType)
   (setq is3 (= (gip:g S "phases") 3) b *gip:b* isfirst (= si 0) islast (= si (1- npages)) kup (gip:g S "kup"))
   (setq bname (gip:gn S "board" "ЩР"))
   (setq km nil inD nil fire nil rns nil)
@@ -232,9 +232,12 @@
   (if isfirst
     (progn
       (if (gip:g S "floorShield") (gip:floor-shield S OX OY is3))
-      (setq chain (list (list (cons "p" (if is3 "in3" "dev_a1")) (cons "rel" is3) (cons "d" inD)
-                              (cons "o" (list (cons "ser" (if is3 (gip:brand-ser b (if (= (gip:g S "inPoles") 4) "a4" "a3") nil) (gip:brand-ser b "a2" nil)))
-                                              (cons "vis" (gip:av-vis (if is3 (if (= (gip:g S "inPoles") 4) 4 3) 2))))))))
+      (setq inType (if (= (gip:g inD "inType") "qs") "qs" "qf"))
+      (setq chain (list (list (cons "p" (cond ((= inType "qs") (if is3 "rel3" "rel1")) (is3 "in3") (T "dev_a1"))) (cons "rel" is3) (cons "d" inD)
+                              (cons "o" (if (= inType "qs")
+                                (list '("ser" . "Рубильник") '("maker" . "—") (cons "vis" (if is3 "Рубильник трехполюсный" "Рубильник однополюсный")))
+                                (list (cons "ser" (if is3 (gip:brand-ser b (if (= (gip:g S "inPoles") 4) "a4" "a3") nil) (gip:brand-ser b "a2" nil)))
+                                      (cons "vis" (gip:av-vis (if is3 (if (= (gip:g S "inPoles") 4) 4 3) 2)))))))))
       (if rns (setq chain (append chain (list (list (cons "p" (if is3 "rel3" "rel1")) (cons "rel" T) (cons "d" '(("In" . 63)))
                                                     (cons "o" (list (cons "ser" (if is3 "VIP-63 x3" "VIP-63")) '("maker" . "Welrok")
                                                                     (cons "ref" (gip:join (mapcar '(lambda (r) (gip:g r "ref")) rns) ", ")))))))))

@@ -94,14 +94,14 @@
 (defun gip:dev (pairs) pairs)
 
 ;; общие аппараты щита: ввод, реле, УЗО 100 мА, кросс-модуль, КМ (используют переменные вызывающей функции: b is3 useKm)
-(defun gip:fixed-devs (s lines / D inPoles inP fi hasLight bn kt)
+(defun gip:fixed-devs (s lines / D inPoles inP fi hasLight bn kt inType)
   (setq D nil)
   (setq inPoles (if is3 (if (= (gip:g s "inPoles") 4) 4 3) 2))
   (setq inP (if is3 (if (= inPoles 4) '("L1" "L2" "L3" "N") '("L1" "L2" "L3")) '("L" "N")))
-  (setq bn (gip:g b "name"))
-  (setq D (cons (list '("id" . "in") '("kind" . "in") (cons "w" inPoles) (cons "poles" inP) (cons "bot" inP) (cons "In" (gip:g s "inA"))
-                      (cons "model" (gip:fmt-model (if is3 (if (= inPoles 4) (gip:g b "a4") (gip:g b "a3")) (gip:g b "a2")) (gip:g s "inA")))
-                      '("name" . "Вводной автомат") (cons "brand" bn) '("feed" . "ext")) D))
+  (setq bn (gip:g b "name") inType (if (= (gip:g s "inType") "qs") "qs" "qf"))
+  (setq D (cons (list '("id" . "in") '("kind" . "in") (cons "inType" inType) (cons "w" inPoles) (cons "poles" inP) (cons "bot" inP) (cons "In" (gip:g s "inA"))
+                      (cons "model" (if (= inType "qs") (strcat "Рубильник " (itoa inPoles) "P, " (itoa (gip:g s "inA")) " А") (gip:fmt-model (if is3 (if (= inPoles 4) (gip:g b "a4") (gip:g b "a3")) (gip:g b "a2")) (gip:g s "inA"))))
+                      (cons "name" (if (= inType "qs") "Вводной рубильник" "Вводной автомат")) (cons "brand" (if (= inType "qs") "—" bn)) '("feed" . "ext")) D))
   (if (gip:g s "relay")
     (if is3
       (foreach p '("L1" "L2" "L3")
@@ -229,12 +229,12 @@
 
 ;; обозначения QF, QFD, QD, KV, KM, XT по порядку на рейках
 (defun gip:designate (rails / c p r)
-  (setq c '(("QF" . 0) ("QFD" . 0) ("QD" . 0) ("KV" . 0) ("KM" . 0) ("XT" . 0)))
+  (setq c '(("QF" . 0) ("QS" . 0) ("QFD" . 0) ("QD" . 0) ("KV" . 0) ("KM" . 0) ("XT" . 0)))
   (mapcar '(lambda (r)
              (mapcar '(lambda (d / k p n)
                         (setq k (gip:g d "kind"))
                         (setq p (cond ((member k '("dif" "dif4")) "QFD") ((member k '("rcd" "fire")) "QD") ((= k "rn") "KV")
-                                      ((= k "km") "KM") ((= k "xb") "XT") (T "QF")))
+                                      ((= k "km") "KM") ((= k "xb") "XT") ((and (= k "in") (= (gip:g d "inType") "qs")) "QS") (T "QF")))
                         (setq n (1+ (gip:g c p)) c (gip:s c p n))
                         (gip:s d "ref" (strcat p (itoa n)))) r)) rails))
 

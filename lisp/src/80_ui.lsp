@@ -134,6 +134,7 @@
   "   : text { key = \"l_area\"; } : edit_box { key = \"area\"; edit_width = 8; }"
   "   : text { key = \"l_ph\"; } : popup_list { key = \"phases\"; }"
   "   : text { key = \"l_inA\"; } : popup_list { key = \"inA\"; }"
+  "   : text { key = \"l_inType\"; } : popup_list { key = \"inType\"; }"
   "   : text { key = \"l_inP\"; } : popup_list { key = \"inPoles\"; }"
   "   : text { key = \"l_brand\"; } : popup_list { key = \"brand\"; }"
   "   : text { key = \"l_prot\"; } : popup_list { key = \"prot\"; }"
@@ -198,7 +199,7 @@
 
 (defun gip:dlg-init (S / app)
   (foreach p (list '("l_tpl" . "Квартира") '("l_area" . "Площадь квартиры, м² (для длин кабелей)") '("l_ph" . "Ввод")
-                   '("l_inA" . "Вводной автомат, А") '("l_inP" . "Полюсов вводного (3 фазы)") '("l_brand" . "Производитель автоматики")
+                   '("l_inA" . "Номинал вводного, А") '("l_inType" . "Вводной аппарат") '("l_inP" . "Полюсов вводного (3 фазы)") '("l_brand" . "Производитель автоматики")
                    '("l_prot" . "Защита групп 30 мА") '("l_rail" . "Ширина рейки, модулей") '("l_kc" . "Коэффициент спроса")
                    '("l_relay" . "Реле напряжения") '("l_km" . "Мастер-выключатель (контактор)") '("l_fire" . "УЗО противопожарное 100 мА")
                    '("l_fl" . "Этажный щит на схеме") '("l_kup" . "Линия КУП (уравнивание потенциалов)") '("l_floor" . "Тёплый пол, линий")
@@ -212,6 +213,7 @@
   (gip:fill "tpl" (mapcar '(lambda (k) (gip:g (gip:tpl k) "name")) *gip:tpl-keys*))
   (gip:fill "phases" '("1 фаза, 230 В" "3 фазы, 400/230 В"))
   (gip:fill "inA" (mapcar 'itoa *gip:inA-list*))
+  (gip:fill "inType" '("Автоматический выключатель" "Рубильник (выключатель нагрузки)"))
   (gip:fill "inPoles" '("3P" "4P"))
   (gip:fill "brand" '("ABB" "IEK" "Dekraft" "CHINT"))
   (gip:fill "prot" '("Дифавтоматы на линиях" "УЗО на группы линий"))
@@ -227,6 +229,7 @@
   (set_tile "area" (gip:fmtz (gip:gn S "area" 50.0) 1))
   (set_tile "phases" (if (= (gip:g S "phases") 3) "1" "0"))
   (set_tile "inA" (itoa (gip:nz (gip:index (gip:g S "inA") *gip:inA-list*) 3)))
+  (set_tile "inType" (if (= (gip:g S "inType") "qs") "1" "0"))
   (set_tile "inPoles" (if (= (gip:g S "inPoles") 4) "1" "0"))
   (set_tile "brand" (itoa (gip:nz (gip:index (gip:g S "brand") *gip:brand-keys*) 0)))
   (set_tile "prot" (if (= (gip:g S "prot") "rcd") "1" "0"))
@@ -250,6 +253,7 @@
   (if (setq v (distof (gip:repl (get_tile "area") "," "."))) (setq S (gip:s S "area" (float v))))
   (setq S (gip:s S "phases" (if (= (get_tile "phases") "1") 3 1)))
   (setq S (gip:s S "inA" (nth (atoi (get_tile "inA")) *gip:inA-list*)))
+  (setq S (gip:s S "inType" (if (= (get_tile "inType") "1") "qs" "qf")))
   (setq S (gip:s S "inPoles" (if (= (get_tile "inPoles") "1") 4 3)))
   (setq S (gip:s S "brand" (nth (atoi (get_tile "brand")) *gip:brand-keys*)))
   (setq S (gip:s S "prot" (if (= (get_tile "prot") "1") "rcd" "dif")))

@@ -97,7 +97,7 @@
 
   function syncTop() {
     var B = state.board, t = M.TEMPLATES[B.tpl];
-    $('sub').textContent = [B.name || 'ЩР', t ? t.name : 'свой набор', (B.phases === 3 ? '3 фазы' : '1 фаза') + ', ' + B.inA + ' А', (M.BRANDS[B.brand] || {}).name].join(' · ');
+    $('sub').textContent = [B.name || 'ЩР', t ? t.name : 'свой набор', (B.phases === 3 ? '3 фазы' : '1 фаза') + ', ' + (B.inType === 'qs' ? 'рубильник ' : 'автомат ') + B.inA + ' А', (M.BRANDS[B.brand] || {}).name].join(' · ');
     $('undo').disabled = !undoS.length; $('redo').disabled = !redoS.length;
   }
 
@@ -108,7 +108,8 @@
     b.innerHTML =
       '<div class="fld"><label for="b-name">Щит</label><input id="b-name" class="w-s" data-b="name" autocomplete="off"></div>' +
       '<div class="fld"><span class="lbl">Ввод</span><div class="seg" id="b-phases" role="group" aria-label="Число фаз"><button type="button" data-v="1">1 фаза</button><button type="button" data-v="3">3 фазы</button></div></div>' +
-      '<div class="fld"><label for="b-inA">Вводной, А</label><select id="b-inA" data-b="inA">' + M.IN_A.map(function (v) { return opt(v, v + ' А', ''); }).join('') + '</select></div>' +
+      '<div class="fld"><label for="b-inType">Вводной аппарат</label><select id="b-inType" data-b="inType"><option value="qf">Автоматический выключатель</option><option value="qs">Рубильник (выключатель нагрузки)</option></select><small class="hint">Рубильник сам по себе не защищает от КЗ и перегрузки: проверьте наличие защиты выше по цепи.</small></div>' +
+      '<div class="fld"><label for="b-inA">Номинал вводного, А</label><select id="b-inA" data-b="inA">' + M.IN_A.map(function (v) { return opt(v, v + ' А', ''); }).join('') + '</select></div>' +
       '<div class="fld" id="b-inPolesF"><span class="lbl">Полюса</span><div class="seg" id="b-inPoles" role="group" aria-label="Полюса вводного"><button type="button" data-v="3">3P</button><button type="button" data-v="4">4P</button></div></div>' +
       '<div class="fld"><label for="b-brand">Производитель</label><select id="b-brand" data-b="brand">' + brands + '</select></div>' +
       '<div class="fld"><label for="b-area">Площадь, м²</label><input id="b-area" class="w-s" data-b="area" inputmode="decimal" autocomplete="off"></div>' +
@@ -202,7 +203,7 @@
   function syncBoard() {
     var B = state.board, act = document.activeElement;
     function setv(id, v) { var el = $(id); if (el && el !== act) el.value = v; }
-    setv('b-name', B.name); setv('b-inA', B.inA); setv('b-brand', B.brand); setv('b-area', fmt(B.area));
+    setv('b-name', B.name); setv('b-inType', B.inType || 'qf'); setv('b-inA', B.inA); setv('b-brand', B.brand); setv('b-area', fmt(B.area));
     setv('b-kc', fmt(D.tot.kc, 2)); setv('b-mark', B.mark); setv('b-railW', B.railW);
     setv('b-pAllowed', B.pAllowed != null ? fmt(B.pAllowed) : '');
     $('b-pAllowed').placeholder = 'по вводному ≈' + fmt(D.tot.PbyIn, 1);

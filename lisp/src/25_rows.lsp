@@ -129,7 +129,7 @@
   (foreach f schema
     (setq parts (cons (strcat (gip:js-str (car f)) ":" (gip:js-val (gip:g al (car f)) (cdr f))) parts)))
   (strcat "{" (gip:join (reverse parts) ",") "}"))
-(setq *gip:js-board* '(("name" . "s") ("tpl" . "s") ("area" . "n") ("phases" . "i") ("inA" . "i") ("inPoles" . "i") ("brand" . "s")
+(setq *gip:js-board* '(("name" . "s") ("tpl" . "s") ("area" . "n") ("phases" . "i") ("inA" . "i") ("inPoles" . "i") ("inType" . "s") ("brand" . "s")
                        ("relay" . "b") ("km" . "b") ("fire" . "b") ("kup" . "b") ("kc" . "n") ("kcMode" . "s") ("pAllowed" . "n")
                        ("mark" . "s") ("railW" . "i") ("mode" . "s") ("kmType" . "s") ("xb" . "b") ("olLen" . "b") ("route" . "s") ("phaseMode" . "s")
                        ("fsHide" . "b") ("fsPre" . "s") ("fsPreIn" . "i") ("fsMeter" . "s") ("fsMeterSpec" . "s") ("fsPost" . "s")
@@ -148,7 +148,7 @@
 (defun gip:panel-board (S / P)
   (setq P (gip:g S "panel"))
   (foreach kv (list (cons "name" (gip:gn S "board" "ЩР")) (cons "tpl" (gip:gn S "tpl" "k2")) (cons "area" (gip:gn S "area" 50.0))
-                    (cons "phases" (gip:gn S "phases" 1)) (cons "inA" (gip:gn S "inA" 40)) (cons "inPoles" (gip:gn S "inPoles" 3))
+                    (cons "phases" (gip:gn S "phases" 1)) (cons "inA" (gip:gn S "inA" 40)) (cons "inPoles" (gip:gn S "inPoles" 3)) (cons "inType" (if (= (gip:g S "inType") "qs") "qs" "qf"))
                     (cons "brand" (gip:gn S "brand" "abb")) (cons "relay" (gip:g S "relay")) (cons "km" (gip:g S "km"))
                     (cons "fire" (gip:g S "fire")) (cons "kup" T) (cons "kc" (gip:gn S "kc" 0.4)) (cons "railW" (gip:gn S "railW" 18))
                     (cons "xb" (gip:g S "xb")) (cons "olLen" (gip:g S "olLen")) (cons "route" (gip:gn S "route" "Потолок")) (cons "kmType" (gip:g S "kmType"))
@@ -197,6 +197,7 @@
   (setq S (if (and old (= (gip:g old "v") 2)) old
             (gip:s (gip:s (gip:s (if old old (gip:default-state (gip:gn B "tpl" "k2"))) "order" nil) "breaks" nil) "breakAt" nil)))
   (foreach k '("phases" "inA" "inPoles" "railW") (if (numberp (gip:g B k)) (setq S (gip:s S k (fix (gip:g B k))))))
+  (setq S (gip:s S "inType" (if (= (gip:g B "inType") "qs") "qs" "qf")))
   (if (= (type (gip:g B "brand")) 'STR) (setq S (gip:s S "brand" (gip:g B "brand"))))
   (foreach k '("relay" "km" "fire" "xb" "olLen") (setq S (gip:s S k (if (gip:g B k) T nil))))
   (setq S (gip:s S "kup" T))
