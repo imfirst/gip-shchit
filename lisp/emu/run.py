@@ -12,7 +12,8 @@ from acadfuncs import install_acad, Preview
 TPL = os.path.join(HERE, '..', '..', 'template', 'GIP_EOM_Shablon.dxf')
 
 def make(bi_path=os.path.join(HERE, 'bi_tpl.json')):
-    bi = json.load(open(bi_path))
+    with open(bi_path, encoding='utf-8') as f:
+        bi = json.load(f)
     bi = {k: {'attdefs': v['attdefs'], 'dyn': {n: (d[0], d[1]) for n, d in v['dyn'].items()}} for k, v in bi.items()}
     A = Acad(TPL, bi)
     I = Interp()
