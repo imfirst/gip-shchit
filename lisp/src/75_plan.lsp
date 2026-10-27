@@ -212,70 +212,90 @@
             y (+ (cadr F) 500.0))
       (gip:plan-insert bn x y 0.0 "GIP_Экспликация помещений"))))
 
-(defun gip:plan-import (fn / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP framePt nM m s msg)
+(defun gip:plan-import (fn auto / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP framePt nM m s msg missing ok need)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
-    (progn (princ "\nGIP: нет файла плана из PDF") (gip:plan-report nil "нет файла плана") nil)
+    (progn (princ "\\nGIP: нет файла плана из PDF") (gip:plan-report nil "нет файла плана") nil)
     (progn
       (regapp *gip:plan-app*)
       (setq head (read (read-line f)))
       (if (not (and (listp head) (eq (car head) 'GIPPLAN)))
-        (progn (close f) (princ "\nGIP: файл плана не распознан") (gip:plan-report nil "файл плана не распознан") nil)
+        (progn (close f) (princ "\\nGIP: файл плана не распознан") (gip:plan-report nil "файл плана не распознан") nil)
         (progn
-          (setq W (nth 3 head) H (nth 4 head) nU 0 syms nil rooms nil markers nil nM 0)
-          (princ "\nGIP: подложка плана...")
-          (setq blk (gip:plan-blkname))
-          (entmake (list '(0 . "BLOCK") (cons 2 blk) '(70 . 0) '(10 0.0 0.0 0.0)))
-          (while (setq l (read-line f))
-            (if (/= l "")
-              (progn
-                (setq it (read l))
-                (cond
-                  ((member (car it) '(L C F)) (if (gip:plan-ent it) (setq nU (1+ nU))))
-                  ((eq (car it) 'S) (setq syms (cons it syms)))
-                  ((and (eq (car it) 'R) (numberp (nth 1 it)) (<= 1 (nth 1 it)) (<= (nth 1 it) 99) (= (type (nth 2 it)) 'STR))
-                   (setq rooms (cons (cons (nth 1 it) (gip:u (nth 2 it))) rooms)))
-                  ((and (eq (car it) 'N) (numberp (nth 1 it)) (numberp (nth 2 it)) (numberp (nth 3 it)))
-                   (setq markers (cons (list (nth 1 it) (nth 2 it) (nth 3 it)) markers)))))))
-          (close f)
-          (vl-file-delete fn)
-          (entmake '((0 . "ENDBLK")))
-          (setq n0 (gip:plan-clear) templateP (gip:template-sheets) sheets (gip:plan-sheets) nS 0 expBlk nil)
-          (if rooms (setq expBlk (gip:plan-exp-block (reverse rooms))))
-          (if (null sheets)
-            (if (setq pt (getpoint "\nГИП: точка левого нижнего угла плана: "))
-              (setq sheets (list
-                (cons "p" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0)) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))
-                (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))))))
-          (foreach sh sheets
-            (setq org (list (- (+ (car (cdr sh)) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr (cdr sh)) (cadr *gip:plan-at*)) (/ H 2.0))))
-            (gip:plan-insert blk (car org) (cadr org) 0.0 "GIP_Подложка")
-            (foreach m markers (setq nM (+ nM (gip:plan-marker m org))))
-            (foreach s syms
-              (if (= (nth 1 s) (car sh))
-                (progn
-                  (setq bl (assoc (nth 2 s) *gip:plan-blocks*))
-                  (if (and bl (tblsearch "BLOCK" (cadr bl)))
+          ;; Сначала определяем рамки. Панель работает без интерактивных запросов:
+          ;; если три целевых листа не найдены, ничего не вставляем и не стираем старый импорт.
+          (setq templateP (gip:plan-template-sheets)
+                sheets (gip:plan-sheets)
+                missing nil)
+          (foreach need '("p" "l" "d")
+            (if (not (assoc need sheets)) (setq missing (cons need missing))))
+          (if (and auto missing)
+            (progn
+              (close f)
+              (vl-file-delete fn)
+              (setq msg "Не найдены все три листа шаблона: силовые сети, освещение и ДСУП. Импорт отменён; проверьте названия листов и рамки А3-GIP-ALBOM.")
+              (princ (strcat "\\nГИП: " msg))
+              (gip:plan-report nil msg)
+              nil)
+            (progn
+              (setq W (nth 3 head) H (nth 4 head) nU 0 syms nil rooms nil markers nil nM 0 n0 0 nS 0 expBlk nil)
+              (princ "\\nGIP: подложка плана...")
+              (setq blk (gip:plan-blkname))
+              (entmake (list '(0 . "BLOCK") (cons 2 blk) '(70 . 0) '(10 0.0 0.0 0.0)))
+              (while (setq l (read-line f))
+                (if (/= l "")
+                  (progn
+                    (setq it (read l))
+                    (cond
+                      ((member (car it) '(L C F)) (if (gip:plan-ent it) (setq nU (1+ nU))))
+                      ((eq (car it) 'S) (setq syms (cons it syms)))
+                      ((and (eq (car it) 'R) (numberp (nth 1 it)) (<= 1 (nth 1 it)) (<= (nth 1 it) 99) (= (type (nth 2 it)) 'STR))
+                       (setq rooms (cons (cons (nth 1 it) (gip:u (nth 2 it))) rooms)))
+                      ((and (eq (car it) 'N) (numberp (nth 1 it)) (numberp (nth 2 it)) (numberp (nth 3 it)))
+                       (setq markers (cons (list (nth 1 it) (nth 2 it) (nth 3 it)) markers)))))))
+              (close f)
+              (vl-file-delete fn)
+              (entmake '((0 . "ENDBLK")))
+              ;; Ручная команда ГИППЛАН сохраняет резервный вариант размещения по точке.
+              ;; Команда из панели (auto=T) никогда не ждёт незаметного getpoint-запроса.
+              (if (and (null sheets) (not auto))
+                (if (setq pt (getpoint "\\nГИП: точка левого нижнего угла плана: "))
+                  (setq sheets (list
+                    (cons "p" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0)) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))
+                    (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0))))))))
+              ;; Не удаляем предыдущий план, пока не известны реальные точки вставки.
+              (if sheets (setq n0 (gip:plan-clear)))
+              (if rooms (setq expBlk (gip:plan-exp-block (reverse rooms))))
+              (foreach sh sheets
+                (setq org (list (- (+ (car (cdr sh)) (car *gip:plan-at*)) (/ W 2.0))
+                                (- (+ (cadr (cdr sh)) (cadr *gip:plan-at*)) (/ H 2.0))))
+                (gip:plan-insert blk (car org) (cadr org) 0.0 "GIP_Подложка")
+                (foreach m markers (setq nM (+ nM (gip:plan-marker m org))))
+                (foreach s syms
+                  (if (= (nth 1 s) (car sh))
                     (progn
-                      (setq obj (gip:plan-insert (cadr bl) (+ (car org) (nth 4 s)) (+ (cadr org) (nth 5 s)) (nth 6 s) (caddr bl)))
-                      (if (setq sd (nth (nth 3 s) (cdr (assoc (nth 2 s) *gip:plan-vis*)))) (gip:set-vis obj (cadr bl) sd))
-                      (setq nS (1+ nS)))))))
-          (setq framePt (cdr (assoc "p" sheets)))
-          (if (and expBlk framePt templateP) (gip:plan-exp-insert expBlk framePt))
-          (setq msg (strcat "подложка «" blk "» (" (itoa nU) " объектов) на " (itoa (length sheets))
-            " лист(ах), блоков ГИП: " (itoa nS) ", номеров помещений: " (itoa nM)
-            (if (and expBlk framePt templateP) ", экспликация обновлена" (if rooms ", экспликация не вставлена (не найден шаблон ГИП)" ""))
-            (if (> n0 0) ", прежний импорт заменён" "") "."))
-          (princ (strcat "\nГИП: план из PDF — " msg))
-          (gip:plan-report T msg)
-          blk))))))
-
+                      (setq bl (assoc (nth 2 s) *gip:plan-blocks*))
+                      (if (and bl (tblsearch "BLOCK" (cadr bl)))
+                        (progn
+                          (setq obj (gip:plan-insert (cadr bl) (+ (car org) (nth 4 s)) (+ (cadr org) (nth 5 s)) (nth 6 s) (caddr bl)))
+                          (if (setq sd (nth (nth 3 s) (cdr (assoc (nth 2 s) *gip:plan-vis*)))) (gip:set-vis obj (cadr bl) sd))
+                          (setq nS (1+ nS)))))))
+              (setq framePt (cdr (assoc "p" sheets)))
+              (if (and expBlk framePt templateP) (gip:plan-exp-insert expBlk framePt))
+              (setq ok (and sheets (or (not rooms) (and expBlk framePt templateP))))
+              (setq msg (strcat "подложка «" blk "» (" (itoa nU) " объектов) на " (itoa (length sheets))
+                " лист(ах), блоков ГИП: " (itoa nS) ", номеров помещений: " (itoa nM)
+                (if (and expBlk framePt templateP) ", экспликация вставлена" (if rooms ", экспликация не вставлена (не найдена рамка силового плана)" ""))
+                (if (> n0 0) ", прежний импорт заменён" "") "."))
+              (princ (strcat "\\nГИП: план из PDF — " msg))
+              (gip:plan-report ok msg)
+              (if ok blk nil)))))))
 
 ;; из панели: файл во временной папке
 (defun c:GIPPLANIMPORT ()
   (vl-file-delete (strcat (getvar "TEMPPREFIX") "gip_plan_out.txt"))
-  (gip:plan-import (strcat (getvar "TEMPPREFIX") *gip:plan-file*))
+  (gip:plan-import (strcat (getvar "TEMPPREFIX") *gip:plan-file*) T)
   (princ))
 ;; вручную: выбрать файл, сохранённый панелью
 (defun c:GIPPLAN (/ fn)
-  (if (setq fn (getfiled "План из PDF (файл из панели «План из PDF»)" (getvar "TEMPPREFIX") "txt" 0)) (gip:plan-import fn))
+  (if (setq fn (getfiled "План из PDF (файл из панели «План из PDF»)" (getvar "TEMPPREFIX") "txt" 0)) (gip:plan-import fn nil))
   (princ))
