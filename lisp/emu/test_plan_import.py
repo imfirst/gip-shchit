@@ -48,6 +48,10 @@ with tempfile.TemporaryDirectory() as tmp:
     # Автоматический режим не должен вызывать getpoint: вставляем в найденные рамки.
     result = run('(gip:plan-import "' + src.replace("\\", "/") + '" T)')
     assert result == "GIP_PLAN_1", "Импорт не завершился успешно: %r / %s" % (result, "".join(I.out)[-1500:])
+    report_path = os.path.join(tmp, "gip_plan_out.txt")
+    assert os.path.exists(report_path), "Панель не получила отчёт об импорте"
+    report = open(report_path, encoding="utf-8").read().splitlines()
+    assert report and report[0] == "ok" and "GIP_PLAN_1" in report[1], "Неверный статус/отчёт импорта: %r" % report
     assert not os.path.exists(src), "Временный файл импорта не удалён после обработки"
 
 tagged = [
