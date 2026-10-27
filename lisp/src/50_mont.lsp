@@ -64,7 +64,7 @@
   (setq st (gip:g d "st") k (gip:g d "kind"))
   (cond (st (strcat "GIPM_" st))
         ((= k "xb") (strcat "GIPM_G_xb_" (itoa (gip:g d "w"))))
-        ((and (= k "in") (= (gip:g d "inType") "qs")) (strcat "GIPM_G_qs_" (itoa (gip:g d "w")))
+        ((and (= k "in") (= (gip:g d "inType") "qs")) (strcat "GIPM_G_qs_" (itoa (gip:g d "w"))))
         ((member (gip:g s "brand") '("iek" "chint" "abb" "dekraft"))
          (strcat "GIPM_G_" (gip:g s "brand") "_" (if (and (= k "rcd") (= (gip:g d "w") 4)) "fire" k) "_" (itoa (gip:g d "w"))))
         (T (strcat "GIPM_G_iek_" k "_" (itoa (gip:g d "w"))))))
