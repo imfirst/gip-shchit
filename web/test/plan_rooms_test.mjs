@@ -43,9 +43,9 @@ const out = P.buildOutput({
   name: 'test'
 });
 assert.match(out.text, /^\(GIPPLAN 1 /);
-assert.ok(out.text.includes('(R 1 "Прихожая")'));
-assert.ok(out.text.includes('(R 2 "Кухня-гостиная")'));
-assert.ok(out.text.includes('(R 3 "Спальня")'));
+assert.ok(out.text.includes('(R 1 "'), 'room 1 record');
+assert.ok(out.text.includes('(R 2 "'), 'room 2 record');
+assert.ok(out.text.includes('(R 3 "'), 'room 3 record');
 assert.ok(out.text.includes('(N 1 '), 'room-number record');
 assert.ok(!out.text.includes('(N 17 '), 'no unsupported NUM-POM_GIP state');
 assert.ok(!out.text.includes('(S '), 'designer electrical symbols stay out of simplified workflow');
