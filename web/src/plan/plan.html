@@ -16,17 +16,24 @@
       <h2>1. PDF дизайнера</h2>
       <label class="drop" id="drop"><input type="file" id="file" accept="application/pdf,.pdf" hidden>
         <span class="drop-t" id="dropT">Перетащите PDF сюда или <u>выберите файл</u></span>
-        <span class="drop-s">Векторный PDF из AutoCAD/ArchiCAD: листы с розетками и с выключателями/светильниками</span></label>
+        <span class="drop-s">Выберите план с мебелью или минимальным количеством электрических обозначений. Для векторного PDF доступно извлечение геометрии и текста.</span></label>
       <div class="pl-prog" id="prog" hidden><div class="bar"><i id="progBar"></i></div><span id="progT"></span></div>
     </div>
 
+    <div class="panel pl-step" id="roomBox" hidden>
+      <h2>2. Экспликация помещений</h2>
+      <p class="pl-hint">Плагин ищет текстовую таблицу с номерами и наименованиями на листах PDF. Проверьте список: одна строка — «номер; наименование». Сканированные PDF потребуют ручного ввода.</p>
+      <textarea id="roomsText" class="pl-rooms" rows="8" spellcheck="false" placeholder="1; Прихожая&#10;2; Коридор&#10;3; Кухня"></textarea>
+      <p class="pl-hint" id="roomInfo">Откройте PDF, чтобы найти экспликацию.</p>
+    </div>
+
     <div class="panel pl-step" id="pagesBox" hidden>
-      <h2>2. Листы</h2>
+      <h2>3. Лист с планом</h2>
       <table class="pl-t" id="pages"><thead><tr><th>Лист</th><th>Что на нём</th><th title="С какого листа брать квартиру и мебель для подложки">Подл.</th></tr></thead><tbody></tbody></table>
     </div>
 
     <div class="panel pl-step" id="symBox" hidden>
-      <h2>3. Значки → блоки ГИП</h2>
+      <h2>4. Слои и очистка</h2>
       <div class="seg pl-tabs" id="tabs" role="tablist"></div>
       <p class="pl-hint" id="symHint"></p>
       <div id="syms"></div>
@@ -40,7 +47,7 @@
     </div>
 
     <div class="panel pl-step" id="goBox" hidden>
-      <h2>4. В чертёж</h2>
+      <h2>5. Масштаб и вставка</h2>
       <div class="pl-row">
         <label class="fld"><span class="lbl">Масштаб</span><span class="pl-sc">1 : <input id="den" class="w-s" inputmode="numeric"></span></label>
         <label class="chk"><input type="checkbox" id="fills">Заливка стен</label>
