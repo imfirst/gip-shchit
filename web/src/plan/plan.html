@@ -24,6 +24,12 @@
       <h2>2. Экспликация помещений</h2>
       <p class="pl-hint">Плагин ищет текстовую таблицу с номерами и наименованиями на листах PDF. Проверьте список: одна строка — «номер; наименование». Сканированные PDF потребуют ручного ввода.</p>
       <textarea id="roomsText" class="pl-rooms" rows="8" spellcheck="false" placeholder="1; Прихожая&#10;2; Коридор&#10;3; Кухня"></textarea>
+      <div class="pl-row pl-room-place">
+        <label class="fld"><span class="lbl">Номер для привязки</span><select id="roomPlaceNo" aria-label="Номер помещения"></select></label>
+        <button class="btn" type="button" id="roomPlaceBtn">Указать на плане</button>
+        <button class="btn" type="button" id="roomPlaceClear" disabled>Сбросить привязки</button>
+      </div>
+      <p class="pl-hint" id="roomPlaceInfo">Можно привязать номер помещения кликом внутри его границ на предпросмотре.</p>
       <p class="pl-hint" id="roomInfo">Откройте PDF, чтобы найти экспликацию.</p>
     </div>
 

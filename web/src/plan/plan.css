@@ -1,5 +1,11 @@
 /* План из PDF: слева шаги, справа просмотр */
 .pl-rooms { width: 100%; min-height: 130px; resize: vertical; font: 12px/1.55 ui-monospace, Consolas, monospace; border: 1px solid var(--line, #d5dbe5); border-radius: 7px; background: var(--bg, #fff); color: var(--text, #172033); padding: 9px; }
+.pl-room-place { align-items: flex-end; }
+.pl-room-place .fld { display: flex; flex-direction: column; gap: 4px; min-width: 130px; flex: 1 1 150px; }
+.pl-room-place select { width: 100%; min-width: 0; height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--text); padding: 0 6px; font-size: 12px; }
+#roomPlaceBtn.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pl-room-place button { font-size: 12px; white-space: normal; }
+.pl-room-place button:disabled { opacity: .45; cursor: not-allowed; }
 .pl { display: grid; grid-template-columns: minmax(340px, 470px) 1fr; gap: 14px; align-items: start; margin-top: 14px; }
 @media (max-width: 900px) { .pl { grid-template-columns: minmax(0, 1fr); } }
 .pl-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

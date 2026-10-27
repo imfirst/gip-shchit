@@ -228,6 +228,23 @@
       .sort(function (a, b) { return a.no - b.no; }).map(function (p) { return { no: p.no, x: p.x, y: p.y }; });
   }
 
+  /* Ручные номера помещений имеют приоритет над автопоиском и привязаны к конкретному листу PDF. */
+  function mergeRoomMarkers(automatic, manual, rooms, pageNo) {
+    var wanted = {};
+    (rooms || []).forEach(function (r) { var n = +r.no; if (n >= 1 && n <= 15) wanted[n] = true; });
+    var byNo = {};
+    (automatic || []).forEach(function (m) {
+      var n = +m.no;
+      if (wanted[n] && isFinite(+m.x) && isFinite(+m.y)) byNo[n] = { no: n, x: +m.x, y: +m.y };
+    });
+    (manual || []).forEach(function (m) {
+      var n = +m.no;
+      if (m.pageNo != null && pageNo != null && +m.pageNo !== +pageNo) return;
+      if (wanted[n] && isFinite(+m.x) && isFinite(+m.y)) byNo[n] = { no: n, x: +m.x, y: +m.y };
+    });
+    return Object.keys(byNo).map(function (n) { return byNo[n]; }).sort(function (a, b) { return a.no - b.no; });
+  }
+
   function bboxPts(pts) { var b = [1e9, 1e9, -1e9, -1e9]; pts.forEach(function (p) { if (p[0] < b[0]) b[0] = p[0]; if (p[1] < b[1]) b[1] = p[1]; if (p[0] > b[2]) b[2] = p[0]; if (p[1] > b[3]) b[3] = p[1]; }); return b; }
   function grid(segs, cell) {
     var H = new Map();
@@ -592,7 +609,7 @@
     return { text: [head].concat(lines, roomLines, markerLines, syms).join('\n') + '\n', nUnderlay: nUL, nSym: syms.length, nRooms: roomLines.length, nRoomMarkers: markerLines.length, summary: summary, W: W, H: H };
   }
 
-  var API = { VIS: VIS, BLOCK_NAME: BLOCK_NAME, guessType: guessType, guessLayer: guessLayer, extractPage: extractPage, extractTextPage: extractTextPage, extractRooms: extractRooms, findRoomMarkers: findRoomMarkers, findLegends: findLegends,
+  var API = { VIS: VIS, BLOCK_NAME: BLOCK_NAME, guessType: guessType, guessLayer: guessLayer, extractPage: extractPage, extractTextPage: extractTextPage, extractRooms: extractRooms, findRoomMarkers: findRoomMarkers, mergeRoomMarkers: mergeRoomMarkers, findLegends: findLegends,
               templatesOf: templatesOf, matchAll: matchAll, leftoverShapes: leftoverShapes, analyze: analyze, counts: counts, buildOutput: buildOutput,
               segsOf: segsOf, bboxPts: bboxPts, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

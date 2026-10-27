@@ -14,7 +14,7 @@ function loadMem() { try { return Object.assign({ lay: {}, tpl: {}, shp: {} }, J
 function saveMem() { try { localStorage.setItem(MEM_KEY, JSON.stringify(S.mem)); } catch (e) { /* без памяти */ } }
 const labKey = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
 
-const S = { name: '', doc: null, pages: [], under: null, cur: null, rooms: [], roomPageNo: null, mem: loadMem(), den: null, fills: false, hot: null, busy: false };
+const S = { name: '', doc: null, pages: [], under: null, cur: null, rooms: [], roomPageNo: null, manualMarkers: [], assignRoomNo: null, mem: loadMem(), den: null, fills: false, hot: null, busy: false };
 
 /* ------------------------------------------------------------------ pdf.js */
 let pdfjs = null;
@@ -41,7 +41,15 @@ async function titleOf(no) {
   const top = items.filter((t) => t.y > vp.height * 0.75).sort((a, b) => b.h - a.h)[0];
   return ((plan || top || { s: 'Лист ' + no }).s).slice(0, 80);
 }
-const roleOf = (t) => /план|квартир|помещ|мебел/i.test(t) ? 'p' : '';
+function underlayScore(title) {
+  const s = String(title || '').toLowerCase().replace(/ё/g, 'е');
+  let score = 0;
+  if (/мебел|furnit|меблиров|расстанов.{0,20}меб/.test(s)) score += 12;
+  if (/план\s+(?:квартир|помещен|этажа)|обмерн.{0,15}план|архитектурн.{0,15}план/.test(s)) score += 6;
+  if (/\bплан\b/.test(s)) score += 2;
+  if (/электр|освещ|силов.{0,15}сет|розет|выключ|светиль|дсуп|схем|легенд|спецификац|экспликац/.test(s)) score -= 12;
+  return score;
+}
 
 async function openFile(file) {
   if (!file) return;
@@ -55,11 +63,16 @@ async function openFile(file) {
     S.pages = [];
     for (let no = 1; no <= S.doc.numPages; no++) {
       const title = await titleOf(no);
-      S.pages.push({ no, title, role: roleOf(title), D: null, A: null, mapping: {} });
+      S.pages.push({ no, title, role: '', D: null, A: null, mapping: {} });
     }
-    const pPage = S.pages.find((p) => p.role === 'p'), lPage = S.pages.find((p) => p.role === 'l');
-    S.under = (pPage || lPage || S.pages[0]).no;
-    S.cur = (pPage || lPage || S.pages[0]).no;
+    const ranked = S.pages.map((pg) => ({ pg, score: underlayScore(pg.title) })).sort((a, b) => b.score - a.score);
+    const preferred = ranked.length && ranked[0].score > 0 ? ranked[0].pg.no : null;
+    S.pages.forEach((pg) => { pg.role = pg.no === preferred ? 'p' : ''; });
+    S.under = preferred;
+    S.cur = preferred || (S.pages[0] && S.pages[0].no) || null;
+    S.manualMarkers = [];
+    S.assignRoomNo = null;
+    $('cv').style.cursor = 'grab';
     await analyzeAll();
     await scanRoomSchedules(pj);
   } catch (e) {
@@ -113,6 +126,21 @@ async function scanRoomSchedules(pj) {
   $('roomInfo').textContent = S.rooms.length
     ? 'Найдено помещений: ' + S.rooms.length + ' на листе ' + S.roomPageNo + '. Проверьте распознанные названия и номера.'
     : 'Автоматическая экспликация не найдена. Введите строки вручную в формате «1; Прихожая». Сканированные PDF автоматически не распознаются.';
+  renderRoomPlaceOptions();
+}
+function markersFor(pg) {
+  if (!pg || !pg.A) return [];
+  return P.mergeRoomMarkers(P.findRoomMarkers(pg.A, S.rooms), S.manualMarkers, S.rooms, pg.no);
+}
+function renderRoomPlaceOptions() {
+  const sel = $('roomPlaceNo');
+  if (!sel) return;
+  const previous = sel.value;
+  sel.innerHTML = S.rooms.map((r) => '<option value="' + r.no + '">' + esc(r.no + '; ' + r.name) + '</option>').join('');
+  if (S.rooms.some((r) => String(r.no) === previous)) sel.value = previous;
+  $('roomPlaceBtn').disabled = !S.rooms.length;
+  $('roomPlaceClear').disabled = !S.manualMarkers.length;
+  if (!S.rooms.length) $('roomPlaceInfo').textContent = 'Сначала распознайте или введите экспликацию помещений.';
 }
 
 /* ------------------------------------------------------------------ отрисовка панели */
@@ -197,11 +225,11 @@ function placedCounts() {
   return c;
 }
 function renderSum() {
-  const up = S.pages.find((p) => p.no === S.under), markers = up && up.A ? P.findRoomMarkers(up.A, S.rooms) : [];
+  const up = S.pages.find((p) => p.no === S.under), markers = markersFor(up);
   $('sum').innerHTML = 'Подложка: <b>' + (up ? 'лист ' + up.no : 'не выбран') + '</b>; помещений в экспликации: <b>' + S.rooms.length + '</b>; найдено номеров на плане: <b>' + markers.length + '</b>.';
   $('go').hidden = !host; $('save').classList.toggle('primary', !host);
   $('goHint').textContent = host
-    ? 'Подложка вставляется одним блоком на листы силовых сетей, освещения и ДСУП; экспликация — на силовом плане. Перенос значков электрики дизайнера отключён. Размеры и выноски на общих слоях нужно проверить и при необходимости удалить вручную.'
+    ? 'Подложка вставляется одним блоком на листы силовых сетей, освещения и ДСУП; экспликация — на силовом плане. Перенос электрических значков дизайнера отключён. Номера помещений можно привязать вручную кликом по плану. Размеры и выноски на общих слоях требуют проверки.'
     : 'Откройте эту страницу в панели AutoCAD (ГИППАНЕЛЬ → «План из PDF»), чтобы вставить сразу. Или сохраните файл и выполните в AutoCAD команду ГИППЛАН.';
 }
 
@@ -248,13 +276,63 @@ function drawView(fit) {
   }
   A.hits.forEach((h) => { const t = A.templates[h.ti]; mark(h.c, h.size, pg.mapping[t.id], S.hot === 't:' + t.id); });
   A.shapes.forEach((g) => g.items.forEach((it) => mark(it.c, it.size, pg.mapping[g.key], S.hot === 's:' + g.key)));
+  /* Явные/автоматические номера помещений видны в предпросмотре до вставки в AutoCAD. */
+  if (pg.no === S.under) markersFor(pg).forEach((m) => {
+    const rr = 9 / view.k;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(m.x, m.y, rr, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.96)'; ctx.fill();
+    ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1.5 / view.k; ctx.stroke();
+    ctx.fillStyle = '#6d28d9'; ctx.font = 'bold ' + (11 / view.k) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(m.no), m.x, m.y);
+  });
   ctx.setLineDash([]);
   ctx.restore();
 }
-let drag = null;
-cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); });
-cv.addEventListener('pointermove', (e) => { if (!drag) return; view.x = drag.vx + e.clientX - drag.x; view.y = drag.vy + e.clientY - drag.y; drawView(); });
-cv.addEventListener('pointerup', () => { drag = null; cv.classList.remove('drag'); });
+function placeRoomAt(clientX, clientY) {
+  const no = S.assignRoomNo, pg = S.pages.find((p) => p.no === S.under);
+  if (no == null || !pg || !pg.A) { toast('Сначала выберите лист подложки'); return; }
+  const rect = cv.getBoundingClientRect();
+  const x = (clientX - rect.left - view.x) / view.k;
+  const y = (view.y - (clientY - rect.top)) / view.k;
+  const crop = pg.A.crop;
+  if (x < crop[0] || x > crop[2] || y < crop[1] || y > crop[3]) {
+    $('roomPlaceInfo').textContent = 'Кликните внутри границ плана квартиры.';
+    return;
+  }
+  S.manualMarkers = S.manualMarkers.filter((m) => !(m.pageNo === pg.no && m.no === no));
+  S.manualMarkers.push({ no, x, y, pageNo: pg.no });
+  S.assignRoomNo = null;
+  cv.style.cursor = 'grab';
+  $('roomPlaceBtn').classList.remove('active');
+  $('roomPlaceBtn').textContent = 'Указать на плане';
+  $('roomPlaceInfo').textContent = 'Привязано помещение ' + no + '. Для другой комнаты выберите её в списке и нажмите «Указать на плане».';
+  renderSum(); renderRoomPlaceOptions(); drawView(false);
+  toast('Номер помещения ' + no + ' привязан к выбранной точке.');
+}
+let drag = null, roomClick = null;
+cv.addEventListener('pointerdown', (e) => {
+  if (S.assignRoomNo != null) {
+    roomClick = { x: e.clientX, y: e.clientY };
+    drag = null; cv.setPointerCapture(e.pointerId); e.preventDefault(); return;
+  }
+  drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+  cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+});
+cv.addEventListener('pointermove', (e) => {
+  if (roomClick) return;
+  if (!drag) return;
+  view.x = drag.vx + e.clientX - drag.x; view.y = drag.vy + e.clientY - drag.y; drawView();
+});
+cv.addEventListener('pointerup', (e) => {
+  if (roomClick) {
+    const p = roomClick; roomClick = null;
+    if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < 5) placeRoomAt(e.clientX, e.clientY);
+    cv.classList.remove('drag'); return;
+  }
+  drag = null; cv.classList.remove('drag');
+});
+cv.addEventListener('pointercancel', () => { roomClick = null; drag = null; cv.classList.remove('drag'); });
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, f = Math.exp(-e.deltaY * 0.0015);
@@ -272,8 +350,20 @@ $('file').addEventListener('change', (e) => openFile(e.target.files[0]));
 
 $('pages').addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.role) { const pg = S.pages.find((p) => p.no === +el.dataset.role); pg.role = el.value; if (pg.role) S.cur = pg.no; }
-  if (el.name === 'under') S.under = +el.value;
+  if (el.dataset.role) {
+    const pg = S.pages.find((p) => p.no === +el.dataset.role);
+    if (el.value === 'p') {
+      S.pages.forEach((p) => { p.role = p.no === pg.no ? 'p' : ''; });
+      S.under = pg.no; S.cur = pg.no;
+    } else {
+      pg.role = '';
+      if (S.under === pg.no) { S.under = null; S.pages.forEach((p) => { p.role = ''; }); }
+    }
+  }
+  if (el.name === 'under') {
+    S.under = +el.value; S.cur = S.under;
+    S.pages.forEach((p) => { p.role = p.no === S.under ? 'p' : ''; });
+  }
   await analyzeAll(); renderAll(true);
 });
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (!b) return; S.cur = +b.dataset.tab; S.hot = null; renderTabs(); renderSyms(); drawView(true); });
@@ -306,7 +396,28 @@ $('layers').addEventListener('change', async (e) => {
   S.pages.forEach((p) => { p.A = null; });
   await analyzeAll(); view.cache = null; renderAll(true);
 });
-$('roomsText').addEventListener('input', () => { S.rooms = parseRoomLines($('roomsText').value); $('roomInfo').textContent = 'В экспликации: ' + S.rooms.length + ' строк. Формат: номер; наименование. Повторные номера пропускаются.'; renderSum(); });
+$('roomsText').addEventListener('input', () => {
+  S.rooms = parseRoomLines($('roomsText').value);
+  S.manualMarkers = S.manualMarkers.filter((m) => S.rooms.some((r) => r.no === m.no));
+  if (S.assignRoomNo != null && !S.rooms.some((r) => r.no === S.assignRoomNo)) { S.assignRoomNo = null; cv.style.cursor = 'grab'; }
+  $('roomInfo').textContent = 'В экспликации: ' + S.rooms.length + ' строк. Формат: номер; наименование. Повторные номера пропускаются.';
+  renderRoomPlaceOptions(); renderSum(); drawView(false);
+});
+$('roomPlaceBtn').addEventListener('click', () => {
+  const no = +$('roomPlaceNo').value;
+  if (!S.rooms.some((r) => r.no === no)) { toast('Сначала введите хотя бы одно помещение'); return; }
+  if (!S.under) { toast('Не выбран план подложки. Выберите лист в таблице выше.'); return; }
+  S.assignRoomNo = no; cv.style.cursor = 'crosshair';
+  $('roomPlaceBtn').classList.add('active');
+  $('roomPlaceInfo').textContent = 'Режим привязки: кликните внутри комнаты ' + no + ' на плане справа.';
+  drawView(false);
+});
+$('roomPlaceClear').addEventListener('click', () => {
+  S.manualMarkers = []; S.assignRoomNo = null; cv.style.cursor = 'grab';
+  $('roomPlaceBtn').classList.remove('active'); $('roomPlaceBtn').textContent = 'Указать на плане';
+  $('roomPlaceInfo').textContent = 'Ручные привязки очищены. Оставшиеся номера будут найдены автоматически.';
+  renderRoomPlaceOptions(); renderSum(); drawView(false);
+});
 $('den').addEventListener('change', (e) => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) S.den = v; e.target.value = S.den; });
 $('fills').addEventListener('change', (e) => { S.fills = e.target.checked; });
 
@@ -322,7 +433,7 @@ function offsetTo(pg, U) {
 function build() {
   const U = S.pages.find((p) => p.no === S.under);
   if (!U || !U.A) { toast('Выберите лист для подложки'); return null; }
-  const markers = P.findRoomMarkers(U.A, S.rooms);
+  const markers = markersFor(U);
   return P.buildOutput({ underlay: U.A, pages: [], includeSymbols: false, rooms: S.rooms, markers: markers, scaleDen: S.den || U.A.scaleDen, fills: S.fills, name: S.name });
 }
 $('go').addEventListener('click', () => {
@@ -337,5 +448,5 @@ $('save').addEventListener('click', () => {
   a.download = 'gip_plan_in.txt'; document.body.appendChild(a); a.click(); a.remove();
   toast('Файл сохранён: подложка, экспликация и номера помещений. В AutoCAD: ГИППЛАН.', 6000);
 });
-window.GIPPLANUI = { S, openFile, build, drawView };
+window.GIPPLANUI = { S, openFile, build, drawView, markersFor, placeRoomAt };
 renderAll(true);
