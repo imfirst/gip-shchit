@@ -32,6 +32,8 @@ namespace Gip.Shchit
         private bool _activatePending;
         private string _pendingApply;
         private string _pendingPlan;
+        private bool _planWait;
+        private DateTime _planWaitUntil;
         private const string PlanFile = "gip_plan_in.txt";
         private Document _pendingDoc;
         private readonly Dictionary<Document, DocLink> _docs = new Dictionary<Document, DocLink>();
@@ -139,7 +141,20 @@ namespace Gip.Shchit
                     _pendingPlan = null;
                     WriteText(PlanFile, plan);
                     doc.SendStringToExecute("GIPPLANIMPORT ", true, false, false);
+                    _planWait = true;
+                    _planWaitUntil = DateTime.Now.AddSeconds(30);
                     return;
+                }
+                if (_planWait && DateTime.Now <= _planWaitUntil)
+                {
+                    var res = PlanResult();
+                    if (res != null) { _planWait = false; Post(res); }
+                    return;
+                }
+                if (_planWait && DateTime.Now > _planWaitUntil)
+                {
+                    _planWait = false;
+                    Post("{\"type\":\"plan-result\",\"ok\":false,\"msg\":\"AutoCAD не ответил за 30 с\"}");
                 }
                 if (_dirty && IsQuiet(doc))
                 {
@@ -274,6 +289,24 @@ namespace Gip.Shchit
             var sb = new StringBuilder(text.Length + 16);
             foreach (var c in text) sb.Append(c > 126 ? '?' : c);
             File.WriteAllText(Path.Combine(temp, name), sb.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n"), Encoding.ASCII);
+        }
+
+        /// <summary>Ответ LISP (gip_plan_out.txt): подобрать, удалить, отдать странице. msg уже ASCII (\U+XXXX).</summary>
+        private static string PlanResult()
+        {
+            try
+            {
+                var temp = AcAp.GetSystemVariable("TEMPPREFIX") as string;
+                var p = Path.Combine(string.IsNullOrEmpty(temp) ? Path.GetTempPath() : temp, "gip_plan_out.txt");
+                if (!File.Exists(p)) return null;
+                var lines = File.ReadAllLines(p, Encoding.ASCII);
+                try { File.Delete(p); } catch { }
+                if (lines.Length < 1) return null;
+                var ok = lines[0].Trim() == "ok";
+                var msg = lines.Length > 1 ? string.Join(" ", lines, 1, lines.Length - 1).Trim() : "";
+                return "{\"type\":\"plan-result\",\"ok\":" + (ok ? "true" : "false") + ",\"msg\":" + Js(msg) + "}";
+            }
+            catch { return null; }
         }
 
         private static void WriteInput(string text)
