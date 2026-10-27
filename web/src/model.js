@@ -102,7 +102,7 @@
 
   function defaultBoard() {
     return { name: 'ЩР', tpl: 'k2', area: 60, phases: 1, inA: 40, inPoles: 3, brand: 'abb', relay: true, km: true, fire: false, kup: true, kc: 0.4, kcMode: 'auto', pAllowed: null, mark: 'ВВГнг(А)-LS', railW: 18, mode: 'dif',
-             kmType: null, xb: false, olLen: false, route: 'Потолок', phaseMode: 'abc' };
+             inType: 'qf', kmType: null, xb: false, olLen: false, route: 'Потолок', phaseMode: 'abc' };
   }
 
   function tplOptions(key) {
@@ -223,7 +223,8 @@
   function normalize(st) {
     var B = st.board, is3 = B.phases === 3;
     var d0 = defaultBoard();
-    ['kmType', 'xb', 'olLen', 'route', 'phaseMode'].forEach(function (k) { if (B[k] === undefined) B[k] = d0[k]; });
+    ['inType', 'kmType', 'xb', 'olLen', 'route', 'phaseMode'].forEach(function (k) { if (B[k] === undefined) B[k] = d0[k]; });
+    if (B.inType !== 'qs') B.inType = 'qf';
     B.kup = true;
     if (ROUTES.indexOf(B.route) < 0) B.route = 'Потолок';
     /* 3P-группы не могут стоять под УЗО 2P — выносим сразу за блок */
@@ -454,11 +455,12 @@
   function derive(st) {
     var B = st.board, is3 = B.phases === 3, b = BRANDS[B.brand] || BRANDS.abb;
     var bl = blocks(st);
-    var cnt = { QF: 0, QFD: 0, QD: 0, KV: 0, KM: 0, XT: 0 };
+    var cnt = { QF: 0, QS: 0, QFD: 0, QD: 0, KV: 0, KM: 0, XT: 0 };
     function ref(p) { cnt[p]++; return p + cnt[p]; }
     var fixed = [];
     var inPoles = is3 ? (B.inPoles === 4 ? 4 : 3) : 2;
-    fixed.push({ id: 'in', kind: 'in', name: 'Вводной автомат', ref: ref('QF'), w: inPoles, In: B.inA, model: fmtModel(is3 ? (inPoles === 4 ? b.a4 : b.a3) : b.a2, B.inA), poles: inPoles });
+    var inType = B.inType === 'qs' ? 'qs' : 'qf';
+    fixed.push({ id: 'in', kind: 'in', inType: inType, name: inType === 'qs' ? 'Вводной рубильник' : 'Вводной автомат', ref: ref(inType === 'qs' ? 'QS' : 'QF'), w: inPoles, In: B.inA, model: inType === 'qs' ? ('Рубильник ' + inPoles + 'P, ' + B.inA + ' А') : fmtModel(is3 ? (inPoles === 4 ? b.a4 : b.a3) : b.a2, B.inA), poles: inPoles });
     if (B.relay) {
       if (is3) ['L1', 'L2', 'L3'].forEach(function (p) { fixed.push({ id: 'rn' + p, kind: 'rn', name: 'Реле напряжения ' + p, ref: ref('KV'), w: 2, In: 63, model: 'Welrok VIP-63', phase: p }); });
       else fixed.push({ id: 'rn1', kind: 'rn', name: 'Реле напряжения', ref: ref('KV'), w: 2, In: 63, model: 'Welrok VIP-63' });
