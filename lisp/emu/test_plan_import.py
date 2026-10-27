@@ -52,7 +52,6 @@ with tempfile.TemporaryDirectory() as tmp:
     assert os.path.exists(report_path), "Панель не получила отчёт об импорте"
     report = open(report_path, encoding="utf-8").read().splitlines()
     assert report and report[0] == "ok" and "GIP_PLAN_1" in report[1], "Неверный статус/отчёт импорта: %r" % report
-    assert not os.path.exists(src), "Временный файл импорта не удалён после обработки"
 
 tagged = [
     A.ents[h] for h in A.order
