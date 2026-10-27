@@ -24,6 +24,7 @@ jobs:
           python web/build.py
           node web/test/test_model.js
           node web/test/plan_rooms_test.mjs
+          python lisp/emu/test_plan_import.py
 
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
