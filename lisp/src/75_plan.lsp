@@ -119,7 +119,7 @@
                     (setq sc (+ (* (+ dx 6250.0) (+ dx 6250.0))
                                 (* (- dy 625.0) (- dy 625.0))))
                     (if (or (null bestScore) (< sc bestScore))
-                      (setq bestScore sc ttl cand bestRole cr)))))
+                      (setq bestScore sc ttl cand bestRole cr))))))
             (setq res (cons (list (cons "F" F) (cons "e" e) (cons "title" ttl)
                                   (cons "no" nil) (cons "tot" nil)
                                   (cons "role" (if bestRole bestRole "other")))
