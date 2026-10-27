@@ -4,6 +4,7 @@ name: build
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -14,6 +15,18 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Сборка LISP и HTML-панелей из исходников
+        run: |
+          python lisp/build_lsp.py
+          python web/build.py
+
+      - name: Проверка модели панели
+        run: node web/test/test_model.js
 
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin

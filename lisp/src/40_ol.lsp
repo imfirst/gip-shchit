@@ -54,6 +54,7 @@
            '("c_kab" -4311.0 -4311.0)
            (progn
              (setq wet (or (gip:has nm "сануз") (gip:has nm "ванн") (gip:has nm "душ") (gip:has nm "туалет") (gip:has nm "с/у")
+                           (gip:has (strcat " " nm) " су")
                            (member (gip:gn l "key" (gip:g l "id")) '("wash" "dw" "dry"))))
              (if wet '("c_roz44" -4311.0 -4311.0) '("c_roz" -4311.0 -4311.0)))))
         (T '("c_kab" -4311.0 -4311.0))))

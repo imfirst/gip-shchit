@@ -112,10 +112,12 @@
                   (setq cnt (gip:s cnt v (1+ (gip:gn cnt v 0))))))))))))
   cnt)
 
-(defun gip:bath-count (S / n)
+(defun gip:bath-count (S / n nm)
   (setq n 0)
   (foreach l (gip:g S "light")
-    (if (or (gip:has (gip:lower l) "сануз") (gip:has (gip:lower l) "ванн") (gip:has (gip:lower l) "душ")) (setq n (1+ n))))
+    (setq nm (gip:lower l))
+    (if (or (gip:has nm "сануз") (gip:has nm "ванн") (gip:has nm "душ")
+            (gip:has (strcat " " nm) " су")) (setq n (1+ n))))
   (max n 1))
 
 (defun gip:round5 (x) (* 5 (gip:ceil (/ x 5.0))))

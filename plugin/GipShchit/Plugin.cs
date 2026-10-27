@@ -18,7 +18,7 @@ namespace Gip.Shchit
             try
             {
                 var ed = AcAp.DocumentManager.MdiActiveDocument?.Editor;
-                ed?.WriteMessage("\nГИП-ЩИТ: панель «Группы щита» — команда GIPPANEL (ГИППАНЕЛЬ).");
+                ed?.WriteMessage("\nГИП-ЩИТ: таблица групп — GIPPANEL; панель всех команд — GIPTOOLS.");
             }
             catch { /* при запуске AutoCAD документа может ещё не быть */ }
         }
@@ -30,6 +30,9 @@ namespace Gip.Shchit
     {
         [CommandMethod("GIP", "GIPPANEL", CommandFlags.Session | CommandFlags.NoHistory)]
         public void ShowPanel() => PanelHost.Show();
+
+        [CommandMethod("GIP", "GIPTOOLS", CommandFlags.Session | CommandFlags.NoHistory)]
+        public void ShowToolsPanel() => CommandPanelHost.Show();
     }
 
     /// <summary>Закрепляемая палитра AutoCAD с таблицей групп.</summary>
