@@ -135,6 +135,99 @@
     });
     return out;
   }
+  
+  async function extractTextPage(pdfjs, doc, pno) {
+    var page = await doc.getPage(pno), vp = page.getViewport({ scale: 1 }), tc = await page.getTextContent(), texts = [];
+    tc.items.forEach(function (t) {
+      if (!t.str || !t.str.trim()) return;
+      texts.push({ s: t.str.trim(), x: +t.transform[4] || 0, y: +t.transform[5] || 0,
+        h: Math.hypot(t.transform[2], t.transform[3]) || 8, w: +t.width || 0 });
+    });
+    return { no: pno, w: vp.width, h: vp.height, texts: texts };
+  }
+  function cleanRoomText(s) {
+    return String(s == null ? '' : s).replace(/\\P/gi, ' ').replace(/\\[A-Za-z]+[^;]*;/g, ' ')
+      .replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  function roomNumber(s) {
+    var m = /^\s*(\d{1,2})\s*\.?\s*$/.exec(cleanRoomText(s));
+    return m ? +m[1] : null;
+  }
+  function extractRooms(D) {
+    var ts = (D && D.texts || []).map(function (t) {
+      return { s: cleanRoomText(t.s), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; });
+    var titles = ts.filter(function (t) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s); });
+    var best = { rooms: [], box: null, score: 0, title: '' };
+    titles.forEach(function (title) {
+      var noHeads = ts.filter(function (t) {
+        return /^(?:№(?:\s*(?:п\s*[/.]?\s*п|помещения))?|п\s*[/.]?\s*п|номер помещения|номер)$/i.test(t.s) &&
+          title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
+      });
+      var nameHeads = ts.filter(function (t) {
+        return /наименован.{0,25}помещ/i.test(t.s) && title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
+      });
+      var headers = [];
+      noHeads.forEach(function (nh) { nameHeads.forEach(function (hh) {
+        var tol = Math.max(3, Math.min(nh.h, hh.h) * 0.7);
+        if (hh.x <= nh.x || Math.abs(nh.y - hh.y) > tol) return;
+        headers.push({ no: nh, name: hh, y: (nh.y + hh.y) / 2,
+          gap: title.y - (nh.y + hh.y) / 2 + Math.abs(hh.x - nh.x) * 0.04 });
+      }); });
+      headers.sort(function (a, b) { return a.gap - b.gap; });
+      if (!headers.length) return;
+      var H = headers[0], rows = [], rowMax = Math.max(180, Math.min((D.h || 800) * 0.60, H.no.h * 100));
+      var nums = ts.filter(function (t) {
+        var n = roomNumber(t.s);
+        return n != null && t.y < H.y - Math.max(1, t.h * 0.12) &&
+          H.y - t.y < rowMax && t.x >= H.no.x - Math.max(8, H.no.h) &&
+          t.x <= H.no.x + Math.max(H.no.w + 12, 32);
+      });
+      nums.forEach(function (n) {
+        var tol = Math.max(3.5, n.h * 0.7);
+        var names = ts.filter(function (t) {
+          return !/^\d{1,2}\s*\.?$/.test(t.s) && t.x >= H.name.x - Math.max(4, t.h * 0.35) &&
+            t.y < H.y && H.y - t.y < rowMax && Math.abs(t.y - n.y) <= tol &&
+            /[a-zа-яё]/i.test(t.s) && !/наименован|итого|экспликац|примечан/i.test(t.s);
+        }).sort(function (a, b) { return a.x - b.x; });
+        if (!names.length || rows.some(function (r) { return r.no === roomNumber(n.s); })) return;
+        var name = names.map(function (t) { return t.s; }).join(' ')
+          .replace(/\s+\d+(?:[,.]\d+)?\s*(?:м2|м²|кв\.?м).*$/i, '').trim();
+        if (!name) return;
+        rows.push({ no: roomNumber(n.s), name: name, x: n.x, y: n.y,
+          endX: Math.max.apply(null, names.map(function (t) { return t.x + t.w; })) });
+      });
+      rows.sort(function (a, b) { return b.y - a.y || a.no - b.no; });
+      if (!rows.length) return;
+      var xs = [title.x, title.x + title.w, H.no.x, H.name.x].concat(rows.map(function (r) { return r.x; }));
+      var ys = [title.y, H.y].concat(rows.map(function (r) { return r.y; }));
+      var box = [Math.min.apply(null, xs) - 5, Math.min.apply(null, ys) - 8,
+        Math.max.apply(null, [title.x + title.w, H.name.x + H.name.w].concat(rows.map(function (r) { return r.endX; }))) + 5,
+        Math.max.apply(null, [title.y + title.h, H.y + H.no.h]) + 8];
+      var score = rows.length * 100 - headers[0].gap;
+      if (score > best.score) best = { rooms: rows.map(function (r) { return { no: r.no, name: r.name }; }), box: box, score: score, title: title.s };
+    });
+    return best;
+  }
+  function findRoomMarkers(A, rooms) {
+    if (!A || !A.page || !A.crop || !rooms || !rooms.length) return [];
+    var wanted = {};
+    rooms.forEach(function (r) { var n = +r.no; if (n >= 1 && n <= 15) wanted[n] = true; });
+    var schedule = extractRooms(A.page), crop = A.crop, center = [(crop[0] + crop[2]) / 2, (crop[1] + crop[3]) / 2], candidates = [];
+    (A.page.texts || []).forEach(function (t) {
+      var n = roomNumber(t.s);
+      if (n == null || !wanted[n]) return;
+      var x = (+t.x || 0) + Math.max(0, +t.w || 0) / 2, y = (+t.y || 0) + (+t.h || 8) * 0.45;
+      if (!inside([x, y], crop)) return;
+      if (schedule.box && x >= schedule.box[0] - 5 && x <= schedule.box[2] + 5 && y >= schedule.box[1] - 5 && y <= schedule.box[3] + 5) return;
+      candidates.push({ no: n, x: x, y: y, d: dist([x, y], center) });
+    });
+    candidates.sort(function (a, b) { return a.d - b.d; });
+    var seen = {};
+    return candidates.filter(function (p) { if (seen[p.no]) return false; seen[p.no] = true; return true; })
+      .sort(function (a, b) { return a.no - b.no; }).map(function (p) { return { no: p.no, x: p.x, y: p.y }; });
+  }
+
   function bboxPts(pts) { var b = [1e9, 1e9, -1e9, -1e9]; pts.forEach(function (p) { if (p[0] < b[0]) b[0] = p[0]; if (p[1] < b[1]) b[1] = p[1]; if (p[0] > b[2]) b[2] = p[0]; if (p[1] > b[3]) b[3] = p[1]; }); return b; }
   function grid(segs, cell) {
     var H = new Map();
@@ -445,8 +538,8 @@
       }
     });
     var W = (crop[2] - crop[0]) * s, H = (crop[3] - crop[1]) * s;
-    var syms = [], summary = {};
-    (plan.pages || []).forEach(function (pg) {
+    var syms = [], summary = {}, rooms = (plan.rooms || []).filter(function (r) { return +r.no >= 1 && +r.no <= 99 && String(r.name || '').trim(); }), markers = plan.markers || [];
+    if (plan.includeSymbols !== false) (plan.pages || []).forEach(function (pg) {
       var A = pg.A, Dp = A.page;
       var W = wallIndex(A);
       /* страницы могут быть сдвинуты относительно друг друга: совмещение по рамке плана (обычно совпадает) */
@@ -494,10 +587,12 @@
       A.shapes.forEach(function (g) { var m = mp[g.key]; if (m && m.b) g.items.forEach(function (it) { place(m, it.c, null); }); });
     });
     var head = '(GIPPLAN 1 ' + den + ' ' + f1(W) + ' ' + f1(H) + ' ' + lispStr(plan.name || 'plan') + ')';
-    return { text: [head].concat(lines, syms).join('\n') + '\n', nUnderlay: nUL, nSym: syms.length, summary: summary, W: W, H: H };
+    var roomLines = rooms.map(function (r) { return '(R ' + (+r.no) + ' ' + lispStr(String(r.name).trim()) + ')'; });
+    var markerLines = markers.filter(function (m) { return +m.no >= 1 && +m.no <= 15; }).map(function (m) { var p = X([m.x, m.y]); return '(N ' + (+m.no) + ' ' + f1(p[0]) + ' ' + f1(p[1]) + ')'; });
+    return { text: [head].concat(lines, roomLines, markerLines, syms).join('\n') + '\n', nUnderlay: nUL, nSym: syms.length, nRooms: roomLines.length, nRoomMarkers: markerLines.length, summary: summary, W: W, H: H };
   }
 
-  var API = { VIS: VIS, BLOCK_NAME: BLOCK_NAME, guessType: guessType, guessLayer: guessLayer, extractPage: extractPage, findLegends: findLegends,
+  var API = { VIS: VIS, BLOCK_NAME: BLOCK_NAME, guessType: guessType, guessLayer: guessLayer, extractPage: extractPage, extractTextPage: extractTextPage, extractRooms: extractRooms, findRoomMarkers: findRoomMarkers, findLegends: findLegends,
               templatesOf: templatesOf, matchAll: matchAll, leftoverShapes: leftoverShapes, analyze: analyze, counts: counts, buildOutput: buildOutput,
               segsOf: segsOf, bboxPts: bboxPts, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
