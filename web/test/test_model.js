@@ -175,5 +175,16 @@ ok(d.byId[s1.id].dU > 4 && d.byId[s1.id].warn.some(w => w.f === 'dU'), 'dU warn 
   ok(old.rows.filter(r => r.cat === 'sock' && !/кухн/i.test(r.name)).every(r => r.pAuto) && old.rows.find(r => /Розетки кухни/.test(r.name)).p === 1.5, 'migration old 1.5');
   let sp = M.balance(M.generate(M.tplOptions('k3')), 'power'); console.log('power balance + fit imb', M.derive(sp).tot.imb.toFixed(1));
 }
+{
+  let q = M.generate(M.tplOptions('k2'));
+  ok(M.derive(q).fixed.find((d) => d.id === 'in').ref === 'QF1', 'default incoming breaker ref');
+  q = M.setBoard(q, 'inType', 'qs');
+  let inDev = M.derive(q).fixed.find((d) => d.id === 'in');
+  ok(inDev.inType === 'qs' && inDev.ref === 'QS1', 'incoming switch has QS designator');
+  ok(inDev.name === 'Вводной рубильник' && /Рубильник/.test(inDev.model), 'incoming switch labels');
+  q = M.setBoard(q, 'inType', 'qf');
+  ok(M.derive(q).fixed.find((d) => d.id === 'in').ref === 'QF1', 'switch-back restores QF designator');
+}
+
 console.log(fails ? fails + ' FAILED' : 'ALL OK');
 process.exit(fails ? 1 : 0);
