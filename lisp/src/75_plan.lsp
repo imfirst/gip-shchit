@@ -140,7 +140,7 @@
       (setq x (- (car F) 20461.0) y (+ (cadr F) 500.0))
       (gip:plan-insert bn x y 0.0 "GIP_Экспликация помещений"))))
 
-(defun gip:plan-import (fn / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP F nM)
+(defun gip:plan-import (fn / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP framePt nM m s)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
     (progn (princ "\nGIP: нет файла плана из PDF") nil)
     (progn
@@ -186,11 +186,11 @@
                       (setq obj (gip:plan-insert (cadr bl) (+ (car org) (nth 4 s)) (+ (cadr org) (nth 5 s)) (nth 6 s) (caddr bl)))
                       (if (setq sd (nth (nth 3 s) (cdr (assoc (nth 2 s) *gip:plan-vis*)))) (gip:set-vis obj (cadr bl) sd))
                       (setq nS (1+ nS)))))))
-          (setq F (cdr (assoc "p" sheets)))
-          (if (and expBlk F templateP) (gip:plan-exp-insert expBlk F))
+          (setq framePt (cdr (assoc "p" sheets)))
+          (if (and expBlk framePt templateP) (gip:plan-exp-insert expBlk framePt))
           (princ (strcat "\nГИП: план из PDF — подложка «" blk "» (" (itoa nU) " объектов) на " (itoa (length sheets))
             " лист(ах), блоков ГИП: " (itoa nS) ", номеров помещений: " (itoa nM)
-            (if (and expBlk F templateP) ", экспликация обновлена" (if rooms ", экспликация не вставлена (не найден шаблон ГИП)" ""))
+            (if (and expBlk framePt templateP) ", экспликация обновлена" (if rooms ", экспликация не вставлена (не найден шаблон ГИП)" ""))
             (if (> n0 0) ", прежний импорт заменён" "") "."))
           blk)))))
 
