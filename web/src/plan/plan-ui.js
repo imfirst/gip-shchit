@@ -8,6 +8,16 @@ const ROLE = { p: 'План для подложки', '': 'Не использо
 const LCLS = { flat: 'Квартира', mebel: 'Мебель', sym: 'Значки', skip: 'Не брать' };
 if (host || /[?&]panel\b/.test(location.search)) $('backBtn').hidden = false;
 
+/* ответ AutoCAD после вставки плана (PanelControl.PlanResult -> gip_plan_out.txt -> 75_plan.lsp gip:plan-report) */
+if (host && host.addEventListener) {
+  host.addEventListener('message', (e) => {
+    const d = e && e.data;
+    if (!d || d.type !== 'plan-result') return;
+    const msg = String(d.msg || '').replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    toast(d.ok ? 'Вставлено в чертёж: ' + msg : 'Вставка не удалась: ' + msg, 8000);
+  });
+}
+
 /* ------------------------------------------------------------------ память по студиям (этот компьютер) */
 const MEM_KEY = 'gip-plan-mem-v1';
 function loadMem() { try { return Object.assign({ lay: {}, tpl: {}, shp: {} }, JSON.parse(localStorage.getItem(MEM_KEY) || '{}')); } catch (e) { return { lay: {}, tpl: {}, shp: {} }; } }
