@@ -24,6 +24,23 @@
 
 (defun gip:plan-tag () (list (list -3 (list *gip:plan-app* (cons 1000 "plan")))))
 
+;; номер в hex из 4 цифр (для \U+XXXX)
+(defun gip:plan-hex (n / d r)
+  (setq d "0123456789ABCDEF" r "")
+  (repeat 4 (setq r (strcat (substr d (+ 1 (rem n 16)) 1) r) n (/ n 16)))
+  r)
+;; строка -> ASCII (кириллица как \U+XXXX, декодирует панель)
+(defun gip:plan-ascii (s / r)
+  (setq r "")
+  (foreach c (vl-string->list (strcat "" s))
+    (setq r (strcat r (if (< c 127) (chr c) (strcat "\\U+" (gip:plan-hex c))))))
+  r)
+;; результат для панели: что именно вставлено (gip_plan_out.txt, подбирает плагин)
+(defun gip:plan-report (ok msg / f p)
+  (setq p (strcat (getvar "TEMPPREFIX") "gip_plan_out.txt"))
+  (if (setq f (open p "w"))
+    (progn (write-line (if ok "ok" "error") f) (write-line (gip:plan-ascii msg) f) (close f))))
+
 ;; удалить прежний импорт
 (defun gip:plan-clear (/ ss i n)
   (setq n 0)
@@ -134,20 +151,23 @@
       (gip:set-vis obj "NUM-POM_GIP" (itoa no))
       1)
     0))
-(defun gip:plan-exp-insert (bn F / x y)
+;; экспликация: нижний левый угол — внутренний угол рамки (поле 500 от края, ширина рамки *gip:SW*)
+(defun gip:plan-exp-insert (bn F / x y sw)
   (if (and bn F)
     (progn
-      (setq x (- (car F) 20461.0) y (+ (cadr F) 500.0))
+      (setq sw (if (and (boundp '*gip:SW*) *gip:SW*) *gip:SW* 20960.5)
+            x (- (car F) (- sw 500.0))
+            y (+ (cadr F) 500.0))
       (gip:plan-insert bn x y 0.0 "GIP_Экспликация помещений"))))
 
-(defun gip:plan-import (fn / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP framePt nM m s)
+(defun gip:plan-import (fn / f l it head blk W H nU syms rooms markers sheets org pt sh obj bl n0 nS sd expBlk templateP framePt nM m s msg)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
-    (progn (princ "\nGIP: нет файла плана из PDF") nil)
+    (progn (princ "\nGIP: нет файла плана из PDF") (gip:plan-report nil "нет файла плана") nil)
     (progn
       (regapp *gip:plan-app*)
       (setq head (read (read-line f)))
       (if (not (and (listp head) (eq (car head) 'GIPPLAN)))
-        (progn (close f) (princ "\nGIP: файл плана не распознан") nil)
+        (progn (close f) (princ "\nGIP: файл плана не распознан") (gip:plan-report nil "файл плана не распознан") nil)
         (progn
           (setq W (nth 3 head) H (nth 4 head) nU 0 syms nil rooms nil markers nil nM 0)
           (princ "\nGIP: подложка плана...")
@@ -165,6 +185,7 @@
                   ((and (eq (car it) 'N) (numberp (nth 1 it)) (numberp (nth 2 it)) (numberp (nth 3 it)))
                    (setq markers (cons (list (nth 1 it) (nth 2 it) (nth 3 it)) markers)))))))
           (close f)
+          (vl-file-delete fn)
           (entmake '((0 . "ENDBLK")))
           (setq n0 (gip:plan-clear) templateP (gip:template-sheets) sheets (gip:plan-sheets) nS 0 expBlk nil)
           (if rooms (setq expBlk (gip:plan-exp-block (reverse rooms))))
@@ -188,15 +209,20 @@
                       (setq nS (1+ nS)))))))
           (setq framePt (cdr (assoc "p" sheets)))
           (if (and expBlk framePt templateP) (gip:plan-exp-insert expBlk framePt))
-          (princ (strcat "\nГИП: план из PDF — подложка «" blk "» (" (itoa nU) " объектов) на " (itoa (length sheets))
+          (setq msg (strcat "подложка «" blk "» (" (itoa nU) " объектов) на " (itoa (length sheets))
             " лист(ах), блоков ГИП: " (itoa nS) ", номеров помещений: " (itoa nM)
             (if (and expBlk framePt templateP) ", экспликация обновлена" (if rooms ", экспликация не вставлена (не найден шаблон ГИП)" ""))
             (if (> n0 0) ", прежний импорт заменён" "") "."))
+          (princ (strcat "\nГИП: план из PDF — " msg))
+          (gip:plan-report T msg)
           blk))))))
 
 
 ;; из панели: файл во временной папке
-(defun c:GIPPLANIMPORT () (gip:plan-import (strcat (getvar "TEMPPREFIX") *gip:plan-file*)) (princ))
+(defun c:GIPPLANIMPORT ()
+  (vl-file-delete (strcat (getvar "TEMPPREFIX") "gip_plan_out.txt"))
+  (gip:plan-import (strcat (getvar "TEMPPREFIX") *gip:plan-file*))
+  (princ))
 ;; вручную: выбрать файл, сохранённый панелью
 (defun c:GIPPLAN (/ fn)
   (if (setq fn (getfiled "План из PDF (файл из панели «План из PDF»)" (getvar "TEMPPREFIX") "txt" 0)) (gip:plan-import fn))
