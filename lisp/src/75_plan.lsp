@@ -261,7 +261,7 @@
                 (if (setq pt (getpoint "\\nГИП: точка левого нижнего угла плана: "))
                   (setq sheets (list
                     (cons "p" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0)) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))
-                    (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0))))))))
+                    (cons "l" (list (+ (car pt) (- (car *gip:plan-at*)) (/ W 2.0) W 2000.0) (- (cadr pt) (cadr *gip:plan-at*) (- (/ H 2.0)))))))))
               ;; Не удаляем предыдущий план, пока не известны реальные точки вставки.
               (if sheets (setq n0 (gip:plan-clear)))
               (if rooms (setq expBlk (gip:plan-exp-block (reverse rooms))))
@@ -288,7 +288,7 @@
                 (if (> n0 0) ", прежний импорт заменён" "") "."))
               (princ (strcat "\\nГИП: план из PDF — " msg))
               (gip:plan-report ok msg)
-              (if ok blk nil)))))))))
+              (if ok blk nil))))))))
 
 ;; из панели: файл во временной папке
 (defun c:GIPPLANIMPORT ()
