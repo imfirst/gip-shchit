@@ -181,6 +181,31 @@
   " : row { : button { key = \"b_apply\"; label = \"Apply\"; } : button { key = \"b_del\"; label = \"Delete\"; } : button { key = \"b_add\"; label = \"Add\"; } : button { key = \"b_restore\"; label = \"Restore\"; } : spacer { width = 10; } ok_button; }"
   "}"))
 
+;; короткое окно выбора вводного аппарата (первым при ГИПЩИТ)
+(setq *gip:dcl* (append *gip:dcl* (list
+  "gip_in : dialog { label = \"Вводной аппарат\";"
+  " : radio_column { key = \"rc\";"
+  "  : radio_button { key = \"qf\"; label = \"Автоматический выключатель\"; }"
+  "  : radio_button { key = \"qs\"; label = \"Рубильник (выключатель нагрузки)\"; }"
+  " }"
+  " : text { key = \"note\"; }"
+  " ok_cancel; }")))
+
+;; вопрос про вводной аппарат: возвращает "qs"/"qf" или nil (отмена — оставить как было)
+(defun gip:in-choose (S / dcl res)
+  (setq dcl (load_dialog (gip:dcl-file)) res nil)
+  (if (new_dialog "gip_in" dcl)
+    (progn
+      (set_tile "note" (strcat "Номинал: " (itoa (gip:gn S "inA" 40))
+                               " А. Выбор действует на однолинейную и монтажную схемы."))
+      (set_tile (if (= (gip:g S "inType") "qs") "qs" "qf") "1")
+      (action_tile "accept" "(done_dialog 1)")
+      (action_tile "cancel" "(done_dialog 0)")
+      (if (= (start_dialog) 1)
+        (setq res (if (= (get_tile "qs") "1") "qs" "qf")))))
+  (unload_dialog dcl)
+  res)
+
 (defun gip:dcl-file (/ f fn)
   (setq fn (vl-filename-mktemp "gipsh" nil ".dcl"))
   (setq f (open fn "w"))
@@ -336,11 +361,14 @@
   (if (= res 1) S))
 
 ;; ---------------------------------------------------------------- команды
-(defun c:GIPSHCHIT (/ S)
+(defun c:GIPSHCHIT (/ S t)
   (setq S (gip:load-state))
   (if (null S) (setq S (gip:default-state "k2")))
   (if (= (gip:g S "v") 2)
     (princ "\nGIP-ЩИТ: щит этого чертежа собран в панели «Группы щита». Кнопка ОК соберёт его заново по шаблону."))
+  ;; короткий выбор вводного аппарата перед компоновкой
+  (if (setq t (gip:in-choose S))
+    (setq S (gip:s S "inType" t)))
   (if (setq S (gip:dialog S))
     (progn
       (if (= (gip:g S "v") 2)
