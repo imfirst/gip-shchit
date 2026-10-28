@@ -486,11 +486,10 @@
       var search = [coreBox[0] - margin, coreBox[1] - margin, coreBox[2] + margin, coreBox[3] + margin];
       paths.forEach(function (p) {
         if (!p.pts || p.pts.length < 2 || lclass(p.L) !== 'flat' || p.f === 'w') return;
-        var pb = bboxPts(p.pts), pw = pb[2] - pb[0], ph = pb[3] - pb[1];
-        if (!boxOverlap(pb, search) || pw > span * 3.5 || ph > span * 3.5) return;
-        var x0 = Math.max(pb[0], search[0]), y0 = Math.max(pb[1], search[1]);
-        var x1 = Math.min(pb[2], search[2]), y1 = Math.min(pb[3], search[3]);
-        if (x0 <= x1 && y0 <= y1) pts.push([x0, y0], [x1, y1]);
+        /* Сравниваем не полный bbox пути (в PDF одной кривой может быть вся стена),
+           а видимые отрезки около плана. Иначе длинная полилиния целиком пропадает из crop. */
+        var near = p.f === 'd' ? clipPolygon(p.pts, search) : [].concat.apply([], clipPolyline(p.pts, search));
+        if (near.length) pts.push.apply(pts, near);
       });
       bb = pts.length ? bboxPts(pts) : coreBox;
     } else {
@@ -891,7 +890,7 @@
               findRoomMarkers: findRoomMarkers, mergeRoomMarkers: mergeRoomMarkers, findLegends: findLegends,
               templatesOf: templatesOf, matchAll: matchAll, leftoverShapes: leftoverShapes, analyze: analyze, counts: counts, buildOutput: buildOutput,
               segsOf: segsOf, bboxPts: bboxPts, clipPolyline: clipPolyline, clipPolygon: clipPolygon,
-              inferScaleDen: inferScaleDen, planCrop: planCrop, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
+              inferScaleDen: inferScaleDen, planCrop: planCrop, mergeTextRows: mergeTextRows, mergeTextRuns: mergeTextRuns, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.GIPPLAN = API;
 })(typeof window !== 'undefined' ? window : globalThis);
