@@ -218,16 +218,48 @@
              box: box, score: best.rooms.length * 100 - 50, title: '' };
   }
   /* обе стратегии: заголовок «Экспликация…» (авторитетнее при равенстве) и колонка названий */
+  function extractRoomsByRows(D) {
+    var rows = mergeTextRows(D && D.texts || []);
+    var titles = rows.filter(function (r) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(r.s); });
+    var titleY = titles.length ? Math.max.apply(null, titles.map(function (r) { return r.y; })) : null;
+    var rooms = [], seen = {};
+    rows.forEach(function (r) {
+      var m = /^\\s*(?:№\\s*)?(\\d{1,2})\\s*[.)\\-:;]?\\s+(.+?)\\s*$/.exec(cleanRoomText(r.s));
+      if (!m) return;
+      var no = +m[1], name = m[2].replace(/\\s+\\d+(?:[,.]\\d+)?\\s*(?:м\\s*[²2]|кв\\.?\\s*м|м2|m2)(?:\\b.*)?$/i, '').trim();
+      name = name.replace(/[|;,:-]+\\s*$/, '').trim();
+      if (no < 1 || no > 99 || !name || name.length > 40 || ROOM_STOP.test(name) || !/[a-zа-яё]/i.test(name)) return;
+      if (titleY != null) {
+        if (r.y >= titleY || titleY - r.y > Math.max(260, Math.min((D.h || 800) * 0.6, r.h * 100))) return;
+      } else if (!roomWordHit(name.toLowerCase().replace(/ё/g, 'е'))) return;
+      if (seen[no]) return;
+      seen[no] = true; rooms.push({ no: no, name: name, y: r.y, x: r.x });
+    });
+    rooms.sort(function (a, b) { return a.no - b.no; });
+    if (!rooms.length) return { rooms: [], box: null, score: 0, title: titles.length ? titles[0].s : '' };
+    var xs = rows.filter(function (r) { return titleY == null || r.y <= titleY; }).map(function (r) { return r.x; });
+    var ys = rooms.map(function (r) { return r.y; });
+    return { rooms: rooms.map(function (r) { return { no: r.no, name: r.name }; }),
+      box: [Math.min.apply(null, xs.concat(rooms.map(function (r) { return r.x; }))),
+        Math.min.apply(null, ys), Math.max.apply(null, rows.map(function (r) { return r.x + r.w; })),
+        Math.max.apply(null, ys)], score: rooms.length * 100 + (titleY == null ? 0 : 25), title: titles.length ? titles[0].s : '' };
+  }
   function extractRooms(D) {
     var a = extractRoomsByTitle(D);
     var b = extractRoomsByNames(D);
-    return b.score > a.score ? b : a;
+    var c = extractRoomsByRows(D);
+    if (b.score > a.score) a = b;
+    if (c.score > a.score) a = c;
+    return a;
   }
 
   function extractRoomsByTitle(D) {
-    var ts = (D && D.texts || []).map(function (t) {
+    var base = (D && D.texts || []).map(function (t) {
       return { s: cleanRoomText(t.s), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
     }).filter(function (t) { return t.s; });
+    /* PDF.js иногда возвращает заголовки и ячейки несколькими соседними фрагментами.
+       Добавляем объединённые фрагменты для поиска заголовка, не теряя исходные координаты колонок. */
+    var ts = base.concat(mergeTextRuns(base));
     var titles = ts.filter(function (t) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s); });
     var best = { rooms: [], box: null, score: 0, title: '' };
     titles.forEach(function (title) {
@@ -317,6 +349,163 @@
   }
 
   function bboxPts(pts) { var b = [1e9, 1e9, -1e9, -1e9]; pts.forEach(function (p) { if (p[0] < b[0]) b[0] = p[0]; if (p[1] < b[1]) b[1] = p[1]; if (p[0] > b[2]) b[2] = p[0]; if (p[1] > b[3]) b[3] = p[1]; }); return b; }
+  function boxOverlap(a, b) { return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]; }
+  function boxDistance(a, b) {
+    var dx = Math.max(b[0] - a[2], a[0] - b[2], 0);
+    var dy = Math.max(b[1] - a[3], a[1] - b[3], 0);
+    return Math.hypot(dx, dy);
+  }
+  function clipSegment(a, b, box) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], t0 = 0, t1 = 1;
+    var p = [-dx, dx, -dy, dy], q = [a[0] - box[0], box[2] - a[0], a[1] - box[1], box[3] - a[1]];
+    for (var i = 0; i < 4; i++) {
+      if (Math.abs(p[i]) < 1e-12) { if (q[i] < 0) return null; }
+      else {
+        var t = q[i] / p[i];
+        if (p[i] < 0) { if (t > t1) return null; if (t > t0) t0 = t; }
+        else { if (t < t0) return null; if (t < t1) t1 = t; }
+      }
+    }
+    return [[a[0] + t0 * dx, a[1] + t0 * dy], [a[0] + t1 * dx, a[1] + t1 * dy]];
+  }
+  function clipPolyline(pts, box) {
+    var out = [], cur = null;
+    function flush() { if (cur && cur.length > 1) out.push(cur); cur = null; }
+    for (var i = 1; i < pts.length; i++) {
+      var seg = clipSegment(pts[i - 1], pts[i], box);
+      if (!seg) { flush(); continue; }
+      if (!cur || dist(cur[cur.length - 1], seg[0]) > 1e-3) { flush(); cur = [seg[0]]; }
+      if (dist(cur[cur.length - 1], seg[1]) > 1e-3) cur.push(seg[1]);
+      if (dist(seg[1], pts[i]) > 1e-3) flush();
+    }
+    flush();
+    return out;
+  }
+  function clipPolygon(points, box) {
+    var poly = (points || []).map(function (p) { return [p[0], p[1]]; });
+    if (poly.length > 1 && dist(poly[0], poly[poly.length - 1]) < 1e-3) poly.pop();
+    var edges = [
+      { inside: function (p) { return p[0] >= box[0]; }, meet: function (a, b) { var t = (box[0] - a[0]) / (b[0] - a[0]); return [box[0], a[1] + t * (b[1] - a[1])]; } },
+      { inside: function (p) { return p[0] <= box[2]; }, meet: function (a, b) { var t = (box[2] - a[0]) / (b[0] - a[0]); return [box[2], a[1] + t * (b[1] - a[1])]; } },
+      { inside: function (p) { return p[1] >= box[1]; }, meet: function (a, b) { var t = (box[1] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), box[1]]; } },
+      { inside: function (p) { return p[1] <= box[3]; }, meet: function (a, b) { var t = (box[3] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), box[3]]; } }
+    ];
+    edges.forEach(function (edge) {
+      if (!poly.length) return;
+      var input = poly, output = [], prev = input[input.length - 1], prevIn = edge.inside(prev);
+      input.forEach(function (cur) {
+        var curIn = edge.inside(cur);
+        if (curIn) {
+          if (!prevIn) output.push(edge.meet(prev, cur));
+          output.push(cur);
+        } else if (prevIn) output.push(edge.meet(prev, cur));
+        prev = cur; prevIn = curIn;
+      });
+      poly = output;
+    });
+    return poly.filter(function (p, i, all) { return !i || dist(p, all[i - 1]) > 1e-3; });
+  }
+  function mergeTextRuns(texts) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var rows = [];
+    items.forEach(function (t) {
+      var row = null, tol = Math.max(1.5, t.h * 0.45);
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rows[i].y - t.y) <= Math.max(tol, rows[i].h * 0.45)) { row = rows[i]; break; }
+      }
+      if (!row) { row = { y: t.y, h: t.h, items: [] }; rows.push(row); }
+      row.items.push(t); row.h = Math.max(row.h, t.h);
+      row.y = (row.y * (row.items.length - 1) + t.y) / row.items.length;
+    });
+    var out = [];
+    rows.forEach(function (row) {
+      row.items.sort(function (a, b) { return a.x - b.x; });
+      var cur = null;
+      row.items.forEach(function (t) {
+        if (!cur) { cur = { s: t.s, x: t.x, y: t.y, h: t.h, w: t.w }; return; }
+        var gap = t.x - (cur.x + cur.w), lim = Math.max(4, Math.min(cur.h, t.h) * 1.4);
+        if (gap <= lim && gap >= -Math.max(2, t.h * 0.25)) {
+          cur.s += ' ' + t.s; cur.w = Math.max(cur.x + cur.w, t.x + t.w) - cur.x; cur.h = Math.max(cur.h, t.h);
+        } else { out.push(cur); cur = { s: t.s, x: t.x, y: t.y, h: t.h, w: t.w }; }
+      });
+      if (cur) out.push(cur);
+    });
+    return out;
+  }
+  function mergeTextRows(texts) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var rows = [];
+    items.forEach(function (t) {
+      var row = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rows[i].y - t.y) <= Math.max(2, Math.min(rows[i].h, t.h) * 0.65)) { row = rows[i]; break; }
+      }
+      if (!row) { row = { y: t.y, h: t.h, items: [] }; rows.push(row); }
+      row.items.push(t); row.h = Math.max(row.h, t.h);
+      row.y = (row.y * (row.items.length - 1) + t.y) / row.items.length;
+    });
+    return rows.map(function (r) {
+      r.items.sort(function (a, b) { return a.x - b.x; });
+      var x0 = r.items[0].x, x1 = x0, pieces = [];
+      r.items.forEach(function (t) { pieces.push(t.s); x1 = Math.max(x1, t.x + t.w); });
+      return { s: pieces.join(' ').replace(/\\s+/g, ' ').trim(), x: x0, y: r.y, h: r.h, w: x1 - x0 };
+    });
+  }
+  function inferScaleDen(texts, box) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').replace(/：/g, ':').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; });
+    var candidates = [];
+    function add(s, x, y, w, h, direct) {
+      var re = /(?:^|[^\\d])1\\s*:\\s*(\\d{1,4})(?:[^\\d]|$)/g, m;
+      while ((m = re.exec(String(s || '').replace(/\\s+/g, ' ')))) {
+        var den = +m[1];
+        if (den < 5 || den > 1000) continue;
+        candidates.push({ den: den, s: s, x: x, y: y, w: w || 0, h: h || 8, direct: !!direct });
+      }
+    }
+    items.forEach(function (t) { add(t.s, t.x, t.y, t.w, t.h, true); });
+    mergeTextRuns(items).forEach(function (t) { add(t.s, t.x, t.y, t.w, t.h, false); });
+    if (!candidates.length) return { den: 50, source: 'default', text: '' };
+    candidates.sort(function (a, b) {
+      var da = box ? boxDistance([a.x, a.y - a.h, a.x + a.w, a.y + a.h], box) : 0;
+      var db = box ? boxDistance([b.x, b.y - b.h, b.x + b.w, b.y + b.h], box) : 0;
+      return da - db || (a.direct === b.direct ? 0 : a.direct ? -1 : 1);
+    });
+    return { den: candidates[0].den, source: 'text', text: candidates[0].s };
+  }
+  function planCrop(D, lclass, corePts) {
+    var paths = D.paths || [], core = corePts || [], coreBox = core.length ? bboxPts(core) : null, pts = core.slice(), bb;
+    if (coreBox) {
+      var span = Math.max(coreBox[2] - coreBox[0], coreBox[3] - coreBox[1], 1);
+      var margin = Math.max(span * 0.9, 50);
+      var search = [coreBox[0] - margin, coreBox[1] - margin, coreBox[2] + margin, coreBox[3] + margin];
+      paths.forEach(function (p) {
+        if (!p.pts || p.pts.length < 2 || lclass(p.L) !== 'flat' || p.f === 'w') return;
+        var pb = bboxPts(p.pts), pw = pb[2] - pb[0], ph = pb[3] - pb[1];
+        if (!boxOverlap(pb, search) || pw > span * 3.5 || ph > span * 3.5) return;
+        var x0 = Math.max(pb[0], search[0]), y0 = Math.max(pb[1], search[1]);
+        var x1 = Math.min(pb[2], search[2]), y1 = Math.min(pb[3], search[3]);
+        if (x0 <= x1 && y0 <= y1) pts.push([x0, y0], [x1, y1]);
+      });
+      bb = pts.length ? bboxPts(pts) : coreBox;
+    } else {
+      var flat = paths.filter(function (p) {
+        if (!p.pts || p.pts.length < 2 || p.f === 'w' || lclass(p.L) !== 'flat') return false;
+        var pb = bboxPts(p.pts), w = pb[2] - pb[0], h = pb[3] - pb[1];
+        return (!D.w || w < D.w * 0.9) && (!D.h || h < D.h * 0.9);
+      });
+      var all = [];
+      flat.forEach(function (p) { all.push.apply(all, p.pts); });
+      bb = all.length ? bboxPts(all) : [0, 0, D.w || 1, D.h || 1];
+    }
+    var pad = Math.max(Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10, 8);
+    return [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
+  }
   function grid(segs, cell) {
     var H = new Map();
     function key(x, y) { return Math.round(x / cell) + ',' + Math.round(y / cell); }
@@ -532,18 +721,18 @@
       g.sig = g.segs.length + ':' + Math.round(g.size / 0.8);
     });
     shapes.sort(function (a, b) { return b.items.length - a.items.length || b.size - a.size; });
-    /* масштаб чертежа по надписи «1:50» */
-    var scaleDen = null;
-    D.texts.forEach(function (t) { var m = /^\s*1\s*:\s*(\d{1,4})\s*$/.exec(t.s); if (m && !scaleDen) scaleDen = +m[1]; });
-    /* границы плана: мебель + значки, с запасом */
+    /* базовый габарит: мебель + распознанные значки. Затем добавляем ближайшую геометрию стен
+       из flat-слоя, иначе стены, лежащие за пределами мебели, отсекаются целиком при экспорте. */
     var pts = [];
     D.paths.forEach(function (p) { if (lclass(p.L) === 'mebel') pts.push.apply(pts, p.pts); });
     hits.forEach(function (h) { pts.push(h.c); });
-    var bb = pts.length ? bboxPts(pts) : [0, 0, D.w, D.h];
-    var pad = Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10;
-    var crop = [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
-    legends.forEach(function (lg) { if (lg.box[0] > bb[2]) crop[2] = Math.min(crop[2], lg.box[0] - 2); });
-    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes, scaleDen: scaleDen || 50, crop: crop, lclass: lclass };
+    var coreBox = pts.length ? bboxPts(pts) : null;
+    var scale = inferScaleDen(D.texts, coreBox);
+    var crop = planCrop(D, lclass, pts);
+    var bb = coreBox || [crop[0], crop[1], crop[2], crop[3]];
+    legends.forEach(function (lg) { if (lg.box[0] > bb[2] && lg.box[0] < crop[2]) crop[2] = Math.max(bb[2] + 8, Math.min(crop[2], lg.box[0] - 2)); });
+    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes,
+      scaleDen: scale.den, scaleSource: scale.source, scaleText: scale.text, crop: crop, lclass: lclass };
   }
 
   /* подсчёт по типам */
@@ -609,21 +798,38 @@
     var nUL = 0;
     D.paths.forEach(function (p) {
       var k = U.lclass(p.L);
-      if (k !== 'flat' && k !== 'mebel') return;
-      if (p.f === 'w' || (p.f === 'd' && !plan.fills)) return;
-      if (!p.pts.every(function (q) { return inside(q, crop); })) return;
-      var pts = p.pts.map(X), closed = pts.length > 2 && dist(p.pts[0], p.pts[p.pts.length - 1]) < 0.01;
-      if (closed) pts = pts.slice(0, -1);
-      var kind = k === 'mebel' ? 1 : 0;
-      var tag = p.f === 'd' ? 'F' : closed ? 'C' : 'L';
-      if (tag === 'F' && pts.length < 3) return;
-      for (var i = 0; i < pts.length; i += 150) {
-        var part = pts.slice(Math.max(0, i - (i ? 1 : 0)), i + 150);
-        if (part.length < 2) continue;
-        lines.push('(' + (tag === 'C' && pts.length > 150 ? 'L' : tag) + ' ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
-        nUL++;
-        if (tag === 'F') break;
+      if ((k !== 'flat' && k !== 'mebel') || !p.pts || p.pts.length < 2 || p.f === 'w') return;
+      if (p.f === 'd') {
+        if (!plan.fills) return;
+        var poly = clipPolygon(p.pts, crop);
+        if (poly.length < 3) return;
+        var fillPts = poly.map(X);
+        lines.push('(F ' + (k === 'mebel' ? 1 : 0) + ' ' + fillPts.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+        nUL++; return;
       }
+      var kind = k === 'mebel' ? 1 : 0;
+      var closed = p.pts.length > 2 && dist(p.pts[0], p.pts[p.pts.length - 1]) < 0.01;
+      if (closed && p.pts.every(function (q) { return inside(q, crop); })) {
+        var cpts = p.pts.slice(0, -1).map(X);
+        for (var ci = 0; ci < cpts.length; ci += 150) {
+          var cpart = cpts.slice(Math.max(0, ci - (ci ? 1 : 0)), ci + 150);
+          if (cpart.length < 2) continue;
+          lines.push('(' + (cpts.length > 150 ? 'L' : 'C') + ' ' + kind + ' ' + cpart.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+          nUL++;
+        }
+        return;
+      }
+      /* Не выбрасываем целую стену только потому, что один её узел лежит за crop:
+         обрезаем пересекающиеся отрезки по рамке видимой области. */
+      clipPolyline(p.pts, crop).forEach(function (chunk) {
+        var qpts = chunk.map(X);
+        for (var i = 0; i < qpts.length; i += 150) {
+          var part = qpts.slice(Math.max(0, i - (i ? 1 : 0)), i + 150);
+          if (part.length < 2) continue;
+          lines.push('(L ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+          nUL++;
+        }
+      });
     });
     var W = (crop[2] - crop[0]) * s, H = (crop[3] - crop[1]) * s;
     var syms = [], summary = {}, rooms = (plan.rooms || []).filter(function (r) { return +r.no >= 1 && +r.no <= 99 && String(r.name || '').trim(); }), markers = plan.markers || [];
@@ -684,7 +890,8 @@
               extractRooms: extractRooms, extractRoomsByNames: extractRoomsByNames,
               findRoomMarkers: findRoomMarkers, mergeRoomMarkers: mergeRoomMarkers, findLegends: findLegends,
               templatesOf: templatesOf, matchAll: matchAll, leftoverShapes: leftoverShapes, analyze: analyze, counts: counts, buildOutput: buildOutput,
-              segsOf: segsOf, bboxPts: bboxPts, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
+              segsOf: segsOf, bboxPts: bboxPts, clipPolyline: clipPolyline, clipPolygon: clipPolygon,
+              inferScaleDen: inferScaleDen, planCrop: planCrop, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.GIPPLAN = API;
 })(typeof window !== 'undefined' ? window : globalThis);
