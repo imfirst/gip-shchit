@@ -290,17 +290,49 @@
                .sort(function (a, b) { return a.no - b.no; }),
              box: box, score: best.rooms.length * 100 - 50, title: '' };
   }
-  /* обе стратегии: заголовок «Экспликация…» (авторитетнее при равенстве) и колонка названий */
+  /* Разбор строк, где PDF.js отдал номер и название отдельными текстовыми ячейками. */
+  function extractRoomsByRows(D) {
+    var rows = mergeTextRows(D && D.texts || []);
+    var titles = rows.filter(function (r) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(r.s); });
+    var titleY = titles.length ? Math.max.apply(null, titles.map(function (r) { return r.y; })) : null;
+    var rooms = [], seen = {};
+    rows.forEach(function (r) {
+      var m = /^\s*(?:№\s*)?(\d{1,2})\s*[.)\-:;]?\s+(.+?)\s*$/.exec(cleanRoomText(r.s));
+      if (!m) return;
+      var no = +m[1], name = m[2].replace(/\s+\d+(?:[,.]\d+)?\s*(?:м\s*[²2]|кв\.?\s*м|м2|m2)(?:\b.*)?$/i, '').trim();
+      name = name.replace(/[|;,:-]+\s*$/, '').trim();
+      if (no < 1 || no > 99 || !name || name.length > 40 || ROOM_STOP.test(name) || !/[a-zа-яё]/i.test(name)) return;
+      if (titleY != null) {
+        if (r.y >= titleY || titleY - r.y > Math.max(260, Math.min((D.h || 800) * 0.6, r.h * 100))) return;
+      } else if (!roomWordHit(name.toLowerCase().replace(/ё/g, 'е'))) return;
+      if (seen[no]) return;
+      seen[no] = true; rooms.push({ no: no, name: name, y: r.y, x: r.x });
+    });
+    rooms.sort(function (a, b) { return a.no - b.no; });
+    if (!rooms.length) return { rooms: [], box: null, score: 0, title: titles.length ? titles[0].s : '' };
+    var xs = rows.filter(function (r) { return titleY == null || r.y <= titleY; }).map(function (r) { return r.x; });
+    var ys = rooms.map(function (r) { return r.y; });
+    return { rooms: rooms.map(function (r) { return { no: r.no, name: r.name }; }),
+      box: [Math.min.apply(null, xs.concat(rooms.map(function (r) { return r.x; }))),
+        Math.min.apply(null, ys), Math.max.apply(null, rows.map(function (r) { return r.x + r.w; })),
+        Math.max.apply(null, ys)], score: rooms.length * 100 + (titleY == null ? 0 : 25), title: titles.length ? titles[0].s : '' };
+  }
+  /* Заголовок, явные номера слева и вариант с контурами вместо цифр. */
   function extractRooms(D) {
     var a = extractRoomsByTitle(D);
     var b = extractRoomsByNames(D);
-    return b.score > a.score ? b : a;
+    var c = extractRoomsByRows(D);
+    if (b.score > a.score) a = b;
+    if (c.score > a.score) a = c;
+    return a;
   }
 
   function extractRoomsByTitle(D) {
-    var ts = (D && D.texts || []).map(function (t) {
+    var base = (D && D.texts || []).map(function (t) {
       return { s: cleanRoomText(t.s), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
     }).filter(function (t) { return t.s; });
+    /* Заголовки и ячейки таблицы иногда состоят из нескольких соседних объектов PDF. */
+    var ts = base.concat(mergeTextRuns(base));
     var titles = ts.filter(function (t) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s); });
     var best = { rooms: [], box: null, score: 0, title: '' };
     titles.forEach(function (title) {
@@ -809,25 +841,18 @@
       g.sig = g.segs.length + ':' + Math.round(g.size / 0.8);
     });
     shapes.sort(function (a, b) { return b.items.length - a.items.length || b.size - a.size; });
-    /* масштаб чертежа по надписи «1:50» */
-    var scaleDen = null;
-    D.texts.forEach(function (t) {
-      // Archicad often emits the label and denominator as one PDF text item: "Масштаб 1:45".
-      var m = /(?:^|[^0-9])1\s*:\s*([0-9]{1,4})(?![0-9])/.exec(String(t.s || '').trim());
-      if (m && !scaleDen) {
-        var den = +m[1];
-        if (den > 0 && den < 1000) scaleDen = den;
-      }
-    });
-    /* границы плана: мебель + значки, с запасом */
+    /* Масштаб ищем в подписи, в том числе если PDF.js разделил «1:45» на несколько текстовых фрагментов. */
     var pts = [];
     D.paths.forEach(function (p) { if (lclass(p.L) === 'mebel') pts.push.apply(pts, p.pts); });
     hits.forEach(function (h) { pts.push(h.c); });
-    var bb = pts.length ? bboxPts(pts) : [0, 0, D.w, D.h];
-    var pad = Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10;
-    var crop = [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
-    legends.forEach(function (lg) { if (lg.box[0] > bb[2]) crop[2] = Math.min(crop[2], lg.box[0] - 2); });
-    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes, scaleDen: scaleDen, crop: crop, lclass: lclass };
+    var coreBox = pts.length ? bboxPts(pts) : null;
+    var scale = inferScaleDen(D.texts, coreBox);
+    /* Геометрия ближайших стен входит в область импорта; линии режутся по границам, а не теряются целиком. */
+    var crop = planCrop(D, lclass, pts);
+    var bb = coreBox || [crop[0], crop[1], crop[2], crop[3]];
+    legends.forEach(function (lg) { if (lg.box[0] > bb[2] && lg.box[0] < crop[2]) crop[2] = Math.max(bb[2] + 8, Math.min(crop[2], lg.box[0] - 2)); });
+    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes,
+      scaleDen: scale.den, scaleSource: scale.source, scaleText: scale.text, crop: crop, lclass: lclass };
   }
 
   /* подсчёт по типам */
