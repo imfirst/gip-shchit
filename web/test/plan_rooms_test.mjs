@@ -62,3 +62,65 @@ assert.ok(!out.text.includes('(S '), 'designer electrical symbols stay out of si
 assert.equal(out.nRooms, 3);
 assert.equal(out.nRoomMarkers, 2);
 console.log('PDF room schedule / import records: ALL OK');
+
+
+// Archicad often outlines the room-number column and labels the room-name column
+// "Название помещения". The parser must recover rows and ignore the total-area row.
+const outlinedSchedule = {
+  no: 12, w: 1190.55, h: 841.89, texts: [
+    { s: 'Экспликация помещений 1 этаж', x: 1000, y: 695, h: 10, w: 155 },
+    { s: 'Название помещения', x: 1014, y: 674, h: 10, w: 104 },
+    { s: 'Прихожая', x: 1006, y: 655, h: 8, w: 36 },
+    { s: 'Кухня гостиная', x: 1006, y: 638, h: 8, w: 55 },
+    { s: 'Спальня', x: 1006, y: 621, h: 8, w: 31 },
+    { s: 'Кабинет', x: 1006, y: 604, h: 8, w: 30 },
+    { s: 'Ванная', x: 1006, y: 587, h: 8, w: 27 },
+    { s: '53,18 м²', x: 1014, y: 570, h: 8, w: 28 }
+  ]
+};
+const outlined = P.extractRooms(outlinedSchedule);
+assert.deepEqual(outlined.rooms, [
+  { no: 1, name: 'Прихожая' },
+  { no: 2, name: 'Кухня гостиная' },
+  { no: 3, name: 'Спальня' },
+  { no: 4, name: 'Кабинет' },
+  { no: 5, name: 'Ванная' }
+]);
+assert.ok(outlined.box, 'outlined room schedule bounds');
+
+// A combined scale label (not a standalone "1:45" text run) must be recognized.
+const scaled = P.analyze({
+  no: 3, w: 1190.55, h: 841.89, paths: [], layers: {},
+  texts: [{ s: 'Масштаб 1:45', x: 1050, y: 30, h: 10, w: 80 }]
+});
+assert.equal(scaled.scaleDen, 45, 'PDF scale label includes surrounding text');
+
+// PDF.js encodes constructPath as [path verbs, operands, bounds], then emits
+// a separate stroke/fill operator. Guard against reverting to the old parser.
+const OPS = {
+  save: 1, restore: 2, transform: 3, paintFormXObjectBegin: 4, paintFormXObjectEnd: 5,
+  beginMarkedContentProps: 6, beginMarkedContent: 7, endMarkedContent: 8,
+  setFillRGBColor: 9, setFillGray: 10, setLineWidth: 11,
+  constructPath: 90, stroke: 91, closeStroke: 92, fill: 93, eoFill: 94,
+  fillStroke: 95, eoFillStroke: 96, closeFillStroke: 97, closeEOFillStroke: 98, endPath: 99,
+  moveTo: 13, lineTo: 14, curveTo: 15, curveTo2: 16, curveTo3: 17, closePath: 18, rectangle: 19
+};
+const fakePdfJs = { OPS };
+const fakeDoc = {
+  getPage: async () => ({
+    getViewport: () => ({ width: 100, height: 100 }),
+    getOptionalContentConfig: async () => null,
+    getOperatorList: async () => ({
+      fnArray: [OPS.constructPath, OPS.stroke],
+      argsArray: [
+        [[OPS.moveTo, OPS.lineTo, OPS.lineTo], [10, 20, 30, 40, 50, 60], [10, 20, 50, 60]],
+        []
+      ]
+    }),
+    getTextContent: async () => ({ items: [] })
+  })
+};
+const vectorPage = await P.extractPage(fakePdfJs, fakeDoc, 1);
+assert.equal(vectorPage.paths.length, 1, 'modern PDF.js path operators are decoded');
+assert.deepEqual(vectorPage.paths[0].pts, [[10, 20], [30, 40], [50, 60]]);
+console.log('PDF scale / modern vector path / outlined room schedule: ALL OK');
