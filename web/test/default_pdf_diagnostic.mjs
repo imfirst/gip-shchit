@@ -26,7 +26,8 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
       layerPaths: Object.entries(D.layers).map(([name, n]) => ({ name: name || '(none)', n })).slice(0, 30),
       scaleTexts, parserScale: A.scaleDen, crop: A.crop.map(x => Math.round(x * 100) / 100),
       classes, roomCount: (R.rooms || []).length, roomTitleFound: !!R.title,
-      roomScore: R.score || 0, symbols: A.hits.length, unmatchedShapes: A.shapes.length
+      roomScore: R.score || 0, symbols: A.hits.length, unmatchedShapes: A.shapes.length,
+      roomText: no === 12 ? D.texts.filter(t => /экспликац|назван|наимен|прихож|кухн|спальн|кабинет|ванная|^\\s*[1-5]\\s*$/.test(String(t.s || '').toLowerCase())).map(t => ({ s: t.s, x: Math.round(t.x), y: Math.round(t.y), w: Math.round(t.w), h: Math.round(t.h) })).slice(0, 35) : []
     }));
   } catch (e) { console.log('PAGE_ERROR', no, String(e).slice(0,200)); }
 }
