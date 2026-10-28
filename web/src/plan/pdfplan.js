@@ -320,7 +320,50 @@
           gap: title.y - (nh.y + hh.y) / 2 + Math.abs(hh.x - nh.x) * 0.04 });
       }); });
       headers.sort(function (a, b) { return a.gap - b.gap; });
-      if (!headers.length) return;
+      if (!headers.length) {
+        // In some Archicad PDFs the "№" column is outlined as vector geometry rather than text.
+        // Recover the textual name column and assign numbers by row order (top to bottom).
+        nameHeads.forEach(function (hh) {
+          var rowMax2 = Math.max(180, Math.min((D.h || 800) * 0.60, hh.h * 100));
+          var rowTexts = ts.filter(function (t) {
+            var dy = hh.y - t.y;
+            return dy > Math.max(1, t.h * 0.12) && dy < rowMax2 &&
+              t.x >= hh.x - Math.max(12, hh.h * 1.5) &&
+              t.x <= hh.x + hh.w + Math.max(15, hh.h * 2) &&
+              /[a-zа-яё]/i.test(t.s) &&
+              !/наименован|назван|итого|экспликац|примечан|площадь/i.test(t.s);
+          }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+          var groups = [];
+          rowTexts.forEach(function (t) {
+            var g = null, tol = Math.max(3.5, t.h * 0.65);
+            for (var gi = 0; gi < groups.length; gi++) {
+              if (Math.abs(groups[gi].y - t.y) <= tol) { g = groups[gi]; break; }
+            }
+            if (!g) { g = { y: t.y, h: t.h, items: [] }; groups.push(g); }
+            g.items.push(t);
+          });
+          groups.sort(function (a, b) { return b.y - a.y; });
+          var rows2 = groups.map(function (g, idx) {
+            var name = g.items.sort(function (a, b) { return a.x - b.x; })
+              .map(function (t) { return t.s; }).join(' ').replace(/\\s+/g, ' ').trim();
+            return { no: idx + 1, name: name, x: Math.min.apply(null, g.items.map(function (t) { return t.x; })),
+                     y: g.y, endX: Math.max.apply(null, g.items.map(function (t) { return t.x + t.w; })) };
+          }).filter(function (r) { return r.name && !/^\\d+([,.]\\d+)?$/.test(r.name); });
+          if (!rows2.length) return;
+          var xs2 = [title.x, title.x + title.w, hh.x - 45, hh.x + hh.w + 20]
+            .concat(rows2.map(function (r) { return r.x; }))
+            .concat(rows2.map(function (r) { return r.endX; }));
+          var ys2 = [title.y, hh.y].concat(rows2.map(function (r) { return r.y; }));
+          var box2 = [Math.min.apply(null, xs2) - 5, Math.min.apply(null, ys2) - 8,
+            Math.max.apply(null, xs2) + 5, Math.max(title.y + title.h, hh.y + hh.h) + 8];
+          var score2 = rows2.length * 100 - (title.y - hh.y);
+          if (score2 > best.score) best = {
+            rooms: rows2.map(function (r) { return { no: r.no, name: r.name }; }),
+            box: box2, score: score2, title: title.s
+          };
+        });
+        return;
+      }
       var H = headers[0], rows = [], rowMax = Math.max(180, Math.min((D.h || 800) * 0.60, H.no.h * 100));
       var nums = ts.filter(function (t) {
         var n = roomNumber(t.s);
