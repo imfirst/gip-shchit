@@ -320,9 +320,9 @@
           gap: title.y - (nh.y + hh.y) / 2 + Math.abs(hh.x - nh.x) * 0.04 });
       }); });
       headers.sort(function (a, b) { return a.gap - b.gap; });
-      if (!headers.length) {
-        // In some Archicad PDFs the "№" column is outlined as vector geometry rather than text.
-        // Recover the textual name column and assign numbers by row order (top to bottom).
+      function fallbackRows() {
+        // Some Archicad schedules use outlined room numbers (not PDF text) and a
+        // column called "Название помещения". Recover names by row order.
         nameHeads.forEach(function (hh) {
           var rowMax2 = Math.max(180, Math.min((D.h || 800) * 0.60, hh.h * 100));
           var rowTexts = ts.filter(function (t) {
@@ -345,10 +345,10 @@
           groups.sort(function (a, b) { return b.y - a.y; });
           var rows2 = groups.map(function (g, idx) {
             var name = g.items.sort(function (a, b) { return a.x - b.x; })
-              .map(function (t) { return t.s; }).join(' ').replace(/\\s+/g, ' ').trim();
+              .map(function (t) { return t.s; }).join(' ').replace(/\s+/g, ' ').trim();
             return { no: idx + 1, name: name, x: Math.min.apply(null, g.items.map(function (t) { return t.x; })),
                      y: g.y, endX: Math.max.apply(null, g.items.map(function (t) { return t.x + t.w; })) };
-          }).filter(function (r) { return r.name && !/^\\d+([,.]\\d+)?$/.test(r.name); });
+          }).filter(function (r) { return r.name && !/^\d+([,.]\d+)?$/.test(r.name); });
           if (!rows2.length) return;
           var xs2 = [title.x, title.x + title.w, hh.x - 45, hh.x + hh.w + 20]
             .concat(rows2.map(function (r) { return r.x; }))
@@ -362,8 +362,8 @@
             box: box2, score: score2, title: title.s
           };
         });
-        return;
       }
+      if (!headers.length) { fallbackRows(); return; }
       var H = headers[0], rows = [], rowMax = Math.max(180, Math.min((D.h || 800) * 0.60, H.no.h * 100));
       var nums = ts.filter(function (t) {
         var n = roomNumber(t.s);
@@ -386,7 +386,7 @@
           endX: Math.max.apply(null, names.map(function (t) { return t.x + t.w; })) });
       });
       rows.sort(function (a, b) { return b.y - a.y || a.no - b.no; });
-      if (!rows.length) return;
+      if (!rows.length) { fallbackRows(); return; }
       var xs = [title.x, title.x + title.w, H.no.x, H.name.x].concat(rows.map(function (r) { return r.x; }));
       var ys = [title.y, H.y].concat(rows.map(function (r) { return r.y; }));
       var box = [Math.min.apply(null, xs) - 5, Math.min.apply(null, ys) - 8,
