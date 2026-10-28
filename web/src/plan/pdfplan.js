@@ -82,7 +82,7 @@
     var PCLOSE = OPS.closePath == null ? 18 : OPS.closePath;
     var PRECT = OPS.rectangle == null ? 19 : OPS.rectangle;
     var ctm = [1, 0, 0, 1, 0, 0], st = [], ocs = [], fill = [0, 0, 0], lw = 1;
-    var paths = [], layers = [], pending = [];
+    var paths = [], layers = {}, pending = [];
     var STROKE = {}, FILL = {};
     [OPS.stroke, OPS.closeStroke].forEach(function (k) { STROKE[k] = 1; });
     [OPS.fill, OPS.eoFill].forEach(function (k) { FILL[k] = 1; });
@@ -348,7 +348,11 @@
               .map(function (t) { return t.s; }).join(' ').replace(/\s+/g, ' ').trim();
             return { no: idx + 1, name: name, x: Math.min.apply(null, g.items.map(function (t) { return t.x; })),
                      y: g.y, endX: Math.max.apply(null, g.items.map(function (t) { return t.x + t.w; })) };
-          }).filter(function (r) { return r.name && !/^\d+([,.]\d+)?$/.test(r.name); });
+          }).filter(function (r) {
+            return r.name &&
+              !/^\d+([,.]\d+)?$/.test(r.name) &&
+              !/^\d[\d\s,.]*\s*(?:м2|м²|кв\.?\s*м)\s*$/i.test(r.name);
+          });
           if (!rows2.length) return;
           var xs2 = [title.x, title.x + title.w, hh.x - 45, hh.x + hh.w + 20]
             .concat(rows2.map(function (r) { return r.x; }))
@@ -725,7 +729,8 @@
   /* plan — { underlay: A (страница для подложки), pages: [{A, sheet: 'p'|'l'}], mapping: {templateId|shapeKey: {b, v, n}} }
      Возвращает текст для LISP и сводку. Координаты — мм от левого нижнего угла подложки. */
   function buildOutput(plan) {
-    var U = plan.underlay, D = U.page, den = plan.scaleDen || U.scaleDen || 50;
+    var U = plan.underlay, D = U.page, den = Number(plan.scaleDen || U.scaleDen);
+    if (!isFinite(den) || den <= 0) throw new Error('Не удалось определить масштаб PDF. Укажите знаменатель масштаба перед вставкой.');
     var s = 25.4 / 72 * den;
     var crop = plan.crop || U.crop, ox = crop[0], oy = crop[1];
     var X = function (p) { return [(p[0] - ox) * s, (p[1] - oy) * s]; };
@@ -741,12 +746,17 @@
       var kind = k === 'mebel' ? 1 : 0;
       var tag = p.f === 'd' ? 'F' : closed ? 'C' : 'L';
       if (tag === 'F' && pts.length < 3) return;
-      for (var i = 0; i < pts.length; i += 150) {
-        var part = pts.slice(Math.max(0, i - (i ? 1 : 0)), i + 150);
+      // Keep each AutoLISP record short and robust for older AutoCAD builds.
+      // Long closed curves are emitted as connected open polylines. Large filled
+      // contours are skipped rather than silently truncated; their outlines remain.
+      var maxPoints = 40, stepPoints = maxPoints - 1;
+      if (tag === 'F' && pts.length > maxPoints) return;
+      for (var i = 0; i < pts.length; i += (i ? stepPoints : maxPoints)) {
+        var part = pts.slice(Math.max(0, i - (i ? 1 : 0)), Math.min(pts.length, i + maxPoints));
         if (part.length < 2) continue;
-        lines.push('(' + (tag === 'C' && pts.length > 150 ? 'L' : tag) + ' ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+        var recordTag = tag === 'C' && pts.length > maxPoints ? 'L' : tag;
+        lines.push('(' + recordTag + ' ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
         nUL++;
-        if (tag === 'F') break;
       }
     });
     var W = (crop[2] - crop[0]) * s, H = (crop[3] - crop[1]) * s;
