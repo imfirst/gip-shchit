@@ -42,13 +42,18 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
       classes[k] = (classes[k] || 0) + 1;
     }
     const R = P.extractRooms(D);
+    const output = P.buildOutput({ underlay: A, pages: [], includeSymbols: false, rooms: R.rooms || [], markers: [], scaleDen: A.scaleDen, fills: false, name: 'diagnostic' });
+    const outputLines = output.text.split(/\\r?\\n/);
+    const maxOutputLineLength = outputLines.reduce((m, line) => Math.max(m, line.length), 0);
     console.log('PAGE', JSON.stringify({
       no, pageSize: [T.w, T.h], textObjects: T.texts.length, paths: D.paths.length,
       operatorCount: ol.fnArray.length, operatorNames: byFn, pathOps,
       layerPaths: Object.entries(D.layers).map(([name, n]) => ({ name: name || '(none)', n })).slice(0, 30),
       scaleTexts, parserScale: A.scaleDen, crop: A.crop.map(x => Math.round(x * 100) / 100),
-      classes, roomCount: (R.rooms || []).length, roomTitleFound: !!R.title,
+      classes, roomCount: (R.rooms || []).length, rooms: R.rooms || [], roomTitleFound: !!R.title,
       roomScore: R.score || 0, symbols: A.hits.length, unmatchedShapes: A.shapes.length,
+      outputChars: output.text.length, outputLines: outputLines.length, maxOutputLineLength,
+      emittedUnderlayObjects: output.nUnderlay, outputSizeMm: [Math.round(output.W), Math.round(output.H)],
       roomText: no === 12 ? D.texts.filter(t => /экспликац|назван|наимен|прихож|кухн|спальн|кабинет|ванная|^\\s*[1-5]\\s*$/.test(String(t.s || '').toLowerCase())).map(t => ({ s: t.s, x: Math.round(t.x), y: Math.round(t.y), w: Math.round(t.w), h: Math.round(t.h) })).slice(0, 35) : []
     }));
   } catch (e) { console.log('PAGE_ERROR', no, String(e).slice(0,200)); }
