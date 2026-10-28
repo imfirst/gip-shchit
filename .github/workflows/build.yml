@@ -24,6 +24,7 @@ jobs:
           python web/build.py
           node web/test/test_model.js
           node web/test/plan_rooms_test.mjs
+          node web/test/plan_geometry_test.mjs
           python lisp/emu/test_plan_import.py
 
       - name: Сборка DLL
