@@ -8,8 +8,11 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Download public sample PDF
         run: curl --location --fail --retry 3 --output default.pdf https://github.com/imfirst/gip-shchit/releases/download/v1.0.33/default.pdf
+      - name: Run numeric parser diagnostics only
+        run: node web/test/default_pdf_diagnostic.mjs default.pdf
       - uses: actions/upload-artifact@v4
         with:
           name: default-pdf-debug
