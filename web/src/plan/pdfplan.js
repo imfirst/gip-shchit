@@ -917,28 +917,41 @@
     var X = function (p) { return [(p[0] - ox) * s, (p[1] - oy) * s]; };
     var lines = [];
     var nUL = 0;
-    D.paths.forEach(function (p) {
-      var k = U.lclass(p.L);
-      if (k !== 'flat' && k !== 'mebel') return;
-      if (p.f === 'w' || (p.f === 'd' && !plan.fills)) return;
-      if (!p.pts.every(function (q) { return inside(q, crop); })) return;
-      var pts = p.pts.map(X), closed = pts.length > 2 && dist(p.pts[0], p.pts[p.pts.length - 1]) < 0.01;
-      if (closed) pts = pts.slice(0, -1);
-      var kind = k === 'mebel' ? 1 : 0;
-      var tag = p.f === 'd' ? 'F' : closed ? 'C' : 'L';
-      if (tag === 'F' && pts.length < 3) return;
-      // Keep each AutoLISP record short and robust for older AutoCAD builds.
-      // Long closed curves are emitted as connected open polylines. Large filled
-      // contours are skipped rather than silently truncated; their outlines remain.
+    function emitPath(tag, kind, pts) {
+      if (pts.length < 2) return;
       var maxPoints = 40, stepPoints = maxPoints - 1;
-      if (tag === 'F' && pts.length > maxPoints) return;
+      if (tag === 'F') {
+        /* Контуры заливки должны замыкаться одной записью; очень сложную заливку пропускаем,
+           но её отдельный обводящий контур ниже всё равно сохраняется. */
+        if (pts.length < 3 || pts.length > maxPoints) return;
+        lines.push('(F ' + kind + ' ' + pts.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+        nUL++; return;
+      }
       for (var i = 0; i < pts.length; i += (i ? stepPoints : maxPoints)) {
         var part = pts.slice(Math.max(0, i - (i ? 1 : 0)), Math.min(pts.length, i + maxPoints));
         if (part.length < 2) continue;
-        var recordTag = tag === 'C' && pts.length > maxPoints ? 'L' : tag;
-        lines.push('(' + recordTag + ' ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
+        lines.push('(' + tag + ' ' + kind + ' ' + part.map(function (q) { return f1(q[0]) + ' ' + f1(q[1]); }).join(' ') + ')');
         nUL++;
       }
+    }
+    D.paths.forEach(function (p) {
+      var k = U.lclass(p.L);
+      if ((k !== 'flat' && k !== 'mebel') || !p.pts || p.pts.length < 2 || p.f === 'w') return;
+      var kind = k === 'mebel' ? 1 : 0;
+      if (p.f === 'd') {
+        if (!plan.fills) return;
+        var poly = clipPolygon(p.pts, crop);
+        if (poly.length < 3) return;
+        emitPath('F', kind, poly.map(X));
+        return;
+      }
+      var closed = p.pts.length > 2 && dist(p.pts[0], p.pts[p.pts.length - 1]) < 0.01;
+      if (closed && p.pts.every(function (q) { return inside(q, crop); })) {
+        emitPath(p.pts.length <= 40 ? 'C' : 'L', kind, p.pts.slice(0, -1).map(X));
+        return;
+      }
+      /* Ключевое исправление: пересекающую crop стену не отбрасываем целиком, а обрезаем по границе. */
+      clipPolyline(p.pts, crop).forEach(function (chunk) { emitPath('L', kind, chunk.map(X)); });
     });
     var W = (crop[2] - crop[0]) * s, H = (crop[3] - crop[1]) * s;
     var syms = [], summary = {}, rooms = (plan.rooms || []).filter(function (r) { return +r.no >= 1 && +r.no <= 99 && String(r.name || '').trim(); }), markers = plan.markers || [];
