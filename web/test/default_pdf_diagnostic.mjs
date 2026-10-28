@@ -29,9 +29,10 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
         firstType: x.a && x.a[0],
         secondType: x.a && x.a[1] && x.a[1].constructor && x.a[1].constructor.name,
         secondLength: x.a && x.a[1] && x.a[1].length,
-        innerType: x.a && x.a[1] && x.a[1][0] && x.a[1][0].constructor && x.a[1][0].constructor.name,
-        innerLength: x.a && x.a[1] && x.a[1][0] && x.a[1][0].length,
-        pathVerbSample: x.a && x.a[1] && x.a[1][0] ? Array.from(x.a[1][0].slice(0, 20)) : null
+        secondFirstType: x.a && x.a[1] && x.a[1][0] != null ? (x.a[1][0].constructor && x.a[1][0].constructor.name || typeof x.a[1][0]) : null,
+        secondSample: x.a && x.a[1] ? Array.from(x.a[1]).slice(0, 5).map(v => typeof v === 'number' ? v : { type: v && v.constructor && v.constructor.name, length: v && v.length, first: v && v.length ? Array.from(v).slice(0, 12) : null }) : null,
+        thirdType: x.a && x.a[2] && x.a[2].constructor && x.a[2].constructor.name,
+        thirdSample: x.a && x.a[2] && x.a[2].length ? Array.from(x.a[2]).slice(0, 4) : null
       }));
     const D = await P.extractPage(pdfjs, doc, no);
     const A = P.analyze(D);
