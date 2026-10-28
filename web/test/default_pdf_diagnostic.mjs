@@ -12,7 +12,7 @@ console.log('DOC', JSON.stringify({ pages: doc.numPages }));
 for (const no of [9, 12, 13, 14, 15, 16]) {
   try {
     const T = await P.extractTextPage(pdfjs, doc, no);
-    const scaleTexts = T.texts.map(t => String(t.s || '').trim()).filter(s => /1\\s*:\\s*\\d{1,4}/.test(s)).slice(0, 8);
+    const scaleTexts = T.texts.map(t => String(t.s || '').trim()).filter(s => /1\s*:\s*\d{1,4}/.test(s)).slice(0, 8);
     const D = await P.extractPage(pdfjs, doc, no);
     const A = P.analyze(D);
     const classes = {};
