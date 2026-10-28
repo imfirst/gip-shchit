@@ -54,7 +54,8 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
       roomScore: R.score || 0, symbols: A.hits.length, unmatchedShapes: A.shapes.length,
       outputChars: output.text.length, outputLines: outputLines.length, maxOutputLineLength,
       emittedUnderlayObjects: output.nUnderlay, outputSizeMm: [Math.round(output.W), Math.round(output.H)],
-      roomText: no === 12 ? D.texts.filter(t => /экспликац|назван|наимен|прихож|кухн|спальн|кабинет|ванная|^\\s*[1-5]\\s*$/.test(String(t.s || '').toLowerCase())).map(t => ({ s: t.s, x: Math.round(t.x), y: Math.round(t.y), w: Math.round(t.w), h: Math.round(t.h) })).slice(0, 35) : []
+      roomText: no === 12 ? D.texts.filter(t => /экспликац|назван|наимен|прихож|кухн|спальн|кабинет|ванная|^\\s*[1-5]\\s*$/.test(String(t.s || '').toLowerCase())).map(t => ({ s: t.s, x: Math.round(t.x), y: Math.round(t.y), w: Math.round(t.w), h: Math.round(t.h) })).slice(0, 35) : [],
+      dimensionText: [12, 13, 14, 15, 16].includes(no) ? D.texts.filter(t => /^\\s*\\d{3,4}(?:[,.]\\d+)?\\s*$/.test(String(t.s || ''))).map(t => ({ s: t.s.trim(), x: Math.round(t.x), y: Math.round(t.y), w: Math.round(t.w), h: Math.round(t.h) })).slice(0, 120) : []
     }));
   } catch (e) { console.log('PAGE_ERROR', no, String(e).slice(0,200)); }
 }
