@@ -52,8 +52,8 @@ const calibration = P.buildOutput({
   },
   pages: [], includeSymbols: false, rooms: [], markers: [], scaleDen: 45, fills: false, name: 'scale-check'
 });
-const line = calibration.text.split('\\n').find((x) => x.startsWith('(L 0 '));
-const coords = line.match(/^\\(L 0 ([\\d.-]+) ([\\d.-]+) ([\\d.-]+) ([\\d.-]+)\\)$/);
+const line = calibration.text.split('\n').find((x) => x.startsWith('(L 0 '));
+const coords = line.match(/^\(L 0 ([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+)\)$/);
 assert.ok(coords, 'calibration line is emitted as a simple polyline');
 assert.ok(Math.abs(Number(coords[3]) - 2354) < 1,
   '148.279 pt at 1:45 must produce 2354 mm within rounding');
