@@ -27,6 +27,16 @@ jobs:
           node web/test/plan_geometry_test.mjs
           python lisp/emu/test_plan_import.py
 
+      - name: Диагностика исходного PDF из релиза (временная проверка PR #7)
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 7
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pdf = Join-Path $env:RUNNER_TEMP 'default.pdf'
+          Invoke-WebRequest -Uri 'https://github.com/imfirst/gip-shchit/releases/download/v1.0.33/default.pdf' -OutFile $pdf
+          python -m pip install --quiet --disable-pip-version-check PyMuPDF
+          python web/test/inspect_release_pdf.py $pdf
+
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
 
