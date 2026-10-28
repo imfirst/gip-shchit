@@ -310,12 +310,17 @@
     });
     rooms.sort(function (a, b) { return a.no - b.no; });
     if (!rooms.length) return { rooms: [], box: null, score: 0, title: titles.length ? titles[0].s : '' };
-    var xs = rows.filter(function (r) { return titleY == null || r.y <= titleY; }).map(function (r) { return r.x; });
+    var relevant = rows.filter(function (r) {
+      return titles.some(function (t) { return Math.abs(t.y - r.y) <= Math.max(2, t.h * 0.45); }) ||
+        rooms.some(function (room) { return Math.abs(room.y - r.y) <= Math.max(2, r.h * 0.65); });
+    });
+    var xs = relevant.map(function (r) { return r.x; }).concat(rooms.map(function (r) { return r.x; }));
     var ys = rooms.map(function (r) { return r.y; });
     return { rooms: rooms.map(function (r) { return { no: r.no, name: r.name }; }),
-      box: [Math.min.apply(null, xs.concat(rooms.map(function (r) { return r.x; }))),
-        Math.min.apply(null, ys), Math.max.apply(null, rows.map(function (r) { return r.x + r.w; })),
-        Math.max.apply(null, ys)], score: rooms.length * 100 + (titleY == null ? 0 : 25), title: titles.length ? titles[0].s : '' };
+      box: [Math.min.apply(null, xs), Math.min.apply(null, ys),
+        Math.max.apply(null, relevant.map(function (r) { return r.x + r.w; })),
+        Math.max.apply(null, relevant.map(function (r) { return r.y + r.h; }))],
+      score: rooms.length * 100 + (titleY == null ? 0 : 25), title: titles.length ? titles[0].s : '' };
   }
   /* Заголовок, явные номера слева и вариант с контурами вместо цифр. */
   function extractRooms(D) {
