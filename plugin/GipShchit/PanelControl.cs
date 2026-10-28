@@ -32,6 +32,9 @@ namespace Gip.Shchit
         private bool _activatePending;
         private string _pendingApply;
         private string _pendingPlan;
+        private string[] _planParts;
+        private int _planPartsReceived;
+        private DateTime _planPartsUntil;
         private bool _planWait;
         private DateTime _planWaitUntil;
         private const string PlanFile = "gip_plan_in.txt";
@@ -135,14 +138,21 @@ namespace Gip.Shchit
                     doc.SendStringToExecute("GIPPANELAPPLY ", true, false, false);
                     return;
                 }
+                if (_planParts != null && DateTime.Now > _planPartsUntil)
+                {
+                    _planParts = null;
+                    _planPartsReceived = 0;
+                    Post("{\"type\":\"plan-result\",\"ok\":false,\"msg\":\"Не удалось получить все части данных плана. Повторите отправку.\"}");
+                }
                 if (_pendingPlan != null && doc == _pendingDoc && IsQuiet(doc))
                 {
                     var plan = _pendingPlan;
                     _pendingPlan = null;
+                    ClearPlanResult();
                     WriteText(PlanFile, plan);
                     doc.SendStringToExecute("GIPPLANIMPORT ", true, false, false);
                     _planWait = true;
-                    _planWaitUntil = DateTime.Now.AddSeconds(30);
+                    _planWaitUntil = DateTime.Now.AddSeconds(60);
                     return;
                 }
                 if (_planWait && DateTime.Now <= _planWaitUntil)
@@ -242,10 +252,50 @@ namespace Gip.Shchit
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
                     }
                     break;
+                case "plan-start":
+                    // Chunked transport for long PDF-derived geometries (avoids large single WebView2 messages).
+                    if (int.TryParse(body, out var partCount) && partCount > 0 && partCount <= 8192)
+                    {
+                        _pendingPlan = null;
+                        _planParts = new string[partCount];
+                        _planPartsReceived = 0;
+                        _planPartsUntil = DateTime.Now.AddMinutes(2);
+                        _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
+                    }
+                    else
+                    {
+                        _planParts = null;
+                        _planPartsReceived = 0;
+                        Post("{\"type\":\"plan-result\",\"ok\":false,\"msg\":\"Некорректное количество частей плана.\"}");
+                    }
+                    break;
+                case "plan-chunk":
+                    var split = body.IndexOf('\n');
+                    if (_planParts == null || split < 0 ||
+                        !int.TryParse(body.Substring(0, split), out var partIndex) ||
+                        partIndex < 0 || partIndex >= _planParts.Length)
+                    {
+                        _planParts = null;
+                        _planPartsReceived = 0;
+                        Post("{\"type\":\"plan-result\",\"ok\":false,\"msg\":\"Нарушен порядок передачи плана. Нажмите «Вставить в чертёж» ещё раз.\"}");
+                        break;
+                    }
+                    if (_planParts[partIndex] == null) _planPartsReceived++;
+                    _planParts[partIndex] = body.Substring(split + 1);
+                    _planPartsUntil = DateTime.Now.AddMinutes(2);
+                    if (_planPartsReceived == _planParts.Length)
+                    {
+                        _pendingPlan = string.Concat(_planParts);
+                        _planParts = null;
+                        _planPartsReceived = 0;
+                    }
+                    break;
                 case "plan":
-                    // страница «План из PDF»: подложка и значки — файлом для LISP-команды GIPPLANIMPORT
+                    // Backward-compatible transfer for short plans and older panel versions.
                     if (body.Length > 10)
                     {
+                        _planParts = null;
+                        _planPartsReceived = 0;
                         _pendingPlan = body;
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
                     }
@@ -289,6 +339,17 @@ namespace Gip.Shchit
             var sb = new StringBuilder(text.Length + 16);
             foreach (var c in text) sb.Append(c > 126 ? '?' : c);
             File.WriteAllText(Path.Combine(temp, name), sb.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n"), Encoding.ASCII);
+        }
+
+        private static void ClearPlanResult()
+        {
+            try
+            {
+                var temp = AcAp.GetSystemVariable("TEMPPREFIX") as string;
+                var p = Path.Combine(string.IsNullOrEmpty(temp) ? Path.GetTempPath() : temp, "gip_plan_out.txt");
+                if (File.Exists(p)) File.Delete(p);
+            }
+            catch { }
         }
 
         /// <summary>Ответ LISP (gip_plan_out.txt): подобрать, удалить, отдать странице. msg уже ASCII (\U+XXXX).</summary>
