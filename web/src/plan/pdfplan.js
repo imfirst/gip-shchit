@@ -438,6 +438,162 @@
   }
 
   function bboxPts(pts) { var b = [1e9, 1e9, -1e9, -1e9]; pts.forEach(function (p) { if (p[0] < b[0]) b[0] = p[0]; if (p[1] < b[1]) b[1] = p[1]; if (p[0] > b[2]) b[2] = p[0]; if (p[1] > b[3]) b[3] = p[1]; }); return b; }
+  function boxOverlap(a, b) { return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]; }
+  function boxDistance(a, b) {
+    var dx = Math.max(b[0] - a[2], a[0] - b[2], 0);
+    var dy = Math.max(b[1] - a[3], a[1] - b[3], 0);
+    return Math.hypot(dx, dy);
+  }
+  function clipSegment(a, b, box) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], t0 = 0, t1 = 1;
+    var p = [-dx, dx, -dy, dy], q = [a[0] - box[0], box[2] - a[0], a[1] - box[1], box[3] - a[1]];
+    for (var i = 0; i < 4; i++) {
+      if (Math.abs(p[i]) < 1e-12) { if (q[i] < 0) return null; }
+      else {
+        var t = q[i] / p[i];
+        if (p[i] < 0) { if (t > t1) return null; if (t > t0) t0 = t; }
+        else { if (t < t0) return null; if (t < t1) t1 = t; }
+      }
+    }
+    return [[a[0] + t0 * dx, a[1] + t0 * dy], [a[0] + t1 * dx, a[1] + t1 * dy]];
+  }
+  function clipPolyline(pts, box) {
+    var out = [], cur = null;
+    function flush() { if (cur && cur.length > 1) out.push(cur); cur = null; }
+    for (var i = 1; i < pts.length; i++) {
+      var seg = clipSegment(pts[i - 1], pts[i], box);
+      if (!seg) { flush(); continue; }
+      if (!cur || dist(cur[cur.length - 1], seg[0]) > 1e-3) { flush(); cur = [seg[0]]; }
+      if (dist(cur[cur.length - 1], seg[1]) > 1e-3) cur.push(seg[1]);
+      if (dist(seg[1], pts[i]) > 1e-3) flush();
+    }
+    flush();
+    return out;
+  }
+  function clipPolygon(points, box) {
+    var poly = (points || []).map(function (p) { return [p[0], p[1]]; });
+    if (poly.length > 1 && dist(poly[0], poly[poly.length - 1]) < 1e-3) poly.pop();
+    var edges = [
+      { inside: function (p) { return p[0] >= box[0]; }, meet: function (a, b) { var t = (box[0] - a[0]) / (b[0] - a[0]); return [box[0], a[1] + t * (b[1] - a[1])]; } },
+      { inside: function (p) { return p[0] <= box[2]; }, meet: function (a, b) { var t = (box[2] - a[0]) / (b[0] - a[0]); return [box[2], a[1] + t * (b[1] - a[1])]; } },
+      { inside: function (p) { return p[1] >= box[1]; }, meet: function (a, b) { var t = (box[1] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), box[1]]; } },
+      { inside: function (p) { return p[1] <= box[3]; }, meet: function (a, b) { var t = (box[3] - a[1]) / (b[1] - a[1]); return [a[0] + t * (b[0] - a[0]), box[3]]; } }
+    ];
+    edges.forEach(function (edge) {
+      if (!poly.length) return;
+      var input = poly, output = [], prev = input[input.length - 1], prevIn = edge.inside(prev);
+      input.forEach(function (cur) {
+        var curIn = edge.inside(cur);
+        if (curIn) {
+          if (!prevIn) output.push(edge.meet(prev, cur));
+          output.push(cur);
+        } else if (prevIn) output.push(edge.meet(prev, cur));
+        prev = cur; prevIn = curIn;
+      });
+      poly = output;
+    });
+    return poly.filter(function (p, i, all) { return !i || dist(p, all[i - 1]) > 1e-3; });
+  }
+  function mergeTextRuns(texts) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var rows = [];
+    items.forEach(function (t) {
+      var row = null, tol = Math.max(1.5, t.h * 0.45);
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rows[i].y - t.y) <= Math.max(tol, rows[i].h * 0.45)) { row = rows[i]; break; }
+      }
+      if (!row) { row = { y: t.y, h: t.h, items: [] }; rows.push(row); }
+      row.items.push(t); row.h = Math.max(row.h, t.h);
+      row.y = (row.y * (row.items.length - 1) + t.y) / row.items.length;
+    });
+    var out = [];
+    rows.forEach(function (row) {
+      row.items.sort(function (a, b) { return a.x - b.x; });
+      var cur = null;
+      row.items.forEach(function (t) {
+        if (!cur) { cur = { s: t.s, x: t.x, y: t.y, h: t.h, w: t.w }; return; }
+        var gap = t.x - (cur.x + cur.w), lim = Math.max(4, Math.min(cur.h, t.h) * 1.4);
+        if (gap <= lim && gap >= -Math.max(2, t.h * 0.25)) {
+          cur.s += ' ' + t.s; cur.w = Math.max(cur.x + cur.w, t.x + t.w) - cur.x; cur.h = Math.max(cur.h, t.h);
+        } else { out.push(cur); cur = { s: t.s, x: t.x, y: t.y, h: t.h, w: t.w }; }
+      });
+      if (cur) out.push(cur);
+    });
+    return out;
+  }
+  function mergeTextRows(texts) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; }).sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var rows = [];
+    items.forEach(function (t) {
+      var row = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rows[i].y - t.y) <= Math.max(2, Math.min(rows[i].h, t.h) * 0.65)) { row = rows[i]; break; }
+      }
+      if (!row) { row = { y: t.y, h: t.h, items: [] }; rows.push(row); }
+      row.items.push(t); row.h = Math.max(row.h, t.h);
+      row.y = (row.y * (row.items.length - 1) + t.y) / row.items.length;
+    });
+    return rows.map(function (r) {
+      r.items.sort(function (a, b) { return a.x - b.x; });
+      var x0 = r.items[0].x, x1 = x0, pieces = [];
+      r.items.forEach(function (t) { pieces.push(t.s); x1 = Math.max(x1, t.x + t.w); });
+      return { s: pieces.join(' ').replace(/\s+/g, ' ').trim(), x: x0, y: r.y, h: r.h, w: x1 - x0 };
+    });
+  }
+  function inferScaleDen(texts, box) {
+    var items = (texts || []).map(function (t) {
+      return { s: String(t.s || '').replace(/：/g, ':').trim(), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
+    }).filter(function (t) { return t.s; });
+    var candidates = [];
+    function add(s, x, y, w, h, direct) {
+      var re = /(?:^|[^\d])1\s*:\s*(\d{1,4})(?:[^\d]|$)/g, m;
+      while ((m = re.exec(String(s || '').replace(/\s+/g, ' ')))) {
+        var den = +m[1];
+        if (den < 5 || den > 1000) continue;
+        candidates.push({ den: den, s: s, x: x, y: y, w: w || 0, h: h || 8, direct: !!direct });
+      }
+    }
+    items.forEach(function (t) { add(t.s, t.x, t.y, t.w, t.h, true); });
+    mergeTextRuns(items).forEach(function (t) { add(t.s, t.x, t.y, t.w, t.h, false); });
+    if (!candidates.length) return { den: null, source: 'default', text: '' };
+    candidates.sort(function (a, b) {
+      var da = box ? boxDistance([a.x, a.y - a.h, a.x + a.w, a.y + a.h], box) : 0;
+      var db = box ? boxDistance([b.x, b.y - b.h, b.x + b.w, b.y + b.h], box) : 0;
+      return da - db || (a.direct === b.direct ? 0 : a.direct ? -1 : 1);
+    });
+    return { den: candidates[0].den, source: 'text', text: candidates[0].s };
+  }
+  function planCrop(D, lclass, corePts) {
+    var paths = D.paths || [], core = corePts || [], coreBox = core.length ? bboxPts(core) : null, pts = core.slice(), bb;
+    if (coreBox) {
+      var span = Math.max(coreBox[2] - coreBox[0], coreBox[3] - coreBox[1], 1);
+      var margin = Math.max(span * 0.9, 50);
+      var search = [coreBox[0] - margin, coreBox[1] - margin, coreBox[2] + margin, coreBox[3] + margin];
+      paths.forEach(function (p) {
+        if (!p.pts || p.pts.length < 2 || lclass(p.L) !== 'flat' || p.f === 'w') return;
+        /* Сравниваем не полный bbox пути (в PDF одной кривой может быть вся стена),
+           а видимые отрезки около плана. Иначе длинная полилиния целиком пропадает из crop. */
+        var near = p.f === 'd' ? clipPolygon(p.pts, search) : [].concat.apply([], clipPolyline(p.pts, search));
+        if (near.length) pts.push.apply(pts, near);
+      });
+      bb = pts.length ? bboxPts(pts) : coreBox;
+    } else {
+      var flat = paths.filter(function (p) {
+        if (!p.pts || p.pts.length < 2 || p.f === 'w' || lclass(p.L) !== 'flat') return false;
+        var pb = bboxPts(p.pts), w = pb[2] - pb[0], h = pb[3] - pb[1];
+        return (!D.w || w < D.w * 0.9) && (!D.h || h < D.h * 0.9);
+      });
+      var all = [];
+      flat.forEach(function (p) { all.push.apply(all, p.pts); });
+      bb = all.length ? bboxPts(all) : [0, 0, D.w || 1, D.h || 1];
+    }
+    var pad = Math.max(Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10, 8);
+    return [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
+  }
   function grid(segs, cell) {
     var H = new Map();
     function key(x, y) { return Math.round(x / cell) + ',' + Math.round(y / cell); }
