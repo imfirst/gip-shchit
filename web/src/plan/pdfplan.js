@@ -336,16 +336,20 @@
     var base = (D && D.texts || []).map(function (t) {
       return { s: cleanRoomText(t.s), x: +t.x || 0, y: +t.y || 0, h: +t.h || 8, w: +t.w || 0 };
     }).filter(function (t) { return t.s; });
-    /* Заголовки и ячейки таблицы иногда состоят из нескольких соседних объектов PDF. */
-    var ts = base.concat(mergeTextRuns(base));
-    var titles = ts.filter(function (t) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s); });
+    /* Заголовки и ячейки таблицы иногда состоят из нескольких соседних объектов PDF.
+       Слитые варианты нужны для поиска заголовков, но не должны дублировать строки помещений. */
+    var ts = base, combined = base.slice();
+    mergeTextRuns(base).forEach(function (r) {
+      if (!combined.some(function (t) { return t.s === r.s && Math.abs(t.x - r.x) < 1 && Math.abs(t.y - r.y) < 1; })) combined.push(r);
+    });
+    var titles = combined.filter(function (t) { return /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s); });
     var best = { rooms: [], box: null, score: 0, title: '' };
     titles.forEach(function (title) {
-      var noHeads = ts.filter(function (t) {
+      var noHeads = combined.filter(function (t) {
         return /^(?:№(?:\s*(?:п\s*[/.]?\s*п|помещения))?|п\s*[/.]?\s*п|номер помещения|номер)$/i.test(t.s) &&
           title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
       });
-      var nameHeads = ts.filter(function (t) {
+      var nameHeads = combined.filter(function (t) {
         // Common schedules use both "Наименование помещения" and "Название помещения".
         return /(?:наименован|назван).{0,25}помещ/i.test(t.s) && title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
       });
@@ -608,7 +612,7 @@
     var paths = D.paths || [], core = corePts || [], coreBox = core.length ? bboxPts(core) : null, pts = core.slice(), bb;
     if (coreBox) {
       var span = Math.max(coreBox[2] - coreBox[0], coreBox[3] - coreBox[1], 1);
-      var margin = Math.max(span * 0.9, 50);
+      var margin = Math.max(span * 0.06, 25);
       var search = [coreBox[0] - margin, coreBox[1] - margin, coreBox[2] + margin, coreBox[3] + margin];
       paths.forEach(function (p) {
         if (!p.pts || p.pts.length < 2 || lclass(p.L) !== 'flat' || p.f === 'w') return;
@@ -628,7 +632,7 @@
       flat.forEach(function (p) { all.push.apply(all, p.pts); });
       bb = all.length ? bboxPts(all) : [0, 0, D.w || 1, D.h || 1];
     }
-    var pad = Math.max(Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10, 8);
+    var pad = Math.max(Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.035 + 5, 8);
     return [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
   }
   function grid(segs, cell) {
