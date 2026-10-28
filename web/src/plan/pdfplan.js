@@ -1012,7 +1012,9 @@
               extractRooms: extractRooms, extractRoomsByNames: extractRoomsByNames,
               findRoomMarkers: findRoomMarkers, mergeRoomMarkers: mergeRoomMarkers, findLegends: findLegends,
               templatesOf: templatesOf, matchAll: matchAll, leftoverShapes: leftoverShapes, analyze: analyze, counts: counts, buildOutput: buildOutput,
-              segsOf: segsOf, bboxPts: bboxPts, lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
+              segsOf: segsOf, bboxPts: bboxPts, clipPolyline: clipPolyline, clipPolygon: clipPolygon,
+              inferScaleDen: inferScaleDen, planCrop: planCrop, mergeTextRows: mergeTextRows, mergeTextRuns: mergeTextRuns,
+              lispStr: lispStr, wallIndex: wallIndex, wallDir: wallDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.GIPPLAN = API;
 })(typeof window !== 'undefined' ? window : globalThis);
