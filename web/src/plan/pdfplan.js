@@ -226,6 +226,12 @@
     var m = /^\s*(\d{1,2})\s*\.?\s*$/.exec(cleanRoomText(s));
     return m ? +m[1] : null;
   }
+  function stripRoomArea(s) {
+    return String(s || '')
+      .replace(/\s+\d+(?:[,.]\d+)?\s*(?:м\s*[²2]|кв\.?\s*м|м2|m2)\s*$/i, '')
+      .replace(/\s+\d+[,.]\d+\s*$/, '')
+      .trim();
+  }
 
   /* Экспликация без заголовка «Экспликация помещений»: колонка известных названий (холл, спальня…),
      слева от каждого названия — номер. Так дизайнеры оформляют таблицу «Наименование | S, м²». */
@@ -299,7 +305,7 @@
     rows.forEach(function (r) {
       var m = /^\s*(?:№\s*)?(\d{1,2})\s*[.)\-:;]?\s+(.+?)\s*$/.exec(cleanRoomText(r.s));
       if (!m) return;
-      var no = +m[1], name = m[2].replace(/\s+\d+(?:[,.]\d+)?\s*(?:м\s*[²2]|кв\.?\s*м|м2|m2)(?:\b.*)?$/i, '').trim();
+      var no = +m[1], name = stripRoomArea(m[2]);
       name = name.replace(/[|;,:-]+\s*$/, '').trim();
       if (no < 1 || no > 99 || !name || name.length > 40 || ROOM_STOP.test(name) || !/[a-zа-яё]/i.test(name)) return;
       if (titleY != null) {
@@ -385,8 +391,8 @@
           });
           groups.sort(function (a, b) { return b.y - a.y; });
           var rows2 = groups.map(function (g, idx) {
-            var name = g.items.sort(function (a, b) { return a.x - b.x; })
-              .map(function (t) { return t.s; }).join(' ').replace(/\s+/g, ' ').trim();
+            var name = stripRoomArea(g.items.sort(function (a, b) { return a.x - b.x; })
+              .map(function (t) { return t.s; }).join(' ').replace(/\s+/g, ' '));
             return { no: idx + 1, name: name, x: Math.min.apply(null, g.items.map(function (t) { return t.x; })),
                      y: g.y, endX: Math.max.apply(null, g.items.map(function (t) { return t.x + t.w; })) };
           }).filter(function (r) {
@@ -424,8 +430,7 @@
             /[a-zа-яё]/i.test(t.s) && !/наименован|итого|экспликац|примечан/i.test(t.s);
         }).sort(function (a, b) { return a.x - b.x; });
         if (!names.length || rows.some(function (r) { return r.no === roomNumber(n.s); })) return;
-        var name = names.map(function (t) { return t.s; }).join(' ')
-          .replace(/\s+\d+(?:[,.]\d+)?\s*(?:м2|м²|кв\.?м).*$/i, '').trim();
+        var name = stripRoomArea(names.map(function (t) { return t.s; }).join(' '));
         if (!name) return;
         rows.push({ no: roomNumber(n.s), name: name, x: n.x, y: n.y,
           endX: Math.max.apply(null, names.map(function (t) { return t.x + t.w; })) });
