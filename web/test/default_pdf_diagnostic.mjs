@@ -13,6 +13,26 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
   try {
     const T = await P.extractTextPage(pdfjs, doc, no);
     const scaleTexts = T.texts.map(t => String(t.s || '').trim()).filter(s => /1\s*:\s*\d{1,4}/.test(s)).slice(0, 8);
+    const page = await doc.getPage(no);
+    const ol = await page.getOperatorList();
+    const opNames = {};
+    const byFn = {};
+    const revOps = {};
+    Object.keys(pdfjs.OPS).forEach(k => { if (typeof pdfjs.OPS[k] === 'number') revOps[pdfjs.OPS[k]] = k; });
+    ol.fnArray.forEach(fn => {
+      const n = revOps[fn] || String(fn);
+      byFn[n] = (byFn[n] || 0) + 1;
+    });
+    const pathOps = ol.fnArray.map((fn, idx) => ({ fn, idx, a: ol.argsArray[idx] }))
+      .filter(x => x.fn === pdfjs.OPS.constructPath).slice(0, 3).map(x => ({
+        argsLength: x.a && x.a.length,
+        firstType: x.a && x.a[0],
+        secondType: x.a && x.a[1] && x.a[1].constructor && x.a[1].constructor.name,
+        secondLength: x.a && x.a[1] && x.a[1].length,
+        innerType: x.a && x.a[1] && x.a[1][0] && x.a[1][0].constructor && x.a[1][0].constructor.name,
+        innerLength: x.a && x.a[1] && x.a[1][0] && x.a[1][0].length,
+        pathVerbSample: x.a && x.a[1] && x.a[1][0] ? Array.from(x.a[1][0].slice(0, 20)) : null
+      }));
     const D = await P.extractPage(pdfjs, doc, no);
     const A = P.analyze(D);
     const classes = {};
@@ -23,6 +43,7 @@ for (const no of [9, 12, 13, 14, 15, 16]) {
     const R = P.extractRooms(D);
     console.log('PAGE', JSON.stringify({
       no, pageSize: [T.w, T.h], textObjects: T.texts.length, paths: D.paths.length,
+      operatorCount: ol.fnArray.length, operatorNames: byFn, pathOps,
       layerPaths: Object.entries(D.layers).map(([name, n]) => ({ name: name || '(none)', n })).slice(0, 30),
       scaleTexts, parserScale: A.scaleDen, crop: A.crop.map(x => Math.round(x * 100) / 100),
       classes, roomCount: (R.rooms || []).length, roomTitleFound: !!R.title,
