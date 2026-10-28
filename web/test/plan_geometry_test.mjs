@@ -40,6 +40,24 @@ const out = P.buildOutput({
 assert.match(out.text, /\(L 0 0\.0 88\.2 88\.2 88\.2\)/,
   'line crossing crop is exported using clipped coordinates');
 
+/* Calibration fixture measured from page 16 of the supplied PDF:
+   dimension 2 354 is drawn as a 148.279 pt line at the printed scale 1:45.
+   It must import as 2354 mm, not be rescaled or truncated by the parser. */
+const calibration = P.buildOutput({
+  underlay: {
+    page: { paths: [{ pts: [[0, 0], [148.279, 0]], L: 'walls', f: '' }], texts: [] },
+    crop: [0, 0, 148.279, 10],
+    scaleDen: 45,
+    lclass: () => 'flat'
+  },
+  pages: [], includeSymbols: false, rooms: [], markers: [], scaleDen: 45, fills: false, name: 'scale-check'
+});
+const line = calibration.text.split('\\n').find((x) => x.startsWith('(L 0 '));
+const coords = line.match(/^\\(L 0 ([\\d.-]+) ([\\d.-]+) ([\\d.-]+) ([\\d.-]+)\\)$/);
+assert.ok(coords, 'calibration line is emitted as a simple polyline');
+assert.ok(Math.abs(Number(coords[3]) - 2354) < 1,
+  '148.279 pt at 1:45 must produce 2354 mm within rounding');
+
 /* Join separate cells on the same baseline and strip area values from room names. */
 const schedule = {
   no: 4, w: 500, h: 800, texts: [
