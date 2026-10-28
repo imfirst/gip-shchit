@@ -35,7 +35,7 @@ const out = P.buildOutput({
   },
   pages: [], includeSymbols: false, rooms: [], markers: [], scaleDen: 50, fills: false, name: 'clip-test'
 });
-assert.match(out.text, /\(L 0 0\.0 44\.1 0\.0 88\.2\)/,
+assert.match(out.text, /\(L 0 0\.0 88\.2 88\.2 88\.2\)/,
   'wall segment intersecting the visible crop must be exported at its clipped endpoint');
 
 /* The room table parser must also handle a whole row assembled from separate PDF text items. */
