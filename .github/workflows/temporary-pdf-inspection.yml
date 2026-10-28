@@ -1,0 +1,17 @@
+name: temporary-pdf-inspection
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download public sample PDF
+        run: curl --location --fail --retry 3 --output default.pdf https://github.com/imfirst/gip-shchit/releases/download/v1.0.33/default.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: default-pdf-debug
+          path: default.pdf
+          retention-days: 1
