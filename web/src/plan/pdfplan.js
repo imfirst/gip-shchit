@@ -74,12 +74,30 @@
     function ocName(id) { try { var g = oc && oc.getGroup(id); return g ? g.name : null; } catch (e) { return null; } }
     var ol = await page.getOperatorList();
     var OPS = pdfjs.OPS;
+    // PDF.js encodes path verbs with OPS.moveTo…OPS.rectangle (13–19), not 0–4.
+    // Keep the fallbacks for builds that expose a reduced OPS object.
+    var PMOVE = OPS.moveTo == null ? 13 : OPS.moveTo;
+    var PLINE = OPS.lineTo == null ? 14 : OPS.lineTo;
+    var PCURVE = OPS.curveTo == null ? 15 : OPS.curveTo;
+    var PCURVE2 = OPS.curveTo2 == null ? 16 : OPS.curveTo2;
+    var PCURVE3 = OPS.curveTo3 == null ? 17 : OPS.curveTo3;
+    var PCLOSE = OPS.closePath == null ? 18 : OPS.closePath;
+    var PRECT = OPS.rectangle == null ? 19 : OPS.rectangle;
     var ctm = [1, 0, 0, 1, 0, 0], st = [], ocs = [], fill = [0, 0, 0], lw = 1;
     var paths = [], layers = {};
     var STROKE = {}, FILL = {};
     [OPS.stroke, OPS.closeStroke].forEach(function (k) { STROKE[k] = 1; });
     [OPS.fill, OPS.eoFill].forEach(function (k) { FILL[k] = 1; });
     [OPS.fillStroke, OPS.eoFillStroke, OPS.closeFillStroke, OPS.closeEOFillStroke].forEach(function (k) { STROKE[k] = 1; FILL[k] = 1; });
+    function addCurve(cur, p0, c1, c2, p3) {
+      for (var t = 1; t <= 6; t++) {
+        var u = t / 6, v = 1 - u;
+        cur.push([
+          v * v * v * p0[0] + 3 * v * v * u * c1[0] + 3 * v * u * u * c2[0] + u * u * u * p3[0],
+          v * v * v * p0[1] + 3 * v * v * u * c1[1] + 3 * v * u * u * c2[1] + u * u * u * p3[1]
+        ]);
+      }
+    }
     function curLayer() { for (var i = ocs.length - 1; i >= 0; i--) if (ocs[i]) return ocs[i]; return null; }
     for (var i = 0; i < ol.fnArray.length; i++) {
       var fn = ol.fnArray[i], a = ol.argsArray[i];
@@ -100,16 +118,55 @@
         var subs = [], cur = null, j = 0, n = d.length;
         while (j < n) {
           var c = d[j];
-          if (c === 0) { if (cur && cur.length > 1) subs.push(cur); cur = [tp(ctm, d[j + 1], d[j + 2])]; j += 3; }
-          else if (c === 1) { if (!cur) cur = []; cur.push(tp(ctm, d[j + 1], d[j + 2])); j += 3; }
-          else if (c === 2) {
-            var p0 = cur && cur.length ? cur[cur.length - 1] : tp(ctm, 0, 0), c1 = tp(ctm, d[j + 1], d[j + 2]), c2 = tp(ctm, d[j + 3], d[j + 4]), p3 = tp(ctm, d[j + 5], d[j + 6]);
+          if (c === PMOVE) {
+            if (cur && cur.length > 1) subs.push(cur);
+            cur = [tp(ctm, d[j + 1], d[j + 2])];
+            j += 3;
+          } else if (c === PLINE) {
+            if (!cur) cur = [];
+            cur.push(tp(ctm, d[j + 1], d[j + 2]));
+            j += 3;
+          } else if (c === PCURVE) {
+            var p0 = cur && cur.length ? cur[cur.length - 1] : tp(ctm, 0, 0);
+            var c1 = tp(ctm, d[j + 1], d[j + 2]);
+            var c2 = tp(ctm, d[j + 3], d[j + 4]);
+            var p3 = tp(ctm, d[j + 5], d[j + 6]);
             if (!cur) cur = [p0];
-            for (var t = 1; t <= 6; t++) { var u = t / 6, w = 1 - u; cur.push([w * w * w * p0[0] + 3 * w * w * u * c1[0] + 3 * w * u * u * c2[0] + u * u * u * p3[0], w * w * w * p0[1] + 3 * w * w * u * c1[1] + 3 * w * u * u * c2[1] + u * u * u * p3[1]]); }
+            addCurve(cur, p0, c1, c2, p3);
             j += 7;
-          } else if (c === 3) { if (!cur) cur = []; cur.push(tp(ctm, d[j + 3], d[j + 4])); j += 5; }
-          else if (c === 4) { if (cur && cur.length) cur.push(cur[0].slice()); j += 1; }
-          else j += 1;
+          } else if (c === PCURVE2) {
+            var q0 = cur && cur.length ? cur[cur.length - 1] : tp(ctm, 0, 0);
+            var q2 = tp(ctm, d[j + 1], d[j + 2]);
+            var q3 = tp(ctm, d[j + 3], d[j + 4]);
+            if (!cur) cur = [q0];
+            addCurve(cur, q0, q0, q2, q3);
+            j += 5;
+          } else if (c === PCURVE3) {
+            var r0 = cur && cur.length ? cur[cur.length - 1] : tp(ctm, 0, 0);
+            var r1 = tp(ctm, d[j + 1], d[j + 2]);
+            var r3 = tp(ctm, d[j + 3], d[j + 4]);
+            if (!cur) cur = [r0];
+            addCurve(cur, r0, r1, r3, r3);
+            j += 5;
+          } else if (c === PCLOSE) {
+            if (cur && cur.length > 1) {
+              if (dist(cur[0], cur[cur.length - 1]) > 1e-3) cur.push(cur[0].slice());
+              subs.push(cur);
+            }
+            cur = null;
+            j += 1;
+          } else if (c === PRECT) {
+            if (cur && cur.length > 1) subs.push(cur);
+            var rx = d[j + 1], ry = d[j + 2], rw = d[j + 3], rh = d[j + 4];
+            cur = [tp(ctm, rx, ry), tp(ctm, rx + rw, ry), tp(ctm, rx + rw, ry + rh),
+                   tp(ctm, rx, ry + rh), tp(ctm, rx, ry)];
+            subs.push(cur);
+            cur = null;
+            j += 5;
+          } else {
+            // Unknown path verbs must not desynchronise subsequent valid verbs.
+            j += 1;
+          }
         }
         if (cur && cur.length > 1) subs.push(cur);
         var L = curLayer(); layers[L == null ? '' : L] = (layers[L == null ? '' : L] || 0) + subs.length;
@@ -236,7 +293,8 @@
           title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
       });
       var nameHeads = ts.filter(function (t) {
-        return /наименован.{0,25}помещ/i.test(t.s) && title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
+        // Common schedules use both "Наименование помещения" and "Название помещения".
+        return /(?:наименован|назван).{0,25}помещ/i.test(t.s) && title.y > t.y && title.y - t.y < Math.max(320, title.h * 30);
       });
       var headers = [];
       noHeads.forEach(function (nh) { nameHeads.forEach(function (hh) {
@@ -534,7 +592,14 @@
     shapes.sort(function (a, b) { return b.items.length - a.items.length || b.size - a.size; });
     /* масштаб чертежа по надписи «1:50» */
     var scaleDen = null;
-    D.texts.forEach(function (t) { var m = /^\s*1\s*:\s*(\d{1,4})\s*$/.exec(t.s); if (m && !scaleDen) scaleDen = +m[1]; });
+    D.texts.forEach(function (t) {
+      // Archicad often emits the label and denominator as one PDF text item: "Масштаб 1:45".
+      var m = /(?:^|[^0-9])1\s*:\s*([0-9]{1,4})(?![0-9])/.exec(String(t.s || '').trim());
+      if (m && !scaleDen) {
+        var den = +m[1];
+        if (den > 0 && den < 1000) scaleDen = den;
+      }
+    });
     /* границы плана: мебель + значки, с запасом */
     var pts = [];
     D.paths.forEach(function (p) { if (lclass(p.L) === 'mebel') pts.push.apply(pts, p.pts); });
@@ -543,7 +608,7 @@
     var pad = Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.08 + 10;
     var crop = [bb[0] - pad, bb[1] - pad, bb[2] + pad, bb[3] + pad];
     legends.forEach(function (lg) { if (lg.box[0] > bb[2]) crop[2] = Math.min(crop[2], lg.box[0] - 2); });
-    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes, scaleDen: scaleDen || 50, crop: crop, lclass: lclass };
+    return { page: D, legends: legends, templates: T, hits: hits, kMed: kMed, shapes: shapes, scaleDen: scaleDen, crop: crop, lclass: lclass };
   }
 
   /* подсчёт по типам */
