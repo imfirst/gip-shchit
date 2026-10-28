@@ -24,6 +24,11 @@
       <h2>2. Экспликация помещений</h2>
       <p class="pl-hint">Плагин ищет текстовую таблицу с номерами и наименованиями на листах PDF. Проверьте список: одна строка — «номер; наименование». Сканированные PDF потребуют ручного ввода.</p>
       <textarea id="roomsText" class="pl-rooms" rows="8" spellcheck="false" placeholder="1; Прихожая&#10;2; Коридор&#10;3; Кухня"></textarea>
+      <details class="pl-more" id="roomsRawBox">
+        <summary>Извлечённый из PDF текст таблицы</summary>
+        <p class="pl-hint" id="roomsRawInfo">После открытия PDF здесь появится текст-кандидат для экспликации.</p>
+        <textarea id="roomsRawText" class="pl-rooms" rows="6" spellcheck="false" readonly placeholder="PDF не содержит извлекаемого текста таблицы."></textarea>
+      </details>
       <div class="pl-row pl-room-place">
         <label class="fld"><span class="lbl">Номер для привязки</span><select id="roomPlaceNo" aria-label="Номер помещения"></select></label>
         <button class="btn" type="button" id="roomPlaceBtn">Указать на плане</button>
@@ -58,6 +63,7 @@
         <label class="fld"><span class="lbl">Масштаб</span><span class="pl-sc">1 : <input id="den" class="w-s" inputmode="numeric"></span></label>
         <label class="chk"><input type="checkbox" id="fills">Заливка стен</label>
       </div>
+      <p class="pl-hint" id="scaleInfo">Масштаб будет определён по выбранному листу PDF.</p>
       <p class="pl-sum" id="sum"></p>
       <div class="pl-row"><button class="btn primary" type="button" id="go">Вставить в чертёж</button><button class="btn" type="button" id="save">Сохранить файл для AutoCAD</button></div>
       <p class="pl-hint" id="goHint">Подложка встанет одним блоком на листы «План … силовыми сетями», «… сетями освещения» и ДСУП шаблона ГИП, блоки ГИП — на места значков. Повторная вставка заменяет прежнюю.</p>
