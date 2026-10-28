@@ -224,10 +224,10 @@
     var titleY = titles.length ? Math.max.apply(null, titles.map(function (r) { return r.y; })) : null;
     var rooms = [], seen = {};
     rows.forEach(function (r) {
-      var m = /^\\s*(?:№\\s*)?(\\d{1,2})\\s*[.)\\-:;]?\\s+(.+?)\\s*$/.exec(cleanRoomText(r.s));
+      var m = /^\s*(?:№\s*)?(\d{1,2})\s*[.)\-:;]?\s+(.+?)\s*$/.exec(cleanRoomText(r.s));
       if (!m) return;
-      var no = +m[1], name = m[2].replace(/\\s+\\d+(?:[,.]\\d+)?\\s*(?:м\\s*[²2]|кв\\.?\\s*м|м2|m2)(?:\\b.*)?$/i, '').trim();
-      name = name.replace(/[|;,:-]+\\s*$/, '').trim();
+      var no = +m[1], name = m[2].replace(/\s+\d+(?:[,.]\d+)?\s*(?:м\s*[²2]|кв\.?\s*м|м2|m2)(?:\b.*)?$/i, '').trim();
+      name = name.replace(/[|;,:-]+\s*$/, '').trim();
       if (no < 1 || no > 99 || !name || name.length > 40 || ROOM_STOP.test(name) || !/[a-zа-яё]/i.test(name)) return;
       if (titleY != null) {
         if (r.y >= titleY || titleY - r.y > Math.max(260, Math.min((D.h || 800) * 0.6, r.h * 100))) return;
@@ -452,7 +452,7 @@
       r.items.sort(function (a, b) { return a.x - b.x; });
       var x0 = r.items[0].x, x1 = x0, pieces = [];
       r.items.forEach(function (t) { pieces.push(t.s); x1 = Math.max(x1, t.x + t.w); });
-      return { s: pieces.join(' ').replace(/\\s+/g, ' ').trim(), x: x0, y: r.y, h: r.h, w: x1 - x0 };
+      return { s: pieces.join(' ').replace(/\s+/g, ' ').trim(), x: x0, y: r.y, h: r.h, w: x1 - x0 };
     });
   }
   function inferScaleDen(texts, box) {
@@ -461,8 +461,8 @@
     }).filter(function (t) { return t.s; });
     var candidates = [];
     function add(s, x, y, w, h, direct) {
-      var re = /(?:^|[^\\d])1\\s*:\\s*(\\d{1,4})(?:[^\\d]|$)/g, m;
-      while ((m = re.exec(String(s || '').replace(/\\s+/g, ' ')))) {
+      var re = /(?:^|[^\d])1\s*:\s*(\d{1,4})(?:[^\d]|$)/g, m;
+      while ((m = re.exec(String(s || '').replace(/\s+/g, ' ')))) {
         var den = +m[1];
         if (den < 5 || den > 1000) continue;
         candidates.push({ den: den, s: s, x: x, y: y, w: w || 0, h: h || 8, direct: !!direct });
