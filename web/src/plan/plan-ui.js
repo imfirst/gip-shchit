@@ -71,6 +71,10 @@ async function openFile(file) {
     S.name = file.name.replace(/\.pdf$/i, '');
     $('dropT').innerHTML = '<b>' + esc(file.name) + '</b> · листов: ' + S.doc.numPages + ' · <u>другой файл</u>';
     S.pages = [];
+    S.den = null;
+    S.fills = false;
+    S.rooms = [];
+    S.roomPageNo = null;
     for (let no = 1; no <= S.doc.numPages; no++) {
       const title = await titleOf(no);
       S.pages.push({ no, title, role: '', D: null, A: null, mapping: {} });
@@ -162,7 +166,7 @@ function renderAll(fit) {
   $('empty').hidden = has;
   if (!has) return;
   renderPages(); renderLayers(); renderSum();
-  $('den').value = S.den || 50;
+  $('den').value = S.den == null ? '' : S.den;
   view.page = null; drawView(fit);
 }
 
@@ -443,13 +447,42 @@ function offsetTo(pg, U) {
 function build() {
   const U = S.pages.find((p) => p.no === S.under);
   if (!U || !U.A) { toast('Выберите лист для подложки'); return null; }
+  const scaleDen = Number(S.den || U.A.scaleDen);
+  if (!Number.isFinite(scaleDen) || scaleDen <= 0 || scaleDen >= 1000) {
+    toast('Масштаб PDF не распознан. Укажите знаменатель масштаба, например 45.', 7000);
+    $('den').focus();
+    return null;
+  }
   const markers = markersFor(U);
-  return P.buildOutput({ underlay: U.A, pages: [], includeSymbols: false, rooms: S.rooms, markers: markers, scaleDen: S.den || U.A.scaleDen, fills: S.fills, name: S.name });
+  try {
+    return P.buildOutput({ underlay: U.A, pages: [], includeSymbols: false, rooms: S.rooms, markers, scaleDen, fills: S.fills, name: S.name });
+  } catch (e) {
+    toast('Не удалось подготовить план: ' + (e && e.message || e), 7000);
+    return null;
+  }
+}
+function sendPlanText(text) {
+  if (!host || typeof host.postMessage !== 'function') {
+    toast('Связь с AutoCAD недоступна. Откройте план через панель GIP-ЩИТ.', 7000);
+    return false;
+  }
+  // A large string in a single WebView2 message can fail before AutoCAD sees it.
+  // Send smaller ordered pieces and assemble them in PanelControl before writing the file.
+  const chunkSize = 32 * 1024;
+  if (text.length <= chunkSize) {
+    host.postMessage('plan\n' + text);
+    return true;
+  }
+  const count = Math.ceil(text.length / chunkSize);
+  host.postMessage('plan-start\n' + count);
+  for (let i = 0; i < count; i++) {
+    host.postMessage('plan-chunk\n' + i + '\n' + text.slice(i * chunkSize, (i + 1) * chunkSize));
+  }
+  return true;
 }
 $('go').addEventListener('click', () => {
   const out = build(); if (!out) return;
-  host.postMessage('plan\n' + out.text);
-  toast('Отправлено в AutoCAD: подложка, экспликация и ' + out.nRoomMarkers + ' номеров помещений. Смотрите листы планов.', 6000);
+  if (sendPlanText(out.text)) toast('План сформирован (' + out.nUnderlay + ' контуров, ' + out.nRooms + ' помещений). Передаю в AutoCAD…', 5000);
 });
 $('save').addEventListener('click', () => {
   const out = build(); if (!out) return;
