@@ -72,6 +72,7 @@ async function openFile(file) {
     $('dropT').innerHTML = '<b>' + esc(file.name) + '</b> · листов: ' + S.doc.numPages + ' · <u>другой файл</u>';
     S.pages = [];
     S.den = null;
+    S.denManual = false;
     S.fills = false;
     S.rooms = [];
     S.roomPageNo = null;
@@ -127,19 +128,46 @@ function parseRoomLines(value) {
 }
 async function scanRoomSchedules(pj) {
   let best = { no: null, rooms: [], score: 0, title: '' };
+  let rawBest = { no: null, rows: [], score: -1, title: '' };
   for (const pg of S.pages) {
     let D;
     try { D = pg.D || await P.extractTextPage(pj, S.doc, pg.no); } catch (e) { continue; }
     const r = P.extractRooms(D);
     if (r && r.rooms && r.rooms.length && (r.rooms.length > best.rooms.length || (r.rooms.length === best.rooms.length && r.score > best.score)))
       best = { no: pg.no, rooms: r.rooms, score: r.score, title: r.title || '' };
+
+    const rows = P.mergeTextRows ? P.mergeTextRows(D.texts || []) : (D.texts || []);
+    const titleRows = rows.filter((t) => /экспликац.{0,45}помещ|помещ.{0,45}экспликац/i.test(t.s || ''));
+    const title = titleRows.sort((a, b) => b.y - a.y)[0] || null;
+    const rowPattern = /^\s*(?:№\s*)?\d{1,2}\s*[.)\-:;]?\s+[A-Za-zА-Яа-яЁё]/;
+    const roomRows = rows.filter((t) => rowPattern.test(t.s || '') ||
+      /^(прихожая|коридор|холл|кухня|спальня|детская|санузел|ванная|гардеробная|лоджия|кабинет)\b/i.test(String(t.s || '').trim()));
+    let viewRows = rows;
+    if (title) {
+      viewRows = rows.filter((t) => t === title || (t.y < title.y &&
+        title.y - t.y < Math.max(320, Math.min((D.h || 800) * 0.6, title.h * 100))));
+    } else if (roomRows.length >= 2) {
+      const ys = roomRows.map((t) => t.y);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      viewRows = rows.filter((t) => t.y >= minY - 40 && t.y <= maxY + 80);
+    } else {
+      viewRows = rows.slice(0, 100);
+    }
+    const score = roomRows.length + titleRows.length * 25;
+    if (score > rawBest.score) rawBest = { no: pg.no, rows: viewRows, score, title: title ? title.s : '' };
   }
   S.rooms = best.rooms;
   S.roomPageNo = best.no;
   $('roomsText').value = S.rooms.map((r) => r.no + '; ' + r.name).join('\n');
   $('roomInfo').textContent = S.rooms.length
     ? 'Найдено помещений: ' + S.rooms.length + ' на листе ' + S.roomPageNo + '. Проверьте распознанные названия и номера.'
-    : 'Автоматическая экспликация не найдена. Введите строки вручную в формате «1; Прихожая». Сканированные PDF автоматически не распознаются.';
+    : 'Автоматически таблицу не удалось разобрать. Ниже оставлен текст, который PDF.js смог извлечь; если он пустой, вероятно, текст в PDF переведён в контуры или является сканом.';
+  const raw = $('roomsRawText');
+  if (raw) raw.value = rawBest.rows.map((t) => String(t.s || '').trim()).filter(Boolean).join('\n');
+  const rawInfo = $('roomsRawInfo');
+  if (rawInfo) rawInfo.textContent = rawBest.no
+    ? 'Текст-кандидат с листа ' + rawBest.no + (rawBest.title ? ': ' + rawBest.title : '') + '. Можно скопировать строки в поле выше и поправить вручную.'
+    : 'В PDF не извлечён текст таблицы.';
   renderRoomPlaceOptions();
 }
 function markersFor(pg) {
@@ -158,6 +186,20 @@ function renderRoomPlaceOptions() {
 }
 
 /* ------------------------------------------------------------------ отрисовка панели */
+function renderScaleInfo() {
+  const el = $('scaleInfo');
+  if (!el) return;
+  const pg = S.pages.find((p) => p.no === S.under);
+  if (S.denManual) {
+    el.textContent = 'Используется заданный вручную масштаб 1:' + (S.den || '') + '. Проверьте его по известному размеру на плане.';
+  } else if (pg && pg.A && pg.A.scaleSource === 'text') {
+    el.textContent = 'Найдена подпись масштаба в PDF: ' + (pg.A.scaleText || ('1:' + pg.A.scaleDen)) + '. Масштаб распознан по надписи, а не измерен по размерной линии — проверьте контрольный размер.';
+  } else if (pg && pg.A) {
+    el.textContent = 'Подпись масштаба около плана не найдена. Масштаб оставлен пустым, чтобы не подставлять неверное значение. Укажите знаменатель масштаба вручную.';
+  } else {
+    el.textContent = 'Масштаб относится к выбранному листу PDF. Если подпись не найдена, значение нужно указать вручную.';
+  }
+}
 function renderAll(fit) {
   const has = !!S.doc;
   ['pagesBox', 'roomBox', 'layBox', 'goBox'].forEach((id) => { $(id).hidden = !has; });
@@ -167,6 +209,7 @@ function renderAll(fit) {
   if (!has) return;
   renderPages(); renderLayers(); renderSum();
   $('den').value = S.den == null ? '' : S.den;
+  renderScaleInfo();
   view.page = null; drawView(fit);
 }
 
@@ -363,6 +406,7 @@ drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f)
 $('file').addEventListener('change', (e) => openFile(e.target.files[0]));
 
 $('pages').addEventListener('change', async (e) => {
+  const oldUnder = S.under;
   const el = e.target;
   if (el.dataset.role) {
     const pg = S.pages.find((p) => p.no === +el.dataset.role);
@@ -378,6 +422,7 @@ $('pages').addEventListener('change', async (e) => {
     S.under = +el.value; S.cur = S.under;
     S.pages.forEach((p) => { p.role = p.no === S.under ? 'p' : ''; });
   }
+  if (S.under !== oldUnder) { S.den = null; S.denManual = false; }
   await analyzeAll(); renderAll(true);
 });
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (!b) return; S.cur = +b.dataset.tab; S.hot = null; renderTabs(); renderSyms(); drawView(true); });
@@ -432,7 +477,13 @@ $('roomPlaceClear').addEventListener('click', () => {
   $('roomPlaceInfo').textContent = 'Ручные привязки очищены. Оставшиеся номера будут найдены автоматически.';
   renderRoomPlaceOptions(); renderSum(); drawView(false);
 });
-$('den').addEventListener('change', (e) => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) S.den = v; e.target.value = S.den; });
+$('den').addEventListener('change', (e) => {
+  const v = parseInt(e.target.value, 10);
+  if (v > 0 && v < 1000) { S.den = v; S.denManual = true; }
+  else if (!String(e.target.value || '').trim()) { S.den = null; S.denManual = false; }
+  e.target.value = S.den == null ? '' : S.den;
+  renderScaleInfo();
+});
 $('fills').addEventListener('change', (e) => { S.fills = e.target.checked; });
 
 /* совмещение листов по мебели (у дизайнера листы обычно совпадают, но на всякий случай) */
