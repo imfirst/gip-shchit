@@ -53,13 +53,7 @@ namespace Gip.Shchit
             try
             {
                 var dir = PluginDir;
-                var loader = File.Exists(Path.Combine(dir, "WebView2Loader.dll")) ? dir : Path.Combine(dir, "runtimes", "win-x64", "native");
-                if (File.Exists(Path.Combine(loader, "WebView2Loader.dll")))
-                    CoreWebView2Environment.SetLoaderDllFolderPath(loader);
-
-                var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GIP", "WebView2");
-                Directory.CreateDirectory(data);
-                var env = await CoreWebView2Environment.CreateAsync(null, data);
+                var env = await WebViewEnv.Get(dir);
                 await _web.EnsureCoreWebView2Async(env);
 
                 var core = _web.CoreWebView2;
