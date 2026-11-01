@@ -15,6 +15,7 @@
                     AppDescription="Панель «Группы щита»" LoadOnAutoCADStartup="True">
       <Commands GroupName="GIP">
         <Command Global="GIPPANEL" Local="GIPPANEL" />
+        <Command Global="GIPROOMS" Local="GIPROOMS" />
       </Commands>
     </ComponentEntry>
     <ComponentEntry AppName="GipShchitLisp" ModuleName="./Contents/GIP_SHCHIT.lsp"

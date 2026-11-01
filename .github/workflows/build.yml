@@ -26,6 +26,7 @@ jobs:
           node web/test/plan_rooms_test.mjs
           node web/test/plan_geometry_test.mjs
           python lisp/emu/test_plan_import.py
+          python lisp/emu/test_rooms.py
 
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
@@ -46,6 +47,7 @@ jobs:
           Copy-Item dist/GIP_SHCHIT.lsp "$b/Contents/"
           Copy-Item dist/panel.html "$b/Contents/web/panel.html"
           Copy-Item dist/plan.html "$b/Contents/web/plan.html"
+          Copy-Item dist/rooms.html "$b/Contents/web/rooms.html"
           New-Item -ItemType Directory -Force "$b/Contents/web/pdfjs" | Out-Null
           Copy-Item dist/pdfjs/* "$b/Contents/web/pdfjs/"
           Get-ChildItem -Recurse $b | ForEach-Object { $_.FullName }

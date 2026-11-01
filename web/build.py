@@ -34,3 +34,14 @@ if PJ:
     for f in ('legacy/build/pdf.min.mjs', 'legacy/build/pdf.worker.min.mjs', 'LICENSE'):
         shutil.copy(os.path.join(PJ, f), os.path.join(DIST, 'pdfjs', os.path.basename(f).replace('.mjs', '.js')))
 print('plan', len(plan))
+
+# страница «Помещения» (отдельная панель GIPROOMS): использует тот же pdf.js
+RM = os.path.join(S, 'rooms')
+rooms = open(os.path.join(RM, 'rooms.html'), encoding='utf-8').read()
+rooms = rooms.replace('/*CSS*/', open(os.path.join(S, 'style.css'), encoding='utf-8').read())
+rooms = rooms.replace('/*PLANCSS*/', open(os.path.join(PL, 'plan.css'), encoding='utf-8').read()).replace('/*ROOMSCSS*/', open(os.path.join(RM, 'rooms.css'), encoding='utf-8').read())
+rooms = rooms.replace('/*EXTRACT*/', open(os.path.join(RM, 'extract.js'), encoding='utf-8').read()).replace('/*ROOMSLIB*/', open(os.path.join(RM, 'rooms.js'), encoding='utf-8').read())
+rooms = rooms.replace('/*ROOMSUI*/', open(os.path.join(RM, 'rooms-ui.js'), encoding='utf-8').read())
+assert 'googleapis' not in rooms
+open(os.path.join(DIST, 'rooms.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + rooms + '</body></html>')
+print('rooms', len(rooms))

@@ -1,0 +1,87 @@
+
+<title>Помещения из PDF · ГИП</title>
+<style>
+/*CSS*/
+/*PLANCSS*/
+/*ROOMSCSS*/
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Помещения</h1><span class="sub">план дизайнера → подложка, номера и экспликация</span></div>
+  <div class="spacer"></div>
+</header>
+
+<main class="pl">
+  <section class="pl-side" aria-label="Настройки">
+    <div class="panel pl-step">
+      <h2>1. PDF дизайнера</h2>
+      <label class="drop" id="drop"><input type="file" id="file" accept="application/pdf,.pdf" hidden>
+        <span class="drop-t" id="dropT">Перетащите PDF сюда или <u>выберите файл</u></span>
+        <span class="drop-s">Лучше всего подходит «План расстановки мебели». Растровые PDF не поддерживаются.</span></label>
+      <div class="pl-row" id="pageRow" hidden><label class="fld"><span class="lbl">Лист PDF</span><select id="pageSel"></select></label></div>
+      <div class="pl-prog" id="prog" hidden><div class="bar"><i id="progBar"></i></div><span id="progT"></span></div>
+    </div>
+
+    <div class="panel pl-step" id="scaleBox" hidden>
+      <h2>2. Масштаб 1 : 1</h2>
+      <div class="pl-row">
+        <label class="fld"><span class="lbl">Масштаб листа</span><span class="pl-sc">1 : <input id="den" class="w-s" inputmode="numeric"></span></label>
+        <button class="btn" type="button" id="calBtn">Калибровка по размеру</button>
+      </div>
+      <p class="pl-hint" id="scaleInfo"></p>
+      <div class="pl-row" id="calRow" hidden>
+        <label class="fld"><span class="lbl">Размер между точками, мм</span><input id="calMm" class="w-m" inputmode="numeric"></label>
+        <button class="btn primary" type="button" id="calOk">Применить</button>
+      </div>
+      <p class="pl-hint">Размеры дизайнера нужны только для калибровки: в чертёж они не попадут. Нажмите «Калибровка» и дважды щёлкните по концам любого размера на просмотре (цифры размеров показаны серым). Значение подставится само, если рядом есть число.</p>
+    </div>
+
+    <div class="panel pl-step" id="layBox" hidden>
+      <h2>3. Что оставить в подложке</h2>
+      <table class="pl-t" id="groups"><thead><tr><th>Слой / группа</th><th>Линий</th><th>Роль</th></tr></thead><tbody></tbody></table>
+      <div class="pl-row">
+        <label class="chk"><input type="checkbox" id="cropWalls" checked>Обрезать по габаритам стен</label>
+        <label class="chk"><input type="checkbox" id="cutLong" checked>Убрать длинные одиночные линии (паркет) от <input id="longMm" class="w-s" value="1500"> мм</label>
+      </div>
+      <p class="pl-hint" id="sumLine"></p>
+    </div>
+
+    <div class="panel pl-step" id="roomBox" hidden>
+      <h2>4. Помещения</h2>
+      <div class="pl-row"><label class="fld"><span class="lbl">Высота потолков по умолчанию, мм</span><input id="hDef" class="w-m" inputmode="numeric" value="2700"></label>
+        <button class="btn" type="button" id="addRoom">+ Помещение</button><button class="btn" type="button" id="estBtn">Оценить площади</button></div>
+      <table class="pl-t" id="rooms"><thead><tr><th>№</th><th>Название</th><th>H, мм</th><th title="Площадь по расчёту панели (приблизительно)">S, м²</th><th title="Площадь дизайнера, только для проверки">S дизайн.</th><th></th></tr></thead><tbody></tbody></table>
+      <p class="pl-hint" id="roomHint">Номера взяты из экспликации дизайнера. Чтобы переставить номер на плане, нажмите на его кружок в таблице и затем на нужное место просмотра.</p>
+    </div>
+
+    <div class="panel pl-step" id="goBox" hidden>
+      <h2>5. В чертёж</h2>
+      <div class="pl-row"><button class="btn primary" type="button" id="go">Вставить на листы планов</button><button class="btn" type="button" id="save">Сохранить файл</button></div>
+      <div class="pl-row">
+        <button class="btn" type="button" id="syncBtn" title="Обновить блоки номеров и все экспликации из реестра помещений в чертеже">Обновить блоки и таблицы</button>
+        <button class="btn" type="button" id="areaBtn" title="Контуры и площади помещений средствами AutoCAD (команда BOUNDARY)">Посчитать площади в AutoCAD</button>
+        <button class="btn" type="button" id="readBtn" title="Прочитать реестр помещений из чертежа">Прочитать из чертежа</button>
+      </div>
+      <p class="pl-hint" id="goHint">Подложка и номера встанут по центру каждого листа плана, экспликация обновится на месте. Реестр помещений хранится в чертеже и доступен другим программам ГИП.</p>
+    </div>
+  </section>
+
+  <section class="pl-view panel" aria-label="Просмотр">
+    <div class="pl-vbar"><span id="vTitle">Просмотр</span><span class="spacer"></span>
+      <span class="pl-legend"><i class="k-w"></i>стены <i class="k-f"></i>мебель <i class="k-d"></i>двери <i class="k-x"></i>убрано</span>
+      <button class="btn" type="button" id="fit">Вписать</button></div>
+    <canvas id="cv"></canvas>
+    <div class="pl-empty" id="empty">Здесь появится план дизайнера</div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/*EXTRACT*/
+</script>
+<script>
+/*ROOMSLIB*/
+</script>
+<script type="module">
+/*ROOMSUI*/
+</script>
