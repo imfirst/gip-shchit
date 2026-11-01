@@ -81,6 +81,7 @@
   (cond ((and (gip:has t1 "план") (gip:has t1 "силовыми")) "plan_p")
         ((and (gip:has t1 "план") (gip:has t1 "освещения")) "plan_l")
         ((and (gip:has t1 "план") (gip:has t1 "дсуп")) "plan_d")
+        ((gip:has t1 "план") "plan_x")
         (T nil)))
 
 ;; Отдельный поиск рамок для импорта плана.

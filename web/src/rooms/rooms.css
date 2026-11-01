@@ -1,0 +1,15 @@
+/* Помещения: дополнения к стилям «План из PDF» */
+.k-w { border-color: #1d4ed8 !important; } .k-f { border-color: #6b7280 !important; } .k-d { border-color: #23935a !important; } .k-x { border-color: #d6a3a3 !important; border-style: dashed !important; }
+#rooms th:nth-child(1), #rooms td:nth-child(1) { width: 40px; }
+#rooms th:nth-child(3), #rooms td:nth-child(3) { width: 62px; }
+#rooms th:nth-child(4), #rooms td:nth-child(4), #rooms th:nth-child(5), #rooms td:nth-child(5) { width: 58px; text-align: right; }
+#rooms th:nth-child(6), #rooms td:nth-child(6) { width: 30px; }
+#rooms input { width: 100%; min-width: 0; height: 28px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 6px; background: var(--surface); color: var(--text); font-size: 13px; }
+#rooms tr.sel td { background: var(--accent-soft); }
+#rooms .pin { cursor: pointer; font-weight: 700; color: var(--accent); }
+#rooms .bad { color: #b42318; font-weight: 700; }
+#rooms .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 15px; }
+#groups td:nth-child(2) { width: 52px; }
+#groups td:nth-child(3) { width: 104px; }
+#groups tr.hot td { background: var(--accent-soft); }
+.w-m { width: 90px; }
