@@ -236,6 +236,44 @@
     return [a, b];
   }
 
+
+  /* Перемычки в дверных проёмах: концевые рёбра стен (короткие), которые смотрят друг на друга через проём 450-1500 мм.
+     Две линии (по обеим сторонам проёма) замыкают контур помещения для BOUNDARY. Координаты в мм (X,Y уже в системе вывода). */
+  function bridgeLines(segs) {
+    var caps = [], out = [];
+    segs.forEach(function (s, i) {
+      var dx = s[2] - s[0], dy = s[3] - s[1], L = Math.sqrt(dx * dx + dy * dy);
+      if (L >= 40 && L <= 700) caps.push({ i: i, a: [s[0], s[1]], b: [s[2], s[3]], L: L, ux: dx / L, uy: dy / L, mx: (s[0] + s[2]) / 2, my: (s[1] + s[3]) / 2 });
+    });
+    var cand = [];
+    for (var i = 0; i < caps.length; i++) for (var j = i + 1; j < caps.length; j++) {
+      var p = caps[i], q = caps[j];
+      if (Math.abs(p.ux * q.uy - p.uy * q.ux) > 0.03) continue;           /* параллельны */
+      if (Math.abs(p.L - q.L) > 0.3 * Math.max(p.L, q.L)) continue;        /* одинаковая толщина стены */
+      var vx = q.mx - p.mx, vy = q.my - p.my, d = Math.sqrt(vx * vx + vy * vy);
+      if (d < 450 || d > 1500) continue;
+      if (Math.abs(vx * p.ux + vy * p.uy) > 40) continue;                  /* торцы напротив друг друга */
+      cand.push({ p: p, q: q, d: d });
+    }
+    cand.sort(function (u, v) { return u.d - v.d; });
+    function crosses(x1, y1, x2, y2, s) {                                   /* пересекает ли отрезок стену (не в концах) */
+      function o(ax, ay, bx, by, cx, cy) { return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax); }
+      var d1 = o(x1, y1, x2, y2, s[0], s[1]), d2 = o(x1, y1, x2, y2, s[2], s[3]), d3 = o(s[0], s[1], s[2], s[3], x1, y1), d4 = o(s[0], s[1], s[2], s[3], x2, y2);
+      return d1 * d2 < -1e-6 && d3 * d4 < -1e-6;
+    }
+    var taken = {};
+    cand.forEach(function (c) {
+      var p = c.p, q = c.q;
+      if (taken[p.i] || taken[q.i]) return;
+      for (var k = 0; k < segs.length; k++) if (crosses(p.mx, p.my, q.mx, q.my, segs[k])) return;   /* в проёме должно быть пусто */
+      taken[p.i] = taken[q.i] = 1;
+      var same = (Math.pow(p.a[0] - q.a[0], 2) + Math.pow(p.a[1] - q.a[1], 2)) <= (Math.pow(p.a[0] - q.b[0], 2) + Math.pow(p.a[1] - q.b[1], 2));
+      out.push([p.a[0], p.a[1], (same ? q.a : q.b)[0], (same ? q.a : q.b)[1]]);
+      out.push([p.b[0], p.b[1], (same ? q.b : q.a)[0], (same ? q.b : q.a)[1]]);
+    });
+    return out;
+  }
+
   /* ------------------------------------------------------------------ вывод для LISP */
   /* Строка для LISP: всё не-ASCII (и «~») как ~uXXXX — AutoLISP-читалка такие последовательности не трогает, декодирует gip:rm-dec */
   function lispStr(s) { return '"' + String(s).replace(/\\/g, '/').replace(/"/g, "'").replace(/[^\x20-\x7d]/g, function (ch) { return '~u' + ('0000' + ch.charCodeAt(0).toString(16).toUpperCase()).slice(-4); }) + '"'; }
@@ -251,14 +289,26 @@
       lines.push('(R ' + r.no + ' ' + lispStr(r.name) + ' ' + (r.area == null ? 0 : (Math.round(r.area * 100) / 100)) + ' ' + (r.areaD == null ? 0 : r.areaD) + ' ' + f1(r.h || P.hDefault || 0) + ' ' + mk + ')');
       if (r.poly && r.poly.length > 2) lines.push('(P ' + r.no + ' ' + xy(r.poly) + ')');
     });
-    var kcode = { wall: 0, window: 0, door: 1, furn: 1 };
+    var kcode = { wall: 0, window: 0, door: 1, furn: 1 }, wsegs = [];
     D.paths.forEach(function (p, pi) {
       var role = P.keepRole(p, pi); if (!role) return;
       if (p.pts.length < 2) return;
-      var tag = p.fc && !p.sc && p.closed ? 'F' : (p.closed ? 'C' : 'L');
+      /* заливки (hatch/solid) в подложку не попадают: крупные заливки стен и техники убираем, мелкие (розетки) оставляем контуром */
+      var fillOnly = p.fc && !p.sc;
+      if (fillOnly) {
+        var bb = bboxOf(p.pts);
+        if (Math.max(bb[2] - bb[0], bb[3] - bb[1]) * k > 300) return;
+      }
+      var tag = p.closed || fillOnly ? 'C' : 'L';
       lines.push('(' + tag + ' ' + kcode[role] + ' ' + xy(p.pts) + ')'); nL++;
+      if (role === 'wall' && !fillOnly) for (var si = 1; si < p.pts.length + (p.closed ? 1 : 0); si++) {
+        var A = p.pts[si - 1], B = p.pts[si % p.pts.length];
+        wsegs.push([X(A), Y(A), X(B), Y(B)]);
+      }
     });
-    return { text: lines.join('\n') + '\n', nGeom: nL };
+    var bl = bridgeLines(wsegs);
+    bl.forEach(function (b) { lines.push('(J ' + f1(b[0]) + ' ' + f1(b[1]) + ' ' + f1(b[2]) + ' ' + f1(b[3]) + ')'); });
+    return { text: lines.join('\n') + '\n', nGeom: nL, nBridge: bl.length / 2 };
   }
 
   var API = { ROLES: ROLES, buildGroups: buildGroups, guessRoleByName: guessRoleByName, parseExplication: parseExplication, findMarkers: findMarkers,

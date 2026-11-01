@@ -198,7 +198,7 @@
   n)
 
 ;; ---------------------------------------------------------------- импорт из панели
-(defun gip:rm-import (fn / f l it head W H hdef rooms gw gf blkW blkF sheets sh org n nB e obj r msg)
+(defun gip:rm-import (fn / f l it head W H hdef rooms gw gf gj blkJ blkW blkF sheets sh org n nB e obj r msg)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
     (progn (gip:rm-report nil "нет файла от панели") nil)
     (progn
@@ -207,12 +207,13 @@
       (if (not (and (listp head) (eq (car head) 'GIPROOMS)))
         (progn (close f) (gip:rm-report nil "файл не распознан") nil)
         (progn
-          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil nB 0)
+          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil gj nil nB 0)
           (while (setq l (read-line f))
             (if (/= l "")
               (progn
                 (setq it (read l))
                 (cond
+                  ((and (eq (car it) 'J) (= (length it) 5)) (setq gj (cons it gj)))
                   ((and (member (car it) '(L C F)) (numberp (cadr it))) (if (= (cadr it) 0) (setq gw (cons it gw)) (setq gf (cons it gf))))
                   ((and (eq (car it) 'R) (numberp (nth 1 it)) (= (type (nth 2 it)) 'STR))
                    (setq rooms (cons (list (nth 1 it) (gip:rm-dec (nth 2 it)) (float (nth 3 it)) (float (nth 4 it)) (float (nth 5 it))
@@ -232,14 +233,19 @@
              (entmake (list '(0 . "BLOCK") (cons 2 blkF) '(70 . 0) '(10 0.0 0.0 0.0)))
              (foreach it (reverse gf) (gip:plan-ent it))
              (entmake '((0 . "ENDBLK")))
+             (setq blkJ (gip:rm-blkname "GIP_RM_J_"))
+             (entmake (list '(0 . "BLOCK") (cons 2 blkJ) '(70 . 0) '(10 0.0 0.0 0.0)))
+             (foreach it gj (entmake (list '(0 . "LINE") '(8 . "0") (cons 10 (list (float (nth 1 it)) (float (nth 2 it)) 0.0)) (cons 11 (list (float (nth 3 it)) (float (nth 4 it)) 0.0)))))
+             (entmake '((0 . "ENDBLK")))
              (gip:rm-ensure-block)
              (foreach sh sheets
-               (setq org (list (- (+ (car (car sh)) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr (car sh)) (cadr *gip:plan-at*)) (/ H 2.0))))
+               (setq org (list (- (+ (car (car sh)) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr (car sh)) (cadr *gip:plan-at*) *gip:rm-dy*) (/ H 2.0))))
                (setq obj (gip:rm-insert blkW (car org) (cadr org) "GIP_Подложка" "W"))
                ;; для расчёта площадей: левый нижний угол и размер подложки
                (setq e (vlax-vla-object->ename obj))
                (entmod (append (entget e) (list (list -3 (list *gip:rm-app* (cons 1000 "W") (list 1010 (car org) (cadr org) 0.0) (cons 1040 W) (cons 1040 H))))))
                (gip:rm-insert blkF (car org) (cadr org) "GIP_Подложка" "F")
+               (if gj (gip:rm-insert blkJ (car org) (cadr org) "GIP_ПОМ_ПЕРЕМЫЧКА" "J"))
                (foreach r rooms
                  (if (and (numberp (nth 6 r)) (numberp (nth 7 r)))
                    (progn
@@ -284,7 +290,10 @@
 (defun gip:rm-erase-layer (lay / ss i)
   (if (setq ss (ssget "_X" (list (cons 8 lay))))
     (progn (setq i 0) (while (< i (sslength ss)) (entdel (ssname ss i)) (setq i (1+ i))))))
-(defun c:GIPROOMSAREA (/ doc refs w0 xd org W H rooms tmp pieces lays clay e1 area nOk bad pt res osm cm l w r q o)
+(setq *gip:rm-st* nil)
+;; план ставится по центру листа, но на 1000 мм ниже общего положения плана (было выше нужного)
+(setq *gip:rm-dy* -1000.0)
+(defun gip:rm-area-run (/ doc refs w0 xd org W H rooms tmp pieces lays clay e1 area nOk bad pt res osm cm l w r q o e best ba)
   (setq refs (gip:rm-wall-refs) rooms (gip:room-list) doc (vla-get-activedocument (vlax-get-acad-object)))
   (cond
     ((null refs) (gip:rm-report nil "В чертеже нет подложки помещений: сначала «Вставить на листы планов»."))
@@ -293,7 +302,10 @@
      (setq w0 (car refs) xd (gip:rm-xd w0) org (car xd) W (cadr xd) H (caddr xd) nOk 0 bad nil res nil lays nil
            clay (getvar "CLAYER") osm (getvar "OSMODE") cm (getvar "CMDECHO"))
      (vla-startundomark doc)
+     (if (= (getvar "TILEMODE") 0) (setvar "TILEMODE" 1))
+     (vl-catch-all-apply 'setvar (list "HPBOUND" 1))
      (gip:layer "GIP_ПОМ_ГРАНИЦА") (gip:layer "GIP_ПОМ_КОНТУР") (gip:layer "GIP_ПОМ_ПЕРЕМЫЧКА")
+     (vl-catch-all-apply 'vla-put-freeze (list (vla-item (vla-get-layers doc) "GIP_ПОМ_ПЕРЕМЫЧКА") :vlax-false))
      (gip:rm-noplot "GIP_ПОМ_ГРАНИЦА") (gip:rm-noplot "GIP_ПОМ_КОНТУР") (gip:rm-noplot "GIP_ПОМ_ПЕРЕМЫЧКА")
      (gip:rm-erase-layer "GIP_ПОМ_КОНТУР")
      (setvar "OSMODE" 0) (setvar "CMDECHO" 0)
@@ -301,23 +313,39 @@
      (setq tmp (vla-copy (vlax-ename->vla-object w0)))
      (setq pieces (vlax-invoke tmp 'Explode))
      (vla-delete tmp)
+     (if (setq q (ssget "_X" (list '(0 . "INSERT") '(2 . "GIP_RM_J_*"))))
+       (progn (setq w 0)
+         (while (< w (sslength q))
+           (setq e (ssname q w) w (1+ w))
+           (if (< (distance (cdr (assoc 10 (entget e))) (list (car org) (cadr org) 0.0)) 1.0)
+             (progn (setq tmp (vla-copy (vlax-ename->vla-object e)))
+                    (setq pieces (append pieces (vlax-invoke tmp 'Explode)))
+                    (vla-delete tmp))))))
      (foreach o pieces (vl-catch-all-apply 'vla-put-layer (list o "GIP_ПОМ_ГРАНИЦА")))
+     (setq *gip:rm-st* (list clay osm cm pieces nil))
      (setvar "CLAYER" "GIP_ПОМ_ГРАНИЦА")
      ;; видимыми остаются только стены и перемычки: BOUNDARY анализирует то, что видно в окне
      (vlax-for l (vla-get-layers doc)
        (if (and (not (member (strcase (vla-get-name l)) '("GIP_ПОМ_ГРАНИЦА" "GIP_ПОМ_ПЕРЕМЫЧКА"))) (= (vla-get-freeze l) :vlax-false))
-         (progn (setq lays (cons l lays)) (vl-catch-all-apply 'vla-put-freeze (list l :vlax-true)))))
+         (progn (setq lays (cons l lays) *gip:rm-st* (list clay osm cm pieces lays)) (vl-catch-all-apply 'vla-put-freeze (list l :vlax-true)))))
      (command "_.ZOOM" "_W" (list (- (car org) 500.0) (- (cadr org) 500.0)) (list (+ (car org) W 500.0) (+ (cadr org) H 500.0)))
      (foreach r rooms
        (if (and (numberp (nth 6 r)) (numberp (nth 7 r)))
          (progn
            (setq pt (list (+ (car org) (nth 6 r)) (+ (cadr org) (nth 7 r)) 0.0) e1 (entlast))
            (command "_.-BOUNDARY" pt "")
-           (if (and (entlast) (not (equal (entlast) e1)) (= (cdr (assoc 0 (entget (entlast)))) "LWPOLYLINE"))
+           ;; BOUNDARY может создать и внутренние «острова» (колонны): берём самый большой из новых объектов
+           (setq best nil ba 0.0 e (if e1 (entnext e1) (entnext)))
+           (while e
+             (if (member (cdr (assoc 0 (entget e))) '("LWPOLYLINE" "POLYLINE"))
+               (if (> (setq area (vla-get-area (vlax-ename->vla-object e))) ba) (setq ba area best e)))
+             (setq e (entnext e)))
+           (if best
              (progn
-               (setq area (/ (vla-get-area (vlax-ename->vla-object (entlast))) 1000000.0))
-               (setq res (cons (list (car r) (gip:rm-r2 area) (gip:rm-pline-pts (entlast))) res))
-               (entdel (entlast)) (setq nOk (1+ nOk)))
+               (setq res (cons (list (car r) (gip:rm-r2 (/ ba 1000000.0)) (gip:rm-pline-pts best)) res))
+               (setq nOk (1+ nOk))
+               (setq e (if e1 (entnext e1) (entnext)))
+               (while e (setq q (entnext e)) (entdel e) (setq e q)))
              (setq bad (cons (car r) bad))))))
      (foreach l lays (vl-catch-all-apply 'vla-put-freeze (list l :vlax-false)))
      (foreach o pieces (vl-catch-all-apply 'vla-delete (list o)))
@@ -340,6 +368,21 @@
      (gip:rm-report (null bad)
        (strcat "площади посчитаны: " (itoa nOk) " из " (itoa (length rooms))
                (if bad (strcat ". Не удалось замкнуть контур у помещений: " (gip:rm-join (reverse bad)) ". Нарисуйте перемычки в проёмах линиями на слое GIP_ПОМ_ПЕРЕМЫЧКА и повторите.") "")))))
+  (princ))
+
+(defun c:GIPROOMSAREA (/ r l)
+  (setq r (vl-catch-all-apply 'gip:rm-area-run nil))
+  (if (vl-catch-all-error-p r)
+    (progn
+      (if *gip:rm-st*
+        (progn
+          (foreach l (nth 4 *gip:rm-st*) (vl-catch-all-apply 'vla-put-freeze (list l :vlax-false)))
+          (foreach l (nth 3 *gip:rm-st*) (vl-catch-all-apply 'vla-delete (list l)))
+          (vl-catch-all-apply 'setvar (list "CLAYER" (nth 0 *gip:rm-st*)))
+          (vl-catch-all-apply 'setvar (list "OSMODE" (nth 1 *gip:rm-st*)))
+          (vl-catch-all-apply 'setvar (list "CMDECHO" (nth 2 *gip:rm-st*)))
+          (setq *gip:rm-st* nil)))
+      (gip:rm-report nil (strcat "ошибка расчёта площадей: " (vl-catch-all-error-message r)))))
   (princ))
 (defun gip:rm-join (l / s)
   (setq s "")
