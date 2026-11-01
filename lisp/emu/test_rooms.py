@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as tmp:
     rooms_in = [l for l in open(src, encoding="utf-8") if l.startswith("(R ")]
     ok = run('(gip:rm-import "' + src.replace("\\", "/") + '")')
     rep = open(os.path.join(tmp, "gip_rooms_out.txt"), encoding="utf-8").read().splitlines()
-    print("отчёт:", rep)
+    print("report:", ascii(rep))
     assert rep and rep[0] == "ok", "импорт не прошёл: %r / %s" % (rep, "".join(I.out)[-1200:])
 
 tag = [A.ents[h] for h in A.order if not A.ents[h].deleted and A.ents[h].ins is not None and "GIPROOMS" in A.ents[h].xdata]
@@ -38,7 +38,7 @@ assert cnt["GIP_RM_W_"] == n_sheets and cnt["GIP_RM_F_"] == n_sheets, cnt
 assert cnt["NUM-POM_GIP_A"] == n_sheets * len(rooms_in), cnt
 reg = run('(gip:room-list)')
 assert len(reg) == len(rooms_in)
-print("реестр[0]:", reg[0])
+print("registry[0]:", ascii(reg[0]))
 assert run('(gip:room-get 6 "NAME")')
 assert abs(run('(gip:room-get 1 "VOL")') - run('(gip:room-get 1 "AREA")') * 2.7) < 0.02
 # повторный импорт заменяет прежний
@@ -48,4 +48,4 @@ with tempfile.TemporaryDirectory() as tmp:
     run('(gip:rm-import "' + src.replace("\\", "/") + '")')
 tag2 = [A.ents[h] for h in A.order if not A.ents[h].deleted and A.ents[h].ins is not None and "GIPROOMS" in A.ents[h].xdata]
 assert len(tag2) == len(tag), "повторный импорт должен заменять прежний, а не дублировать: %d vs %d" % (len(tag2), len(tag))
-print("rooms import: sheets %d, NUM blocks %d — ALL OK" % (n_sheets, cnt["NUM-POM_GIP_A"]))
+print("rooms import: sheets %d, NUM blocks %d - ALL OK" % (n_sheets, cnt["NUM-POM_GIP_A"]))
