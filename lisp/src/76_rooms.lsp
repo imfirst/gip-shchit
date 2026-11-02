@@ -13,7 +13,15 @@
 
 ;; ---------------------------------------------------------------- реестр
 (defun gip:room-list (/ s) (if (setq s (gip:dict-get *gip:rm-key*)) (read s)))
-(defun gip:room-put (l) (gip:dict-put *gip:rm-key* (vl-prin1-to-string l)))
+;; реестр + JSON для панели GIPPANEL (названия помещений -> подсказки для групп освещения и розеток)
+(defun gip:room-put (l)
+  (gip:dict-put *gip:rm-key* (vl-prin1-to-string l))
+  (vl-catch-all-apply 'gip:rm-publish (list l)))
+(defun gip:rm-publish (l / parts)
+  (setq parts nil)
+  (foreach r l
+    (setq parts (cons (strcat "{\"no\":" (itoa (car r)) ",\"name\":" (gip:js-str (gip:u (cadr r))) ",\"area\":" (gip:js-num (nth 2 r)) ",\"h\":" (gip:js-num (nth 4 r)) "}") parts)))
+  (gip:dict-put "GIPROOMSJSON" (strcat "[" (gip:join (reverse parts) ",") "]")))
 (defun gip:room-get (no key / r)
   (if (setq r (assoc no (gip:room-list)))
     (cond ((= key "NAME") (nth 1 r)) ((= key "AREA") (nth 2 r)) ((= key "AREAD") (nth 3 r))

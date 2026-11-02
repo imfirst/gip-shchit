@@ -933,6 +933,36 @@
     return normalize(st);
   }
 
+  /* ------------------------------------------------------------------ предложения названий групп по помещениям
+     rooms: [{no, name, area}] из таблицы помещений. cat: 'light' | 'sock'.
+     Мелкие помещения объединяются (прихожая+гардеробная, ванная+санузел, лоджия — к комнате), кухня и гостиная для розеток — всегда отдельно.
+     Это только подсказки: название в таблице можно вписать вручную. */
+  var RG_WET = /ванн|санузел|с\/у|туалет|душев|уборн/i, RG_HALL = /прихож|гардероб|кладов|коридор|тамбур|холл/i,
+      RG_LOGG = /лодж|балкон|терраса/i, RG_ROOM = /спальн|детск|кабинет|гостин|комнат/i, RG_KIT = /кухн/i, RG_LIV = /гостин/i;
+  function roomGroups(rooms, cat) {
+    var pre = cat === 'sock' ? 'Розетки ' : 'Освещение ';
+    var names = (rooms || []).map(function (r) { return String(r.name || '').trim(); }).filter(Boolean);
+    var out = [], seen = {};
+    function add(list) { var t = pre + list.join(', '); if (!seen[t]) { seen[t] = 1; out.push(t); } }
+    var wet = names.filter(function (n) { return RG_WET.test(n); }), hall = names.filter(function (n) { return RG_HALL.test(n) && !RG_WET.test(n); });
+    if (hall.length > 1) add(hall);
+    if (wet.length > 1) add(wet);
+    var logg = names.filter(function (n) { return RG_LOGG.test(n); });
+    names.forEach(function (n) {
+      if (RG_LOGG.test(n) || RG_WET.test(n) || (RG_HALL.test(n) && hall.length > 1)) return;
+      if (RG_ROOM.test(n) && !RG_KIT.test(n)) logg.forEach(function (l) { add([n, l]); });
+    });
+    if (cat !== 'sock') {
+      var k = names.filter(function (n) { return RG_KIT.test(n) && !RG_LIV.test(n); })[0], g = names.filter(function (n) { return RG_LIV.test(n) && !RG_KIT.test(n) && /гостин/i.test(n); })[0];
+      if (k && g) add([k + '-' + g]);
+    }
+    names.forEach(function (n) {
+      if (cat === 'sock' && RG_KIT.test(n) && RG_LIV.test(n)) { add(['Кухня']); add(['Гостиная']); return; }
+      add([n]);
+    });
+    return out;
+  }
+
   /* ------------------------------------------------------------------ экспорт */
   root.GIPM = {
     BRANDS: BRANDS, STD_IN: STD_IN, IN_A: IN_A, RCD_IN: RCD_IN, IDN: IDN, SECTIONS: SECTIONS, CAT: CAT, CAT_ORDER: CAT_ORDER, TEMPLATES: TEMPLATES,
@@ -943,6 +973,6 @@
     defaultBoard: defaultBoard, tplOptions: tplOptions, generate: generate, normalize: normalize, derive: derive, blocks: blocks,
     moveRows: moveRows, nudge: nudge, slots: slots, gapAnchor: gapAnchor, setField: setField, setBoard: setBoard,
     addGroup: addGroup, addRcd: addRcd, wrapRcd: wrapRcd, removeRows: removeRows, duplicate: duplicate, balance: balance,
-    split3: split3, find: find, autoCable: autoCable, autoLen: autoLen
+    split3: split3, find: find, autoCable: autoCable, autoLen: autoLen, roomGroups: roomGroups
   };
 })(typeof window !== 'undefined' ? window : globalThis);

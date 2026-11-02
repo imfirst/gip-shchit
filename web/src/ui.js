@@ -518,7 +518,7 @@
     var plan = v.num + (v.cableEff ? ' · ' + planMark() + ' ' + v.cableEff : '');
     cells.num = '<td class="c-num" data-tip="На плане: ' + esc(plan) + '"><span class="chip ' + serCls(v.ser) + '">' + esc(v.num) + '</span></td>';
     cells.cat = '<td class="c-cat td-pad"><select class="cell" id="c-' + v.id + '-cat" data-f="cat" aria-label="Назначение">' + M.CAT_ORDER.map(function (k) { return opt(k, M.CAT[k].label, v.cat); }).join('') + '</select></td>';
-    cells.name = '<td class="c-name td-pad"><input class="cell" id="c-' + v.id + '-name" data-f="name" value="' + esc(v.name) + '" aria-label="Наименование" autocomplete="off"></td>';
+    cells.name = '<td class="c-name td-pad"><input class="cell" id="c-' + v.id + '-name" data-f="name" value="' + esc(v.name) + '" aria-label="Наименование" autocomplete="off"' + (v.cat === 'light' || v.cat === 'sock' ? ' list="rn-' + v.cat + '"' : '') + '></td>';
     cells.prot = '<td class="c-prot">' + protSelect(v) + '</td>';
     var inSel = '<select class="cell" id="c-' + v.id + '-In" data-f="In" aria-label="Номинал, А">' + M.STD_IN.map(function (x) { return opt(x, x, v.In); }).join('') + '</select>';
     cells['in'] = '<td class="c-in' + (wf.In ? ' w-cell' : '') + '"' + (wf.In ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'In'; }).map(function (w) { return w.t; }).join('\n')) + '"' : '') + '><div class="duo">' +
@@ -994,6 +994,13 @@
   /* ================================================================ связь с AutoCAD (панель WebView2 в плагине GIP.bundle)
      страница -> AutoCAD: строка «тип\nJSON» (ready, apply); AutoCAD -> страница: объект {type: load|unlinked|linked, state, doc, origin} */
   var bridgeT = 0;
+  /* названия помещений из таблицы площадей чертежа -> подсказки для наименований групп освещения и розеток */
+  function setRoomNames(rooms) {
+    ['light', 'sock'].forEach(function (c) {
+      var dl = $('rn-' + c); if (!dl) return;
+      dl.innerHTML = M.roomGroups(rooms || [], c).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+    });
+  }
   var hostS = { linked: false, doc: '', auto: uiS.auto !== false, dirty: false, waiting: !!host };
   function hostPost(type, payload) { if (!host) return; try { host.postMessage(type + '\n' + (payload || '')); } catch (e) { /* */ } }
   function pushNow() { clearTimeout(bridgeT); hostPost('apply', JSON.stringify(state)); hostS.dirty = false; syncHost(); }
@@ -1029,6 +1036,8 @@
         state = ns; hostS.linked = true; hostS.waiting = false; hostS.doc = m.doc || ''; hostS.dirty = false;
         render({ flip: m.origin === 'drawing' }); syncHost();
         if (m.origin === 'drawing' && wasLinked) toast('Таблица обновлена по чертежу', true);
+      } else if (m.type === 'rooms') {
+        setRoomNames(m.rooms);
       } else if (m.type === 'linked') {
         hostS.linked = true; hostS.waiting = false; if (m.doc) hostS.doc = m.doc; syncHost(); toast('Альбом построен, таблица связана с чертежом');
       } else if (m.type === 'unlinked') {
