@@ -188,12 +188,15 @@ function resize() { const r = cv.getBoundingClientRect(); cv.width = Math.max(10
 window.addEventListener('resize', resize);
 function fit() {
   if (!S.D) return; resize();
-  const b = S.bbox || [0, 0, S.D.w, S.D.h], W = cv.width, H = cv.height, pad = 30 * devicePixelRatio;
+  let b = (S.bbox || [0, 0, S.D.w, S.D.h]).slice(); const ex = S.expl && S.expl.box;
+  if ($('txtMode').value === 'expl' && ex && S.bbox) { b = [Math.min(b[0], ex[0]), Math.min(b[1], ex[1] - 10), Math.max(b[2], ex[2] + 220), Math.max(b[3], ex[3] + 60)]; }   /* чтобы экспликация дизайнера была в кадре */
+  const W = cv.width, H = cv.height, pad = 30 * devicePixelRatio;
   const k = Math.min((W - 2 * pad) / (b[2] - b[0]), (H - 2 * pad) / (b[3] - b[1]));
   S.view = { k: k, ox: pad - b[0] * k + ((W - 2 * pad) - (b[2] - b[0]) * k) / 2, oy: H - pad + b[1] * k - ((H - 2 * pad) - (b[3] - b[1]) * k) / 2 };
   draw();
 }
 $('fit').addEventListener('click', fit);
+$('txtMode').addEventListener('change', () => fit());
 const toScr = (p) => [p[0] * S.view.k + S.view.ox, S.view.oy - p[1] * S.view.k];
 const toPdf = (x, y) => [(x - S.view.ox) / S.view.k, (S.view.oy - y) / S.view.k];
 function makeBatches() {
@@ -230,6 +233,18 @@ function draw() {
     const p = toScr([t.x + t.w / 2, t.y + t.h / 3]); if (t.h * v.k < 4) return;
     ctx.font = Math.max(8, t.h * v.k) + 'px sans-serif'; ctx.fillText(t.s.trim(), p[0], p[1]);
   });
+  const tm = $('txtMode').value;
+  if (tm !== 'none') {
+    const bx = S.expl && S.expl.box;
+    ctx.fillStyle = '#0f766e'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    S.D.texts.forEach((t) => {
+      if (tm === 'expl' && !(bx && t.x >= bx[0] - 4 && t.x <= bx[2] + 260 && t.y >= bx[1] - 4 && t.y <= bx[3] + 60)) return;
+      const p = toScr([t.x, t.y]), px = Math.max(7 * dpr, t.h * v.k); if (t.h * v.k < 2.5 * dpr && tm === 'all') return;
+      ctx.font = px + 'px sans-serif';
+      if (t.rot) { ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(-t.rot * Math.PI / 180); ctx.fillText(t.s, 0, 0); ctx.restore(); } else ctx.fillText(t.s, p[0], p[1]);
+    });
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  }
   S.rooms.forEach((r, i) => {
     if (!r.marker) return; const p = toScr(r.marker), rad = 11 * dpr;
     ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 7); ctx.fillStyle = S.assign === i ? '#fde68a' : '#fff'; ctx.fill();
@@ -264,11 +279,7 @@ cv.addEventListener('wheel', (e) => {
 /* ------------------------------------------------------------------ листы электрики */
 const ANNOT_RE = /размер|выноск|аннот|текст|штамп|рамк|ос[ьи]\b|оси\b|сетк|надпис|отметк|высотн|табл|легенд|помещен|площад|зон/;
 const BASE_RE = /стен|констр|перегор|колонн|мебел|двер|окн|архитект|подложк|проем|сантех|кухн/;
-function fillExPages() {
-  const sel = $('exPage'); sel.innerHTML = '';
-  if (!S.doc) return;
-  for (let i = 1; i <= S.doc.numPages; i++) sel.insertAdjacentHTML('beforeend', '<option value="' + i + '">лист ' + i + '</option>');
-}
+function fillExPages() { /* список листов строится в диалоге */ }
 function exWallBox(e) {
   let b = null; e.D.paths.forEach((p) => { const g = e.G.groups.filter((x) => x.id === p.g)[0]; if (g && g.role === 'wall') b = R.bboxOf(p.pts, b); });
   return b;
@@ -298,50 +309,113 @@ async function autoExtras() {
   for (const [k, title] of want) {
     let c = S.pages.filter((q) => q.kind === k && q.no !== S.pageNo);
     if (k === 'light') c = c.sort((a, b) => lightScore(b.blob) - lightScore(a.blob));
-    if (c[0]) await addExtraPage(c[0].no, title, true);
+    if (c[0]) await addExtraPage(c[0].no, title);
   }
-  const first = S.extra[0]; if (first) $('exPage').value = String(first.page);
   if (S.extra.length) toast('Листы электрики выбраны по названиям: ' + S.extra.map((e) => e.title).join(', ') + '. Проверьте и уберите лишнее.', 8000);
 }
-async function addExtra() { await addExtraPage(+$('exPage').value, $('exKind').value, false); }
-async function addExtraPage(no, kind, quiet) {
+function defaultKeep(G, dropBase) {
+  const keep = {};
+  G.groups.forEach((g) => {
+    let k = true;
+    if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (ANNOT_RE.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
+    else {
+      if (/dash/.test(g.id) || (g.role === 'drop' && g.id.charAt(0) !== 'F')) k = false;
+      if (/:c#/.test(g.id)) k = true;                                            /* цветные линии — электрика */
+      if (g.id.charAt(0) === 'F') k = R.rgbInt(g.id.split(':')[1]) != null;      /* заливки: только цветные (электрика) */
+      if (g.role === 'wall' && dropBase) k = false;
+    }
+    keep[g.id] = k;
+  });
+  return keep;
+}
+const exCache = {};
+async function pageData(no) {
+  if (!exCache[no] || exCache[no].doc !== S.doc) { const pj = await lib(), D = await X.extractPage(pj, S.doc, no); exCache[no] = { doc: S.doc, D: D, G: R.buildGroups(D) }; }
+  return exCache[no];
+}
+async function addExtraPage(no, kind) {
   if (!S.doc || !S.D) { toast('Сначала откройте PDF'); return; }
   try {
     prog(true, 0.4, 'Извлекаю лист ' + no + '…');
-    const pj = await lib(), D = await X.extractPage(pj, S.doc, no), G = R.buildGroups(D);
-    const dropBase = $('exBase').checked, keep = {};
-    G.groups.forEach((g) => {
-      let k = true;
-      if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (ANNOT_RE.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
-      else {
-        if (/dash/.test(g.id) || (g.role === 'drop' && g.id.charAt(0) !== 'F')) k = false;
-        if (/:c#/.test(g.id)) k = true;                                            /* цветные линии — электрика */
-        if (g.id.charAt(0) === 'F') k = R.rgbInt(g.id.split(':')[1]) != null;      /* заливки: только цветные (электрика); чёрные/серые мелкие символы идут обводкой */
-        if (g.role === 'wall' && dropBase) k = false;
-      }
-      keep[g.id] = k;
-    });
+    const d = await pageData(no);
     /* масштаб листов электрики по умолчанию такой же, как у подложки (можно изменить) */
-    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: D, G: G, den: null, keep: keep });
+    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: d.D, G: d.G, den: null, keep: defaultKeep(d.G, true) });
     prog(false); renderExtra();
   } catch (err) { prog(false); toast('Не удалось прочитать лист: ' + (err && err.message || err), 6000); }
 }
+
+/* ------------------------------------------------------------------ диалог выбора листа и слоёв */
+const DLG = { kind: '', edit: -1, no: 0, d: null, keep: {} };
+const KIND_KEY = { 'Розетки': 'sockets', 'Освещение': 'light', 'Тёплый пол': 'floor' };
+function openPicker(kind, edit) {
+  if (!S.doc || !S.D) { toast('Сначала откройте PDF'); return; }
+  DLG.kind = kind; DLG.edit = edit == null ? -1 : edit;
+  $('exDlgT').textContent = (DLG.edit >= 0 ? 'Изменить: ' : 'Добавить: ') + kind;
+  const sel = $('dlgPage'); sel.innerHTML = $('pageSel').innerHTML;
+  let no = DLG.edit >= 0 ? S.extra[DLG.edit].page : 0;
+  if (!no) {
+    let c = S.pages.filter((q) => q.kind === KIND_KEY[kind] && q.no !== S.pageNo);
+    if (KIND_KEY[kind] === 'light') c = c.sort((a, b) => lightScore(b.blob) - lightScore(a.blob));
+    no = c[0] ? c[0].no : (S.pages.filter((q) => q.no !== S.pageNo)[0] || S.pages[0]).no;
+  }
+  sel.value = String(no);
+  $('exDlg').hidden = false;
+  loadDlg(no);
+}
+async function loadDlg(no) {
+  $('dlgInfo').textContent = 'Читаю лист…';
+  const d = await pageData(no); DLG.no = no; DLG.d = d;
+  const ed = DLG.edit >= 0 && S.extra[DLG.edit].page === no ? S.extra[DLG.edit] : null;
+  DLG.keep = ed ? Object.assign({}, ed.keep) : defaultKeep(d.G, $('dlgBase').checked);
+  $('dlgInfo').textContent = d.D.paths.length + ' линий' + (d.G.useLayers ? ', слои PDF' : ', слоёв нет — группы по стилю линий');
+  renderDlg();
+}
+function renderDlg() {
+  const d = DLG.d, tb = $('dlgGroups').querySelector('tbody');
+  tb.innerHTML = d.G.groups.slice(0, 80).map((g) => '<tr><td><label class="chk"><input type="checkbox" data-g="' + esc(g.id) + '"' + (DLG.keep[g.id] ? ' checked' : '') + '>' + esc(g.label) + '</label></td><td>' + g.n + '</td></tr>').join('');
+  tb.querySelectorAll('input[data-g]').forEach((c) => c.addEventListener('change', () => { DLG.keep[c.getAttribute('data-g')] = c.checked; drawDlg(); }));
+  drawDlg();
+}
+function drawDlg() {
+  const c = $('dlgCv'), x = c.getContext('2d'), d = DLG.d; if (!d) return;
+  const r = c.getBoundingClientRect(); c.width = Math.max(200, Math.round(r.width)); c.height = Math.max(150, Math.round(r.height));
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  let b = null; d.D.paths.forEach((p) => { b = R.bboxOf(p.pts, b); }); if (!b) return;
+  const k = Math.min((c.width - 10) / (b[2] - b[0] || 1), (c.height - 10) / (b[3] - b[1] || 1)), X0 = 5 - b[0] * k, Y0 = c.height - 5 + b[1] * k;
+  const pass = (keepFlag) => d.D.paths.forEach((p) => {
+    if (!!DLG.keep[p.g] !== keepFlag) return;
+    const col = keepFlag ? (p.sc || p.fc || '#000') : '#e3e6ea';
+    x.beginPath(); p.pts.forEach((q, j) => { const px = q[0] * k + X0, py = Y0 - q[1] * k; j ? x.lineTo(px, py) : x.moveTo(px, py); });
+    if (p.fc && !p.sc) { x.fillStyle = keepFlag ? p.fc : '#eef0f2'; x.fill(); } else { x.strokeStyle = col; x.lineWidth = 1; x.stroke(); }
+  });
+  pass(false); pass(true);
+}
+$('dlgPage').addEventListener('change', () => loadDlg(+$('dlgPage').value));
+$('dlgBase').addEventListener('change', () => { if (DLG.d) { DLG.keep = defaultKeep(DLG.d.G, $('dlgBase').checked); renderDlg(); } });
+$('dlgCancel').addEventListener('click', () => { $('exDlg').hidden = true; });
+$('dlgOk').addEventListener('click', () => {
+  if (!DLG.d) return;
+  const e = { page: DLG.no, kind: DLG.kind, title: DLG.kind + ' (лист ' + DLG.no + ')', D: DLG.d.D, G: DLG.d.G, den: null, keep: DLG.keep };
+  if (DLG.edit >= 0) { e.den = S.extra[DLG.edit].den; S.extra[DLG.edit] = e; } else S.extra.push(e);
+  $('exDlg').hidden = true; renderExtra();
+});
+document.querySelectorAll('[data-exkind]').forEach((b) => b.addEventListener('click', () => openPicker(b.getAttribute('data-exkind'))));
 function renderExtra() {
   const box = $('exList'); box.innerHTML = '';
   S.extra.forEach((e, i) => {
     const al = alignExtra(e);
     const d = document.createElement('details'); d.className = 'ex-item';
     const rows = e.G.groups.slice(0, 40).map((g) => '<tr><td><label class="chk"><input type="checkbox" data-g="' + esc(g.id) + '"' + (e.keep[g.id] ? ' checked' : '') + '>' + esc(g.label) + '</label></td><td>' + g.n + '</td></tr>').join('');
-    d.innerHTML = '<summary><b>' + esc(e.title) + '</b> · масштаб 1:<input class="w-s" data-den="' + i + '" inputmode="numeric" placeholder="' + (S.den || '') + '" value="' + (e.den || '') + '" title="Пусто — как у подложки"> · ' + esc(al.how) + ' <button class="btn" type="button" data-del="' + i + '">Убрать</button></summary>' +
+    d.innerHTML = '<summary><b>' + esc(e.title) + '</b> · масштаб 1:<input class="w-s" data-den="' + i + '" inputmode="numeric" placeholder="' + (S.den || '') + '" value="' + (e.den || '') + '" title="Пусто — как у подложки"> · ' + esc(al.how) + ' <button class="btn" type="button" data-edit="' + i + '">Изменить</button> <button class="btn" type="button" data-del="' + i + '">Убрать</button></summary>' +
       '<table class="pl-t"><thead><tr><th>Что оставить в блоке</th><th>Линий</th></tr></thead><tbody>' + rows + '</tbody></table>';
     d.querySelector('input[data-den]').addEventListener('click', (ev) => ev.stopPropagation());
     d.querySelector('input[data-den]').addEventListener('change', (ev) => { e.den = parseInt(ev.target.value, 10) || null; });
     d.querySelectorAll('input[data-g]').forEach((c) => c.addEventListener('change', () => { e.keep[c.getAttribute('data-g')] = c.checked; }));
+    d.querySelector('button[data-edit]').addEventListener('click', (ev) => { ev.preventDefault(); openPicker(e.kind, i); });
     d.querySelector('button[data-del]').addEventListener('click', (ev) => { ev.preventDefault(); S.extra.splice(i, 1); renderExtra(); });
     box.appendChild(d);
   });
 }
-$('exAdd').addEventListener('click', addExtra);
 
 function build() {
   if (!S.D || !S.bbox) { toast('Откройте PDF'); return null; }
@@ -393,4 +467,4 @@ fileIn.addEventListener('change', () => { if (fileIn.files[0]) openFile(fileIn.f
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 $('pageSel').addEventListener('change', () => loadPage(+$('pageSel').value));
-window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild, addExtra: addExtra, renderExtra: renderExtra };
+window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild, renderExtra: renderExtra };
