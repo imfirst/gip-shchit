@@ -60,18 +60,20 @@
   (while (cdr nums) (setq r (cons (list 10 (float (car nums)) (float (cadr nums))) r) nums (cddr nums)))
   (reverse r))
 
-(defun gip:plan-ent (it / k pts col)
-  (setq k (cadr it) pts (gip:plan-pts (cddr it)) col (if (= k 1) 8 7))
+(setq *gip:plan-rgb* nil)   ; если задан — истинный цвет (24 бита) вместо индексного
+(defun gip:plan-ent (it / k pts col cpair)
+  (setq k (cadr it) pts (gip:plan-pts (cddr it)) col (if (= k 1) 8 7)
+        cpair (if *gip:plan-rgb* (cons 420 *gip:plan-rgb*) (cons 62 col)))
   (cond
     ((< (length pts) 2) nil)
     ((eq (car it) 'F)
-     (entmake (append (list '(0 . "HATCH") '(100 . "AcDbEntity") '(8 . "0") (cons 62 col) '(100 . "AcDbHatch") '(10 0.0 0.0 0.0) '(210 0.0 0.0 1.0)
+     (entmake (append (list '(0 . "HATCH") '(100 . "AcDbEntity") '(8 . "0") cpair '(100 . "AcDbHatch") '(10 0.0 0.0 0.0) '(210 0.0 0.0 1.0)
                             '(2 . "SOLID") '(70 . 1) '(71 . 0) '(91 . 1) '(92 . 7) '(72 . 1) '(73 . 1) (cons 93 (length pts)))
                       (apply 'append (mapcar '(lambda (p) (list (list 10 (cadr p) (caddr p) 0.0) '(42 . 0.0))) pts))
                       (list '(97 . 0) '(75 . 0) '(76 . 1) '(47 . 1.0) '(98 . 1) (list 10 (cadr (car pts)) (caddr (car pts)) 0.0)
                             '(450 . 0) '(451 . 0) '(460 . 0.0) '(461 . 0.0) '(452 . 0) '(462 . 0.0) '(453 . 0) '(470 . "")))))
     (T
-     (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "0") (cons 62 col) '(100 . "AcDbPolyline")
+     (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "0") cpair '(100 . "AcDbPolyline")
                             (cons 90 (length pts)) (cons 70 (if (eq (car it) 'C) 1 0)))
                       pts)))))
 
