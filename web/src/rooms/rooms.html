@@ -57,13 +57,13 @@
     <div class="panel pl-step" id="exBox" hidden>
       <h2>5. Листы электрики (необязательно)</h2>
       <div class="pl-row">
-        <label class="fld"><span class="lbl">Лист PDF</span><select id="exPage"></select></label>
-        <label class="fld"><span class="lbl">Что на листе</span><select id="exKind"><option>Розетки</option><option>Освещение</option><option>Тёплый пол</option><option>Другое</option></select></label>
-        <button class="btn" type="button" id="exAdd">Добавить лист</button>
+        <button class="btn" type="button" data-exkind="Розетки">+ Розетки</button>
+        <button class="btn" type="button" data-exkind="Освещение">+ Освещение</button>
+        <button class="btn" type="button" data-exkind="Тёплый пол">+ Тёплый пол</button>
+        <button class="btn" type="button" data-exkind="Другое">+ Другое</button>
       </div>
-      <label class="chk"><input type="checkbox" id="exBase" checked>Убирать с листа стены и мебель (они уже есть в подложке)</label>
-      <div id="exList"></div>
-      <p class="pl-hint">Каждый лист встанет отдельным блоком в своей рамке рядом с подложкой, в тех же координатах: блок можно совместить с подложкой простым перемещением. Размеры, выноски и тексты не переносятся. Лист совмещается с основным по стенам.</p>
+            <div id="exList"></div>
+      <p class="pl-hint">Каждый лист встанет отдельным блоком в своей рамке рядом с подложкой, в тех же координатах: блок можно совместить с подложкой простым перемещением. Нажмите нужную кнопку: откроется выбор листа и слоёв для переноса. Размеры, выноски и тексты не переносятся. Лист совмещается с основным по стенам.</p>
     </div>
 
     <div class="panel pl-step" id="goBox" hidden>
@@ -81,12 +81,23 @@
 
   <section class="pl-view panel" aria-label="Просмотр">
     <div class="pl-vbar"><span id="vTitle">Просмотр</span><span class="spacer"></span>
+      <label class="chk" title="Текст из PDF для сверки с номерами и названиями"><select id="txtMode"><option value="expl">Текст: экспликация</option><option value="all">Текст: весь</option><option value="none">Текст: нет</option></select></label>
       <span class="pl-legend"><i class="k-w"></i>стены <i class="k-f"></i>мебель <i class="k-d"></i>двери <i class="k-x"></i>убрано</span>
       <button class="btn" type="button" id="fit">Вписать</button></div>
     <canvas id="cv"></canvas>
     <div class="pl-empty" id="empty">Здесь появится план дизайнера</div>
   </section>
 </main>
+<div class="mdl" id="exDlg" hidden><div class="mdl-card">
+  <h3 id="exDlgT">Лист электрики</h3>
+  <div class="pl-row"><label class="fld"><span class="lbl">Лист PDF</span><select id="dlgPage"></select></label>
+    <label class="chk"><input type="checkbox" id="dlgBase" checked>Убрать стены и мебель (они уже в подложке)</label></div>
+  <div class="mdl-body">
+    <div class="mdl-groups"><table class="pl-t" id="dlgGroups"><thead><tr><th>Слой / группа</th><th>Линий</th></tr></thead><tbody></tbody></table></div>
+    <canvas id="dlgCv" width="520" height="400"></canvas>
+  </div>
+  <div class="pl-row"><button class="btn primary" type="button" id="dlgOk">Добавить</button><button class="btn" type="button" id="dlgCancel">Отмена</button><span class="pl-hint" id="dlgInfo"></span></div>
+</div></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>

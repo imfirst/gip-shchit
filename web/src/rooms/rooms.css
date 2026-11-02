@@ -16,3 +16,11 @@
 .ex-item{border:1px solid var(--line,#d9dde3);border-radius:6px;padding:6px 8px;margin:6px 0}
 .ex-item summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ex-item table{margin-top:6px}
+.mdl{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+.mdl[hidden]{display:none}
+.mdl-card{background:var(--bg,#fff);color:inherit;border-radius:10px;padding:14px 16px;width:min(900px,96vw);max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.mdl-card h3{margin:0 0 8px}
+.mdl-body{display:flex;gap:12px;margin:8px 0;align-items:flex-start}
+.mdl-groups{flex:1;max-height:420px;overflow:auto;min-width:260px}
+#dlgCv{flex:1.4;min-width:0;max-width:100%;height:400px;background:#fff;border:1px solid #d9dde3;border-radius:6px}
+.ex-item input.w-s{width:56px;display:inline-block}
