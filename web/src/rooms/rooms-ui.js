@@ -35,14 +35,21 @@ async function openFile(file) {
     S.doc = await pj.getDocument({ data: data }).promise;
     S.name = file.name.replace(/\.pdf$/i, '');
     $('dropT').textContent = file.name;
-    const sel = $('pageSel'); sel.innerHTML = '';
+    const sel = $('pageSel'); sel.innerHTML = ''; S.pages = [];
     for (let i = 1; i <= S.doc.numPages; i++) {
       const pg = await S.doc.getPage(i), tc = await pg.getTextContent();
-      const t = tc.items.map((x) => x.str).join(' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-      sel.insertAdjacentHTML('beforeend', '<option value="' + i + '">' + i + '. ' + esc(t || 'без текста') + '</option>');
+      const strs = tc.items.map((x) => x.str.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      const blob = strs.filter((t) => TITLE_RE.test(t)).slice(0, 8).join(' | ');
+      const kind = classifyPage(blob || strs.slice(0, 6).join(' '));
+      S.pages.push({ no: i, blob: blob, kind: kind });
+      const label = (blob || strs.slice(0, 4).join(' ')).slice(0, 70);
+      sel.insertAdjacentHTML('beforeend', '<option value="' + i + '">' + i + '. ' + esc(label || 'без текста') + (kind ? ' [' + KIND_RU[kind] + ']' : '') + '</option>');
     }
     $('pageRow').hidden = S.doc.numPages < 2;
-    await loadPage(1);
+    const furn = S.pages.filter((q) => q.kind === 'furniture')[0], first = furn ? furn.no : 1;
+    sel.value = String(first);
+    await loadPage(first);
+    await autoExtras();
   } catch (e) { prog(false); toast('Не удалось открыть PDF: ' + (e && e.message || e), 7000); }
 }
 async function loadPage(no) {
@@ -272,25 +279,50 @@ function alignExtra(e) {
   if (wb && wb2 && b) return { origin: [wb2[0], wb2[1]], shift: [(wb[0] - b[0]) * k, (wb[1] - b[1]) * k], how: 'совмещён по стенам' };
   return { origin: [b ? b[0] : 0, b ? b[1] : 0], shift: [0, 0], how: 'стены не найдены, положение как на основном листе' };
 }
-async function addExtra() {
+const TITLE_RE = /план|схем|розет|выключ|освещ|светил|мебел|тепл|подогр|расстанов|размещ/i;
+const KIND_RU = { furniture: 'мебель', sockets: 'розетки', light: 'освещение', floor: 'тёплый пол' };
+/* По названию листа: мебель / розетки / освещение со связями выключатель—светильник / тёплый пол.
+   «Привязки», «группы включения», размеры и маркировка не подходят: нужен лист с линиями от выключателей до светильников. */
+function classifyPage(blob) {
+  const t = String(blob || '').toLowerCase().replace(/ё/g, 'е');
+  if (/тепл\S*\s*пол|подогрев/.test(t)) return 'floor';
+  if (/розет/.test(t) && !/освещ|светил/.test(t) && !/привяз|координат/.test(t)) return 'sockets';
+  if (/освещ|светильник|выключател/.test(t) && !/привяз|групп|вклю|координат|размер|маркиров|спецификац|потолк/.test(t)) return 'light';
+  if (/мебел/.test(t) && !/привяз|электр|размер/.test(t)) return 'furniture';
+  if (/мебел/.test(t)) return 'furniture';
+  return null;
+}
+function lightScore(blob) { const t = String(blob || '').toLowerCase(); return (/выключател/.test(t) ? 2 : 0) + (/светильник/.test(t) ? 1 : 0) + (/освещ/.test(t) ? 1 : 0); }
+async function autoExtras() {
+  const want = [['sockets', 'Розетки'], ['light', 'Освещение']];
+  for (const [k, title] of want) {
+    let c = S.pages.filter((q) => q.kind === k && q.no !== S.pageNo);
+    if (k === 'light') c = c.sort((a, b) => lightScore(b.blob) - lightScore(a.blob));
+    if (c[0]) await addExtraPage(c[0].no, title, true);
+  }
+  const first = S.extra[0]; if (first) $('exPage').value = String(first.page);
+  if (S.extra.length) toast('Листы электрики выбраны по названиям: ' + S.extra.map((e) => e.title).join(', ') + '. Проверьте и уберите лишнее.', 8000);
+}
+async function addExtra() { await addExtraPage(+$('exPage').value, $('exKind').value, false); }
+async function addExtraPage(no, kind, quiet) {
   if (!S.doc || !S.D) { toast('Сначала откройте PDF'); return; }
-  if (!S.den) { toast('Сначала задайте масштаб основного листа', 5000); return; }
-  const no = +$('exPage').value, kind = $('exKind').value;
   try {
     prog(true, 0.4, 'Извлекаю лист ' + no + '…');
-    const pj = await lib(), D = await X.extractPage(pj, S.doc, no), G = R.buildGroups(D), sc = R.scaleFromText(D);
+    const pj = await lib(), D = await X.extractPage(pj, S.doc, no), G = R.buildGroups(D);
     const dropBase = $('exBase').checked, keep = {};
     G.groups.forEach((g) => {
       let k = true;
       if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (ANNOT_RE.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
       else {
         if (/dash/.test(g.id) || (g.role === 'drop' && g.id.charAt(0) !== 'F')) k = false;
-        if (g.id.charAt(0) === 'F') k = g.n < 400;           /* заливки: мелкие символы да, крупные заливки нет (они отсекаются при выводе) */
+        if (/:c#/.test(g.id)) k = true;                                            /* цветные линии — электрика */
+        if (g.id.charAt(0) === 'F') k = R.rgbInt(g.id.split(':')[1]) != null;      /* заливки: только цветные (электрика); чёрные/серые мелкие символы идут обводкой */
         if (g.role === 'wall' && dropBase) k = false;
       }
       keep[g.id] = k;
     });
-    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: D, G: G, den: sc ? sc.den : S.den, keep: keep });
+    /* масштаб листов электрики по умолчанию такой же, как у подложки (можно изменить) */
+    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: D, G: G, den: null, keep: keep });
     prog(false); renderExtra();
   } catch (err) { prog(false); toast('Не удалось прочитать лист: ' + (err && err.message || err), 6000); }
 }
@@ -300,8 +332,10 @@ function renderExtra() {
     const al = alignExtra(e);
     const d = document.createElement('details'); d.className = 'ex-item';
     const rows = e.G.groups.slice(0, 40).map((g) => '<tr><td><label class="chk"><input type="checkbox" data-g="' + esc(g.id) + '"' + (e.keep[g.id] ? ' checked' : '') + '>' + esc(g.label) + '</label></td><td>' + g.n + '</td></tr>').join('');
-    d.innerHTML = '<summary><b>' + esc(e.title) + '</b> · масштаб 1:' + e.den + ' · ' + esc(al.how) + ' <button class="btn" type="button" data-del="' + i + '">Убрать</button></summary>' +
+    d.innerHTML = '<summary><b>' + esc(e.title) + '</b> · масштаб 1:<input class="w-s" data-den="' + i + '" inputmode="numeric" placeholder="' + (S.den || '') + '" value="' + (e.den || '') + '" title="Пусто — как у подложки"> · ' + esc(al.how) + ' <button class="btn" type="button" data-del="' + i + '">Убрать</button></summary>' +
       '<table class="pl-t"><thead><tr><th>Что оставить в блоке</th><th>Линий</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    d.querySelector('input[data-den]').addEventListener('click', (ev) => ev.stopPropagation());
+    d.querySelector('input[data-den]').addEventListener('change', (ev) => { e.den = parseInt(ev.target.value, 10) || null; });
     d.querySelectorAll('input[data-g]').forEach((c) => c.addEventListener('change', () => { e.keep[c.getAttribute('data-g')] = c.checked; }));
     d.querySelector('button[data-del]').addEventListener('click', (ev) => { ev.preventDefault(); S.extra.splice(i, 1); renderExtra(); });
     box.appendChild(d);
@@ -316,7 +350,7 @@ function build() {
   const nos = {}; for (const r of S.rooms) { if (nos[r.no]) { toast('Повторяется номер ' + r.no, 6000); return null; } nos[r.no] = 1; if (!r.marker) { toast('У помещения ' + r.no + ' не указано место номера на плане', 6000); return null; } }
   const hd = num('hDef', 2700), b = S.bbox, k = mmPt();
   const rooms = S.rooms.map((r) => ({ no: r.no, name: r.name, areaD: r.areaD, area: r.ok ? r.area : null, h: parseFloat(r.h) || hd, marker: r.marker }));
-  const extras = S.extra.map((e) => { const al = alignExtra(e); return { title: e.title, D: e.D, keep: e.keep, mmPerPt: e.den * R.PT_MM, origin: al.origin, shift: al.shift }; });
+  const extras = S.extra.map((e) => { const al = alignExtra(e); return { title: e.title, D: e.D, keep: e.keep, mmPerPt: (e.den || S.den) * R.PT_MM, origin: al.origin, shift: al.shift }; });
   const out = R.buildOutput(S.D, { name: S.name, mmPerPt: k, origin: [b[0], b[1]], hDefault: hd, rooms: rooms, extras: extras, keepRole: (p, i) => S.keep[i] || null, W: (b[2] - b[0]) * k, H: (b[3] - b[1]) * k });
   return out;
 }
@@ -359,4 +393,4 @@ fileIn.addEventListener('change', () => { if (fileIn.files[0]) openFile(fileIn.f
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 $('pageSel').addEventListener('change', () => loadPage(+$('pageSel').value));
-window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild, addExtra: addExtra };
+window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild, addExtra: addExtra, renderExtra: renderExtra };

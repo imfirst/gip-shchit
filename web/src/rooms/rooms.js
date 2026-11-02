@@ -28,7 +28,8 @@
   function groupKey(D, p, useLayers) {
     if (useLayers) return 'L:' + (p.L || '(без слоя)');
     var fa = p.fc ? Math.round((p.fa == null ? 1 : p.fa) * 100) : 0;
-    return (p.fc && !p.sc ? 'F' + fa + ':' + p.fc : 'S:' + (Math.round(p.w * 100) / 100)) + (p.dash ? ':dash' : '');
+    var chrom = p.sc && rgbInt(p.sc) != null ? ':c' + p.sc : '';      /* цветные линии (электрика) — отдельной группой */
+    return (p.fc && !p.sc ? 'F' + fa + ':' + p.fc : 'S:' + (Math.round(p.w * 100) / 100) + chrom) + (p.dash ? ':dash' : '');
   }
   /* Группы: если в PDF есть слои дизайнера — по слоям, иначе по стилю (толщина/заливка). */
   function buildGroups(D) {
@@ -45,7 +46,7 @@
       var a = D.paths[g.idx[0]];
       if (useLayers) { g.label = g.id.slice(2); g.role = guessRoleByName(g.label); }
       else {
-        var kind = g.id.charAt(0) === 'F' ? 'заливка ' + Math.round((a.fa == null ? 1 : a.fa) * 100) + '%' : 'линия ' + (Math.round(a.w * 100) / 100) + ' пт' + (a.dash ? ', штрих' : '');
+        var kind = g.id.charAt(0) === 'F' ? 'заливка ' + Math.round((a.fa == null ? 1 : a.fa) * 100) + '%' : 'линия ' + (Math.round(a.w * 100) / 100) + ' пт' + (/:c#/.test(g.id) ? ', цвет ' + a.sc : '') + (a.dash ? ', штрих' : '');
         g.label = kind; g.role = 'furn';
       }
     });
@@ -56,15 +57,15 @@
   /* Без слоёв: самая толстая заметная линия — стены (кроме рамки листа), тонкие штрихи/пунктир — убрать, заливки — убрать. */
   function styleRoles(D, groups) {
     var strokes = groups.filter(function (g) { return g.id.charAt(0) === 'S' && !/dash/.test(g.id); });
-    var mids = strokes.filter(function (g) { var w = +g.id.slice(2); return w >= 0.2 && g.len > 500; }).sort(function (a, b) { return +a.id.slice(2) - +b.id.slice(2); });
+    var mids = strokes.filter(function (g) { var w = parseFloat(g.id.slice(2)); return w >= 0.2 && g.len > 500 && !/:c#/.test(g.id); }).sort(function (a, b) { return parseFloat(a.id.slice(2)) - parseFloat(b.id.slice(2)); });
     groups.forEach(function (g) {
-      var w = g.id.charAt(0) === 'S' ? +g.id.slice(2) : 0;
+      var w = g.id.charAt(0) === 'S' ? parseFloat(g.id.slice(2)) : 0;
       if (g.id.charAt(0) === 'F') g.role = 'drop';
       else if (/dash/.test(g.id)) g.role = 'drop';
       else if (w < 0.06) g.role = 'drop';
     });
     if (mids.length) { mids[0].role = 'wall'; }
-    if (mids.length > 1 && +mids[mids.length - 1].id.slice(2) >= 0.4) mids[mids.length - 1].role = 'drop'; /* рамка листа */
+    if (mids.length > 1 && parseFloat(mids[mids.length - 1].id.slice(2)) >= 0.4) mids[mids.length - 1].role = 'drop'; /* рамка листа */
   }
 
   /* ------------------------------------------------------------------ экспликация */
@@ -277,6 +278,13 @@
   /* ------------------------------------------------------------------ вывод для LISP */
   /* Строка для LISP: всё не-ASCII (и «~») как ~uXXXX — AutoLISP-читалка такие последовательности не трогает, декодирует gip:rm-dec */
   function lispStr(s) { return '"' + String(s).replace(/\\/g, '/').replace(/"/g, "'").replace(/[^\x20-\x7d]/g, function (ch) { return '~u' + ('0000' + ch.charCodeAt(0).toString(16).toUpperCase()).slice(-4); }) + '"'; }
+  /* '#rrggbb' -> целое RGB для AutoCAD (420); null — ч/б/серый (рисуется обычным цветом) */
+  function rgbInt(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); if (!m) return null;
+    var r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+    if (Math.max(r, g, b) - Math.min(r, g, b) < 28) return null;
+    return r * 65536 + g * 256 + b;
+  }
   function f1(v) { return (Math.round(v * 10) / 10).toString(); }
   /* P: { name, mmPerPt, origin:[x,y] (pt), keepRole(path)->'wall'|'window'|'door'|'furn'|null, rooms:[{no,name,areaD,area,h,marker:[x,y],poly}], hDefault, crop:[x0,y0,x1,y1] } */
   function buildOutput(D, P) {
@@ -315,9 +323,17 @@
         if (!ex.keep[p.g] || p.pts.length < 2) return;
         var q = p.pts.map(function (a) { return [X2(a), Y2(a)]; }), bb = bboxOf(q);
         if (bb[0] < lim[0] || bb[1] < lim[1] || bb[2] > lim[2] || bb[3] > lim[3]) return;
-        var fo = p.fc && !p.sc;
-        if (fo && Math.max(bb[2] - bb[0], bb[3] - bb[1]) > 300) return;
-        lines.push('(' + (p.closed || fo ? 'C' : 'L') + ' ' + (10 + ei) + ' ' + q.map(function (a) { return f1(a[0]) + ' ' + f1(a[1]); }).join(' ') + ')'); nL++;
+        var xy2 = q.map(function (a) { return f1(a[0]) + ' ' + f1(a[1]); }).join(' '), size = Math.max(bb[2] - bb[0], bb[3] - bb[1]);
+        /* цвета электрики сохраняем как у дизайнера; чёрное/серое/белое — обычным цветом. Заливки: цветные любого размера, ч/б только мелкие (розетки) */
+        if (p.fc && q.length > 2 && (p.fa == null || p.fa > 0.05)) {
+          var fcol = rgbInt(p.fc);
+          if (fcol != null) { lines.push('(FK ' + (10 + ei) + ' ' + fcol + ' ' + xy2 + ')'); nL++; }
+          else if (size <= 300) { lines.push('(F ' + (10 + ei) + ' ' + xy2 + ')'); nL++; }
+        }
+        if (p.sc) {
+          var scol = rgbInt(p.sc), tg = p.closed ? 'C' : 'L';
+          lines.push(scol != null ? '(' + tg + 'K ' + (10 + ei) + ' ' + scol + ' ' + xy2 + ')' : '(' + tg + ' ' + (10 + ei) + ' ' + xy2 + ')'); nL++;
+        }
       });
     });
     var bl = bridgeLines(wsegs);
@@ -326,7 +342,7 @@
   }
 
   var API = { ROLES: ROLES, buildGroups: buildGroups, guessRoleByName: guessRoleByName, parseExplication: parseExplication, findMarkers: findMarkers,
-    scaleFromText: scaleFromText, roomsByRaster: roomsByRaster, buildOutput: buildOutput, bboxOf: bboxOf, pathLen: pathLen, polyArea: polyArea, PT_MM: PT_MM, lispStr: lispStr };
+    scaleFromText: scaleFromText, rgbInt: rgbInt, roomsByRaster: roomsByRaster, buildOutput: buildOutput, bboxOf: bboxOf, pathLen: pathLen, polyArea: polyArea, PT_MM: PT_MM, lispStr: lispStr };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.GIPROOMSLIB = API;
 })(typeof window !== 'undefined' ? window : globalThis);

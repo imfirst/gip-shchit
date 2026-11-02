@@ -8,6 +8,7 @@
   function hex2(v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }
   function rgbHex(r, g, b) { return '#' + hex2(r) + hex2(g) + hex2(b); }
   function colorOf(a) {
+    if (Array.isArray(a) && a.length && typeof a[0] === 'string') a = a[0];          /* pdf.js 6: ["#rrggbb"] */
     if (typeof a === 'string') return a.length === 7 ? a.toLowerCase() : '#000000';
     if (a && a.length >= 3) return rgbHex(a[0], a[1], a[2]);
     return '#000000';
@@ -81,8 +82,8 @@
       else if (fn === O.endMarkedContent) ocs.pop();
       else if (fn === O.setStrokeRGBColor) sc = colorOf(a);
       else if (fn === O.setFillRGBColor) fc = colorOf(a);
-      else if (fn === O.setStrokeGray) sc = rgbHex(a[0], a[0], a[0]);
-      else if (fn === O.setFillGray) fc = rgbHex(a[0], a[0], a[0]);
+      else if (fn === O.setStrokeGray) sc = typeof a[0] === 'string' ? colorOf(a) : rgbHex(a[0], a[0], a[0]);
+      else if (fn === O.setFillGray) fc = typeof a[0] === 'string' ? colorOf(a) : rgbHex(a[0], a[0], a[0]);
       else if (fn === O.setLineWidth) lw = a[0];
       else if (fn === O.setGState) { (a[0] || []).forEach(function (kv) { if (kv[0] === 'ca') fa = +kv[1]; else if (kv[0] === 'CA') sa = +kv[1]; }); }
       else if (fn === O.setDash) dash = !!(a[0] && a[0].length);
