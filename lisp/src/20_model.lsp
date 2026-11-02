@@ -252,7 +252,9 @@
         ((member cat '("hob" "app" "floor" "heat" "leak")) (setq k 0.9 c 2.0))
         ((= cat "ac") (setq k 1.2 c 4.0))
         (T (setq k 1.2 c 4.0)))
-  (setq x (cond ((cdr (assoc cat *gip:len-extra*))) ((and (not (member cat '("light" "sock" "floor"))) (cdr (assoc "out" *gip:len-extra*)))) (T 0.0)))
+  (setq x (cdr (assoc cat *gip:len-extra*)))
+  (if (and (null x) (not (member cat '("light" "sock" "floor")))) (setq x (cdr (assoc "out" *gip:len-extra*))))
+  (if (not (numberp x)) (setq x 0.0))
   (gip:ceil (* (+ c (* k s) x) 1.1)))
 
 ;; запас кабеля на приборы с планов. На подключение каждого светильника, выключателя, розетки — 0,3 м (расключение в коробке);

@@ -42,3 +42,12 @@ for i in range(6):
 ceil_ = sock_len('Потолок'); floor_ = sock_len('Пол, потолок')
 assert ceil_ > floor_ > base, (base, ceil_, floor_)
 print('cable lengths', base, ceil_, floor_)
+# полная сборка с блоками на планах (вывод, терморегулятор, лючок, светильники, выключатель) проходит без ошибок
+for blk, nm in [("ЭОМ_Розетки_GIP", "Вывод 380/220В"), ("ЭОМ_Розетки_GIP", "Терморегулятор ТП"), ("ЭОМ_Розетки_GIP", "Лючок внутрипольный розеточный 1 роз., 16A, L+N+PE, IP44")]:
+    I.run('(setq oo (vla-insertblock (gip:ms) (vlax-3d-point (- %s 12000.0) (+ %s 7000.0) 0.0) "%s" 1.0 1.0 1.0 0.0))' % (fx, fy, blk))
+    I.run('(gip:set-atts oo (list (cons "ИМЯ" "%s")))' % nm)
+I.out.clear() if hasattr(I.out, 'clear') else None
+I.run('(gip:run (gip:default-state "k2"))')
+msg = [l for l in ''.join(I.out).split('\n') if 'GIP' in l][-1]
+assert 'ошибка' not in msg and 'построен' in msg, msg
+print('full build with plan blocks OK')
