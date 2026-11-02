@@ -334,7 +334,7 @@
                   ((and (eq (car it) 'J) (= (length it) 5)) (setq gj (cons it gj)))
                   ((and (eq (car it) 'P) (numberp (nth 1 it)) (> (length it) 7)) (setq pl (cons it pl)))
                   ((and (eq (car it) 'EH) (numberp (nth 1 it))) (setq en (cons (cons (fix (nth 1 it)) (gip:rm-dec (nth 2 it))) en)))
-                  ((and (member (car it) '(L C F LK CK FK)) (numberp (cadr it)))
+                  ((and (member (car it) '(L C F LK CK FK TX)) (numberp (cadr it)))
                    (setq k (fix (cadr it)))
                    (cond ((= k 0) (setq gw (cons it gw)))
                          ((= k 1) (setq gf (cons it gf)))
@@ -415,12 +415,20 @@
 ;; элемент листа электрики: LK/CK/FK — с истинным цветом оригинала (rgb целым числом), L/C/F — по умолчанию
 (defun gip:rm-ent (it / tg)
   (setq tg (vl-symbol-name (car it)))
+  (if (eq (car it) 'TX)
+    ;; (TX k x y h rot "str") — текст листа электрики
+    (vl-catch-all-apply 'entmake
+      (list (list '(0 . "TEXT") '(8 . "0") '(62 . 7)
+                  (list 10 (float (nth 2 it)) (float (nth 3 it)) 0.0)
+                  (cons 40 (float (nth 4 it)))
+                  (cons 1 (gip:rm-dec (nth 6 it)))
+                  (cons 50 (* (float (nth 5 it)) (/ pi 180.0))))))
   (if (and (= (strlen tg) 2) (= (substr tg 2 1) "K") (numberp (nth 2 it)))
     (progn
       (setq *gip:plan-rgb* (fix (nth 2 it)))
       (vl-catch-all-apply 'gip:plan-ent (list (cons (read (substr tg 1 1)) (cons (cadr it) (cdddr it)))))
       (setq *gip:plan-rgb* nil))
-    (gip:plan-ent it)))
+    (gip:plan-ent it))))
 ;; экспликация в рамке заготовки: обновить на месте или создать (по образцу существующей)
 (defun gip:rm-stage-table (rooms / F0 tbs tb n)
   (setq F0 (gip:rm-stage-f 0) n 0)

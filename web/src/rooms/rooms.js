@@ -343,6 +343,13 @@
           lines.push(scol != null ? '(' + tg + 'K ' + (10 + ei) + ' ' + scol + ' ' + xy2 + ')' : '(' + tg + ' ' + (10 + ei) + ' ' + xy2 + ')'); nL++;
         }
       });
+      /* тексты листа (в т.ч. выноски) — как у дизайнера */
+      (ex.D.texts || []).forEach(function (t) {
+        if (!t.s || !String(t.s).trim()) return;
+        var x = X2([t.x, t.y]), y = Y2([t.x, t.y]);
+        if (x < lim[0] || y < lim[1] || x > lim[2] || y > lim[3]) return;
+        lines.push('(TX ' + (10 + ei) + ' ' + f1(x) + ' ' + f1(y) + ' ' + f1(Math.max(50, (t.h || 0) * k2)) + ' ' + (t.rot || 0) + ' ' + lispStr(String(t.s)) + ')'); nL++;
+      });
     });
     var bl = bridgeLines(wsegs);
     bl.forEach(function (b) { lines.push('(J ' + f1(b[0]) + ' ' + f1(b[1]) + ' ' + f1(b[2]) + ' ' + f1(b[3]) + ')'); });
