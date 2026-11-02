@@ -112,6 +112,10 @@
 
 ;; ---------------------------------------------------------------- построение с сообщениями
 (defun gip:run (S / doc r t0)
+  (if (gip:in-block-editor)
+    (progn (princ "\nGIP-ЩИТ: открыт редактор блока — построение пропущено (закройте редактор блока и нажмите «Обновить чертёж»).") (setq S nil)))
+  (if S (gip:run1 S)))
+(defun gip:run1 (S / doc r t0)
   (setq doc (vla-get-activedocument (vlax-get-acad-object)) *gip:busy* T)
   (if (not *gip:in-reactor*) (vla-startundomark doc))
   (setq r (vl-catch-all-apply 'gip:build (list S)))
@@ -388,15 +392,25 @@
   (princ))
 
 ;; автообновление: после перемещения/удаления/правки атрибутов аппаратов на монтажной схеме
-(setq *gip:auto-cmds* '("MOVE" "GRIP_STRETCH" "GRIP_MOVE" "STRETCH" "ERASE" "ATTEDIT" "EATTEDIT" "-ATTEDIT" "PROPERTIES" "COPY" "DELETE" "CUTCLIP" "UNDO" "U" "REDO" "MREDO"))
+;; удаление (ERASE/DELETE/CUTCLIP) сюда не входит: удалили монтажку или однолинейку — значит они не нужны, схему заново не строим (пересчёт — командой ГИПОБН)
+(setq *gip:auto-cmds* '("MOVE" "GRIP_STRETCH" "GRIP_MOVE" "STRETCH" "ATTEDIT" "EATTEDIT" "-ATTEDIT" "PROPERTIES" "COPY"))
+;; в редакторе блока пересчёт запрещён: построение попало бы внутрь редактируемого блока
+(defun gip:in-block-editor ()
+  (or (and (= (type (getvar "BLOCKEDITOR")) 'INT) (/= (getvar "BLOCKEDITOR") 0))
+      (wcmatch (strcase (cond ((getvar "CMDNAMES")) (T ""))) "*BEDIT*,*BCLOSE*,*BSAVE*")))
 (defun gip:on-cmd-ended (r args / S)
-  (if (and *gip:auto* (not *gip:busy*) (member (strcase (car args)) *gip:auto-cmds*)
-           (not (member (strcase (car args)) '("UNDO" "U" "REDO" "MREDO"))))
-    (if (and (setq S (gip:load-state)) (gip:montage-changed))
+  (if (and *gip:auto* (not *gip:busy*) (member (strcase (car args)) *gip:auto-cmds*) (not (gip:in-block-editor)))
+    (if (and (setq S (gip:load-state)) (gip:montage-devs) (gip:montage-changed))
       (progn (princ "\nGIP-ЩИТ: монтажная схема изменена — пересчитываю однолинейку и спецификацию…")
              (setq *gip:in-reactor* T)
              (gip:run (gip:sync-from-montage S))
              (setq *gip:in-reactor* nil)))))
+;; из панели: галка «Сразу в чертёж» включает и выключает автопересчёт по монтажной схеме
+(defun gip:set-auto (on)
+  (setq *gip:auto* (if on T nil))
+  (if (and *gip:auto* (null *gip:reactor*))
+    (setq *gip:reactor* (vlr-command-reactor nil '((:vlr-commandEnded . gip:on-cmd-ended)))))
+  (princ))
 (defun c:GIPAUTO ()
   (setq *gip:auto* (not *gip:auto*))
   (if (and *gip:auto* (null *gip:reactor*))

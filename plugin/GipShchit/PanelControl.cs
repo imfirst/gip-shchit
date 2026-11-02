@@ -259,6 +259,13 @@ namespace Gip.Shchit
                     _pageReady = true;
                     _activatePending = true;
                     break;
+                case "auto":
+                    // галка «Сразу в чертёж» управляет и автопересчётом по монтажной схеме в самом чертеже
+                    {
+                        var d0 = AcAp.DocumentManager.MdiActiveDocument;
+                        if (d0 != null) d0.SendStringToExecute("(if gip:set-auto (gip:set-auto " + (body.Trim() == "1" ? "T" : "nil") + ")) ", true, false, false);
+                    }
+                    break;
                 case "apply":
                     if (body.Length > 2)
                     {

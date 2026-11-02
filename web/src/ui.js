@@ -108,7 +108,7 @@
     b.innerHTML =
       '<div class="fld"><label for="b-name">Щит</label><input id="b-name" class="w-s" data-b="name" autocomplete="off"></div>' +
       '<div class="fld"><span class="lbl">Ввод</span><div class="seg" id="b-phases" role="group" aria-label="Число фаз"><button type="button" data-v="1">1 фаза</button><button type="button" data-v="3">3 фазы</button></div></div>' +
-      '<div class="fld"><label for="b-inType">Вводной аппарат</label><select id="b-inType" data-b="inType"><option value="qf">Автоматический выключатель</option><option value="qs">Рубильник (выключатель нагрузки)</option></select><small class="hint">Рубильник сам по себе не защищает от КЗ и перегрузки: проверьте наличие защиты выше по цепи.</small></div>' +
+      '<div class="fld"><label for="b-inType">Вводной аппарат</label><select id="b-inType" data-b="inType"><option value="qf">Автомат</option><option value="qs">Рубильник</option></select></div>' +
       '<div class="fld"><label for="b-inA">Номинал вводного, А</label><select id="b-inA" data-b="inA">' + M.IN_A.map(function (v) { return opt(v, v + ' А', ''); }).join('') + '</select></div>' +
       '<div class="fld" id="b-inPolesF"><span class="lbl">Полюса</span><div class="seg" id="b-inPoles" role="group" aria-label="Полюса вводного"><button type="button" data-v="3">3P</button><button type="button" data-v="4">4P</button></div></div>' +
       '<div class="fld"><label for="b-brand">Производитель</label><select id="b-brand" data-b="brand">' + brands + '</select></div>' +
@@ -116,7 +116,7 @@
       '<div class="fld"><label for="b-pAllowed">Выделено по ТУ, кВт</label><input id="b-pAllowed" class="w-m" data-b="pAllowed" inputmode="decimal" autocomplete="off"></div>' +
       '<div class="fld"><label for="b-kc">Kс</label><div class="kcbox"><input id="b-kc" class="w-s" data-b="kc" inputmode="decimal" autocomplete="off"><button type="button" class="kcmode" id="b-kcMode" data-tip="Авто: наибольший Kс, при котором щит укладывается в выделенную мощность и вводной автомат">авто</button></div></div>' +
       '<div class="fld"><label for="b-mark">Марка кабеля</label><input id="b-mark" class="w-l" data-b="mark" autocomplete="off"></div>' +
-      '<div class="fld"><label for="b-railW">Ряд корпуса</label><select id="b-railW" data-b="railW" data-tip="12 модулей — ABB UK600, 18 модулей — ABB Mistral41F">' + [12, 18].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
+      '<div class="fld"><label for="b-railW">Ряд корпуса</label><select id="b-railW" data-b="railW" data-tip="ABB Mistral41F: ряд 12 модулей (12/24/36/48/60) или ряд 18 модулей (18/36/54/72)">' + [12, 18].map(function (v) { return opt(v, v + ' мод.', ''); }).join('') + '</select></div>' +
       '<div class="fld" id="b-kmF"><label for="b-kmType">Контактор КМ</label><select id="b-kmType" data-b="kmType"></select></div>' +
       '<div class="fld"><label for="b-route">Прокладка кабелей</label><select id="b-route" data-b="route" data-tip="Вид блока на листе «Схема подвода кабеля к выключателям и розеткам»">' + M.ROUTES.map(function (v) { return opt(v, v, ''); }).join('') + '</select></div>' +
       '<div class="fld grow"><span class="lbl">Общие аппараты и схема</span><div class="checks">' +
@@ -1071,7 +1071,7 @@
       }
     });
     $('autoChk').addEventListener('change', function (e) {
-      hostS.auto = e.target.checked; uiS.auto = hostS.auto; lsSet(LS_UI, uiS);
+      hostS.auto = e.target.checked; uiS.auto = hostS.auto; lsSet(LS_UI, uiS); hostPost('auto', hostS.auto ? '1' : '0');
       if (hostS.auto && hostS.dirty) pushNow(); else syncHost();
     });
     $('pushBtn').addEventListener('click', pushNow);
@@ -1086,7 +1086,7 @@
   state = initState();
   buildBoard(); buildBar(); resetTplForm(); buildTpl();
   render({});
-  if (host) { syncHost(); hostPost('ready', ''); }
+  if (host) { syncHost(); hostPost('ready', ''); hostPost('auto', hostS.auto ? '1' : '0'); }
   window.GIP = {
     get state() { return state; }, get derived() { return D; }, commit: commit, M: M,
     select: function (ids) { sel.clear(); ids.forEach(function (i) { sel.add(i); }); applySel(); renderBar(); }

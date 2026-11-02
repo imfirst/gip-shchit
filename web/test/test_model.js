@@ -190,13 +190,14 @@ console.log(fails ? fails + ' FAILED' : 'ALL OK');
 
 // предложения групп по помещениям
 {
-  const R = ['Прихожая', 'Спальня1', 'Гардеробная', 'Спальня2', 'Лоджия', 'Ванная', 'Санузел', 'Кухня', 'Гостиная'].map((n, i) => ({ no: i + 1, name: n }));
+  const R = ['Прихожая', 'Коридор', 'Спальня1', 'Гардеробная1', 'Гардеробная2', 'Спальня2', 'Лоджия', 'Ванная', 'СУ1', 'СУ2', 'Душевая', 'Кухня', 'Гостиная'].map((n, i) => ({ no: i + 1, name: n }));
   const L = M.roomGroups(R, 'light'), S = M.roomGroups(R, 'sock');
-  ok(L.includes('Освещение Прихожая, Гардеробная'), 'light hall+wardrobe');
-  ok(L.includes('Освещение Ванная, Санузел'), 'light wet merged');
-  ok(L.includes('Освещение Спальня2, Лоджия'), 'light bedroom+loggia');
+  ok(L.includes('Освещение Прихожая, Коридор, Гардеробная1, Гардеробная2'), 'dry merged once: ' + L.join('|'));
+  ok(L.includes('Освещение Ванная, СУ1, СУ2, Душевая'), 'wet merged once');
+  ok(L.includes('Освещение Лоджия') && !L.some(x => /Спальня2, Лоджия/.test(x)), 'loggia separate');
   ok(L.includes('Освещение Кухня-Гостиная'), 'light kitchen-living');
-  ok(L.includes('Освещение Спальня1'), 'light single');
+  ok(L.includes('Освещение Спальня1') && L.includes('Освещение Спальня2'), 'single rooms');
+  ok(!L.includes('Освещение Прихожая') && !L.includes('Освещение СУ1') && !L.includes('Освещение Гардеробная1'), 'merged members not repeated');
   ok(S.includes('Розетки Кухня') && S.includes('Розетки Гостиная') && !S.includes('Розетки Кухня-Гостиная'), 'sockets kitchen/living separate');
   const R2 = M.roomGroups([{ name: 'Кухня-Гостиная' }], 'sock');
   ok(R2.includes('Розетки Кухня') && R2.includes('Розетки Гостиная'), 'kitchen-living room split for sockets');

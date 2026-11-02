@@ -17,9 +17,10 @@
     { k: '40-20', I: 40, c: 2, w: 3 }, { k: '40-40', I: 40, c: 4, w: 3 }, { k: '63-20', I: 63, c: 2, w: 3 }, { k: '63-40', I: 63, c: 4, w: 3 }
   ];
   var KM_MODEL = { abb: 'ESB{K}N', iek: 'КМ63-{C}0М {I}А', dekraft: 'КМ-103 {I}А {C}НО', chint: 'NCH8-{I}/{C}0' };
-  /* Корпуса ABB для встраиваемого щита: ряд 12 модулей — UK600 (IP30), ряд 18 — Mistral41F (IP41) */
+  /* Корпуса ABB для встраиваемого щита, только реальные типоразмеры Mistral41F (IP41): ряд 12 модулей — 12/24/36/48/60, ряд 18 — 18/36/54/72.
+     Артикулы — глухая дверь; для 60M (5 рядов по 12) артикул не указан. */
   var BOXES = {
-    12: [{ rows: 1, n: 'UK610', art: '' }, { rows: 2, n: 'UK620', art: '' }, { rows: 3, n: 'UK630', art: '' }, { rows: 4, n: 'UK640', art: '' }, { rows: 5, n: 'UK650', art: '' }],
+    12: [{ rows: 1, n: 'Mistral41F 12M', art: '1SLM004102A1103' }, { rows: 2, n: 'Mistral41F 24M', art: '1SLM004102A1105' }, { rows: 3, n: 'Mistral41F 36M', art: '1SLM004102A1107' }, { rows: 4, n: 'Mistral41F 48M', art: '1SLM004102A1108' }, { rows: 5, n: 'Mistral41F 60M', art: '' }],
     18: [{ rows: 1, n: 'Mistral41F 18M', art: '1SLM004102A1104' }, { rows: 2, n: 'Mistral41F 36M', art: '1SLM004102A1106' }, { rows: 3, n: 'Mistral41F 54M', art: '1SLM004102A1109' }, { rows: 4, n: 'Mistral41F 72M', art: '1SLM004102A1110' }]
   };
   var ROUTES = ['Потолок', 'Пол, потолок', 'Кабель-канал'];
@@ -401,6 +402,8 @@
     var W = B.railW || 18, list = (B.brand === 'abb' || true) ? BOXES[W] : null;
     var res = { W: W, rows: Math.max(flowRows, Math.ceil(used * 1.2 / W)), box: null, reserveOk: true };
     if (!list) return res;
+    var maxRows = list[list.length - 1].rows;
+    res.rows = Math.min(res.rows, maxRows);   /* больше самого большого корпуса ABB не бывает: «щита на 90 модулей» нет */
     var withRes = list.filter(function (x) { return x.rows >= flowRows && x.rows * W >= used * 1.2; });
     var fit = list.filter(function (x) { return x.rows >= flowRows && x.rows * W >= used; });
     var pick = withRes[0] || fit[0] || null;
@@ -565,9 +568,9 @@
     if (kcLevel === 'bad') warn.push('Kс ' + fmt(kc, 2) + ' — критично мало: щит рассчитан почти на одновременную работу лишь пятой части нагрузки. Нужно реле приоритета (отключение части нагрузки) или больше мощности по ТУ');
     else if (kcLevel === 'low') warn.push('Kс ' + fmt(kc, 2) + ' — низкий: рекомендуется реле приоритета, чтобы при включении мощной нагрузки не срабатывал вводной');
     if (is3 && imb > IMB_WARN) warn.push('Перекос фаз ' + fmt(imb, 0) + ' %');
-    if (BOXES[W] && !bx.box) warn.push('Нет корпуса ABB на ' + modules + ' мод. при ряде по ' + W + ' — ' + (W === 12 ? 'возьмите ряд 18 модулей' : 'щит не помещается в Mistral41F 72M'));
+    if (BOXES[W] && !bx.box) warn.push('Нет корпуса ABB на ' + modules + ' мод. при ряде по ' + W + ' — ' + (W === 12 ? 'возьмите ряд 18 модулей или разделите на два щита' : 'разделите на два щита (самый большой корпус — Mistral41F 72M)'));
     else if (bx.box && !bx.reserveOk) warn.push('Корпус ' + bx.box.n + ': запас меньше 20 %');
-    if (!BOXES[W]) warn.push('Для ряда ' + W + ' модулей готового корпуса ABB нет — выберите 12 (UK600) или 18 (Mistral41F)');
+    if (!BOXES[W]) warn.push('Для ряда ' + W + ' модулей готового корпуса ABB нет — выберите ряд 12 или 18 модулей (Mistral41F)');
     var fs = fsOf(B);
     if (fs.show) warn = warn.concat(fsWarn(B, fs));
     var nWarn = rows.reduce(function (a, v) { return a + (v.warn.length ? 1 : 0); }, 0);
@@ -934,29 +937,26 @@
   }
 
   /* ------------------------------------------------------------------ предложения названий групп по помещениям
-     rooms: [{no, name, area}] из таблицы помещений. cat: 'light' | 'sock'.
-     Мелкие помещения объединяются (прихожая+гардеробная, ванная+санузел, лоджия — к комнате), кухня и гостиная для розеток — всегда отдельно.
+     rooms: [{no, name}] из таблицы помещений. cat: 'light' | 'sock'.
+     Мелкие помещения одного класса объединяются через запятую ОДИН раз (прихожая+коридор+гардеробные; санузел+ванная+СУ1+СУ2+душевая);
+     объединённые помещения отдельными вариантами не повторяются. Лоджия — всегда отдельная группа. Для розеток кухня и гостиная — отдельно.
      Это только подсказки: название в таблице можно вписать вручную. */
-  var RG_WET = /ванн|санузел|с\/у|туалет|душев|уборн/i, RG_HALL = /прихож|гардероб|кладов|коридор|тамбур|холл/i,
-      RG_LOGG = /лодж|балкон|терраса/i, RG_ROOM = /спальн|детск|кабинет|гостин|комнат/i, RG_KIT = /кухн/i, RG_LIV = /гостин/i;
+  var RG_WET = /ванн|санузел|с\/у|(^|[^а-я])су\s*\d|туалет|душев|уборн/i, RG_DRY = /прихож|коридор|холл|тамбур|гардероб|кладов/i, RG_KIT = /кухн/i, RG_LIV = /гостин/i;
   function roomGroups(rooms, cat) {
     var pre = cat === 'sock' ? 'Розетки ' : 'Освещение ';
     var names = (rooms || []).map(function (r) { return String(r.name || '').trim(); }).filter(Boolean);
     var out = [], seen = {};
     function add(list) { var t = pre + list.join(', '); if (!seen[t]) { seen[t] = 1; out.push(t); } }
-    var wet = names.filter(function (n) { return RG_WET.test(n); }), hall = names.filter(function (n) { return RG_HALL.test(n) && !RG_WET.test(n); });
-    if (hall.length > 1) add(hall);
-    if (wet.length > 1) add(wet);
-    var logg = names.filter(function (n) { return RG_LOGG.test(n); });
-    names.forEach(function (n) {
-      if (RG_LOGG.test(n) || RG_WET.test(n) || (RG_HALL.test(n) && hall.length > 1)) return;
-      if (RG_ROOM.test(n) && !RG_KIT.test(n)) logg.forEach(function (l) { add([n, l]); });
-    });
+    var wet = names.filter(function (n) { return RG_WET.test(n); }), dry = names.filter(function (n) { return !RG_WET.test(n) && RG_DRY.test(n); });
+    var merged = {};
+    if (dry.length > 1) { add(dry); dry.forEach(function (n) { merged[n] = 1; }); }
+    if (wet.length > 1) { add(wet); wet.forEach(function (n) { merged[n] = 1; }); }
     if (cat !== 'sock') {
-      var k = names.filter(function (n) { return RG_KIT.test(n) && !RG_LIV.test(n); })[0], g = names.filter(function (n) { return RG_LIV.test(n) && !RG_KIT.test(n) && /гостин/i.test(n); })[0];
+      var k = names.filter(function (n) { return RG_KIT.test(n) && !RG_LIV.test(n); })[0], g = names.filter(function (n) { return RG_LIV.test(n) && !RG_KIT.test(n); })[0];
       if (k && g) add([k + '-' + g]);
     }
     names.forEach(function (n) {
+      if (merged[n]) return;
       if (cat === 'sock' && RG_KIT.test(n) && RG_LIV.test(n)) { add(['Кухня']); add(['Гостиная']); return; }
       add([n]);
     });

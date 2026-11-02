@@ -30,3 +30,15 @@ assert pages(5) == 2, pages(5)
 assert pages(25) == 2, pages(25)   # оборудование переполнило первый лист: хвост наверху второго, материалы ниже
 I.run('(setq tr (gip:plan-counts (gip:template-sheets)))')
 print('spec counts + rooms publish: ALL OK')
+# длины кабелей: приборы с планов удлиняют линии, по потолку длиннее, чем по полу
+def sock_len(route):
+    I.run('(setq S1 (gip:s (gip:default-state "k2") "route" "%s"))' % route)
+    I.run('(setq BR (gip:board S1))')
+    return float(lstr(I.run('(apply (quote +) (mapcar (quote (lambda (l) (if (= (gip:g l "cat") "sock") (gip:g l "len") 0))) (gip:g BR "lines")))')))
+base = sock_len('Потолок')
+for i in range(6):
+    I.run('(setq oo (vla-insertblock (gip:ms) (vlax-3d-point (- %s %d.0) (+ %s 6000.0) 0.0) "ЭОМ_Розетки_GIP" 1.0 1.0 1.0 0.0))' % (fx, 3000 + 500 * i, fy))
+    I.run('(gip:set-atts oo (list (cons "ИМЯ" "Розетка USB, IP20")))')
+ceil_ = sock_len('Потолок'); floor_ = sock_len('Пол, потолок')
+assert ceil_ > floor_ > base, (base, ceil_, floor_)
+print('cable lengths', base, ceil_, floor_)
