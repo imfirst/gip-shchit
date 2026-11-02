@@ -351,10 +351,9 @@ function defaultKeep(G, dropBase) {
   const keep = {};
   G.groups.forEach((g) => {
     let k = true;
-    if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (ANNOT_RE.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
+    if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (/штамп|рамк/.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
     else {
-      if (/dash/.test(g.id) || (g.role === 'drop' && g.id.charAt(0) !== 'F')) k = false;
-      if (/:c#/.test(g.id)) k = true;                                            /* цветные линии — электрика */
+            if (/:c#/.test(g.id)) k = true;                                            /* цветные линии — электрика */
       if (g.id.charAt(0) === 'F') k = R.rgbInt(g.id.split(':')[1]) != null;      /* заливки: только цветные (электрика) */
       if (g.role === 'wall' && dropBase) k = false;
     }
