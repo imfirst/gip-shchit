@@ -1009,6 +1009,7 @@
     L.title = hostS.linked ? 'Таблица связана с чертежом ' + hostS.doc : 'В этом чертеже щита ещё нет';
     $('linkTxt').textContent = hostS.waiting ? 'Чтение чертежа…' : (hostS.linked ? 'Чертёж: ' : 'Нет щита: ') + (hostS.doc || 'без имени');
     $('autoWrap').hidden = !hostS.linked;
+    $('specBtn').hidden = !hostS.linked;
     $('autoChk').checked = hostS.auto;
     $('pushBtn').hidden = !hostS.linked || (hostS.auto && !hostS.dirty);
     $('pushBtn').classList.toggle('primary', hostS.dirty);
@@ -1040,6 +1041,7 @@
       if (hostS.auto && hostS.dirty) pushNow(); else syncHost();
     });
     $('pushBtn').addEventListener('click', pushNow);
+    $('specBtn').addEventListener('click', function () { pushNow(); toast('Пересчитываю спецификацию по блокам на планах…'); });
     $('buildHere').addEventListener('click', function () { pushNow(); toast('Строю альбом в чертеже…'); });
   }
 
