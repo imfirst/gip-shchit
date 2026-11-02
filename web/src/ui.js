@@ -1042,6 +1042,7 @@
     $('linkTxt').textContent = hostS.waiting ? 'Чтение чертежа…' : (hostS.linked ? 'Чертёж: ' : 'Нет щита: ') + (hostS.doc || 'без имени');
     $('autoWrap').hidden = !hostS.linked;
     $('specBtn').hidden = !hostS.linked;
+    $('routeBtn').hidden = !hostS.linked;
     $('autoChk').checked = hostS.auto;
     $('pushBtn').hidden = !hostS.linked || (hostS.auto && !hostS.dirty);
     $('pushBtn').classList.toggle('primary', hostS.dirty);
@@ -1076,6 +1077,7 @@
     });
     $('pushBtn').addEventListener('click', pushNow);
     $('specBtn').addEventListener('click', function () { pushNow(); toast('Пересчитываю спецификацию по блокам на планах…'); });
+    $('routeBtn').addEventListener('click', function () { hostPost('cmd', 'GIPTRASSY'); toast('Укажите щит на плане в AutoCAD…'); });
     $('buildHere').addEventListener('click', function () { pushNow(); toast('Строю альбом в чертеже…'); });
   }
 

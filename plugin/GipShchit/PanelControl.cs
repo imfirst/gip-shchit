@@ -266,6 +266,14 @@ namespace Gip.Shchit
                         if (d0 != null) d0.SendStringToExecute("(if gip:set-auto (gip:set-auto " + (body.Trim() == "1" ? "T" : "nil") + ")) ", true, false, false);
                     }
                     break;
+                case "cmd":
+                    // запуск команды из белого списка (кнопки панели)
+                    {
+                        var d1 = AcAp.DocumentManager.MdiActiveDocument;
+                        var cn = body.Trim();
+                        if (d1 != null && (cn == "GIPTRASSY")) d1.SendStringToExecute(cn + " ", true, false, false);
+                    }
+                    break;
                 case "apply":
                     if (body.Length > 2)
                     {
