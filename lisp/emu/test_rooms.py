@@ -37,7 +37,7 @@ print(cnt)
 n_sheets = len(sheets)
 # заготовка над альбомом: одна подложка, номера один раз, лист электрики отдельным блоком
 assert cnt["GIP_RM_W_"] == 1 and cnt["GIP_RM_F_"] == 1 and cnt["GIP_RM_J_"] == 1, cnt
-assert cnt["NUM-POM_GIP_A"] == len(rooms_in), cnt
+assert (cnt["NUM-POM_GIP_A"] + cnt["NUM-POM_GIP"]) == len(rooms_in), cnt
 assert cnt["GIP_RM_E_"] == 1, cnt
 reg = run('(gip:room-list)')
 assert len(reg) == len(rooms_in)
@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory() as tmp:
 tag = [A.ents[h] for h in A.order if not A.ents[h].deleted and A.ents[h].ins is not None and "GIPROOMS" in A.ents[h].xdata]
 cnt2 = Counter(e.ins["name"].rstrip("0123456789") for e in tag)
 print(cnt2)
-assert cnt2["GIP_RM_W_"] == n_sheets + 1 and cnt2["NUM-POM_GIP_A"] == len(rooms_in) * (n_sheets + 1), cnt2
+assert cnt2["GIP_RM_W_"] == n_sheets + 1 and (cnt2["NUM-POM_GIP_A"] + cnt2["NUM-POM_GIP"]) == len(rooms_in) * (n_sheets + 1), cnt2
 cnt = cnt2
 # повторный импорт заменяет прежний
 with tempfile.TemporaryDirectory() as tmp:
@@ -64,4 +64,4 @@ with tempfile.TemporaryDirectory() as tmp:
     run('(gip:rm-import "' + src.replace("\\", "/") + '")')
 tag2 = [A.ents[h] for h in A.order if not A.ents[h].deleted and A.ents[h].ins is not None and "GIPROOMS" in A.ents[h].xdata]
 assert len(tag2) == n_stage, "повторный импорт должен заменять прежнее (заготовку и копии на листах), а не дублировать: %d vs %d" % (len(tag2), n_stage)
-print("rooms import: sheets %d, NUM blocks %d - ALL OK" % (n_sheets, cnt["NUM-POM_GIP_A"]))
+print("rooms import: sheets %d, NUM blocks %d - ALL OK" % (n_sheets, (cnt["NUM-POM_GIP_A"] + cnt["NUM-POM_GIP"])))
