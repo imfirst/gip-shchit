@@ -49,8 +49,8 @@
     <div class="panel pl-step" id="roomBox" hidden>
       <h2>4. Помещения</h2>
       <div class="pl-row"><label class="fld"><span class="lbl">Высота потолков по умолчанию, мм</span><input id="hDef" class="w-m" inputmode="numeric" value="2700"></label>
-        <button class="btn" type="button" id="addRoom">+ Помещение</button><button class="btn" type="button" id="estBtn">Оценить площади</button></div>
-      <table class="pl-t" id="rooms"><thead><tr><th>№</th><th>Название</th><th>H, мм</th><th title="Площадь по расчёту панели (приблизительно)">S, м²</th><th title="Площадь дизайнера, только для проверки">S дизайн.</th><th></th></tr></thead><tbody></tbody></table>
+        <button class="btn" type="button" id="addRoom">+ Помещение</button><button class="btn primary" type="button" id="estBtn" title="Автоматически найти контуры помещений и сверить площадь с цифрой дизайнера">Найти контуры и площади</button></div>
+      <table class="pl-t" id="rooms"><thead><tr><th>№</th><th>Название</th><th>H, мм</th><th title="Площадь по найденному контуру, м². Зелёная — совпала с дизайнером (до 3%), жёлтая — проверьте (до 8%), красная — обвести вручную">S, м²</th><th title="Площадь дизайнера, только для проверки">S дизайн.</th><th></th></tr></thead><tbody></tbody></table>
       <p class="pl-hint" id="roomHint">Номера взяты из экспликации дизайнера. Чтобы переставить номер на плане, нажмите на его кружок в таблице и затем на нужное место просмотра.</p>
     </div>
 
@@ -72,7 +72,8 @@
       <div class="pl-row"><button class="btn primary" type="button" id="distBtn" title="Скопировать подложку, номера и экспликацию из заготовки на все листы планов">Разложить по листам планов</button></div>
       <div class="pl-row">
         <button class="btn" type="button" id="syncBtn" title="Обновить блоки номеров и все экспликации из реестра помещений в чертеже">Обновить блоки и таблицы</button>
-        <button class="btn" type="button" id="areaBtn" title="Контуры и площади помещений средствами AutoCAD (команда BOUNDARY)">Посчитать площади в AutoCAD</button>
+        <button class="btn" type="button" id="traceBtn" title="В AutoCAD: выбрать номер помещения и обвести контур полилинией (или указать готовую)">Обвести помещение</button>
+        <button class="btn" type="button" id="areaBtn" title="Для помещений без площади: контур средствами AutoCAD (BOUNDARY)">Площади без контура: BOUNDARY</button>
         <button class="btn" type="button" id="readBtn" title="Прочитать реестр помещений из чертежа">Прочитать из чертежа</button>
       </div>
       <p class="pl-hint" id="goHint">Подложка, номера и экспликация сначала встанут в отдельную рамку над альбомом: там их можно поправить. Затем «Разложить по листам планов» скопирует их по центру каждого листа, существующие экспликации обновятся на месте. Реестр помещений хранится в чертеже и доступен другим программам ГИП.</p>

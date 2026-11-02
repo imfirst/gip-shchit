@@ -275,6 +275,14 @@
     return out;
   }
 
+  /* перемычки проёмов в пунктах PDF: paths — линии стен; k — мм на пункт */
+  function bridgePt(paths, k) {
+    var segs = [];
+    paths.forEach(function (p) {
+      for (var i = 1; i < p.pts.length + (p.closed ? 1 : 0); i++) { var A = p.pts[i - 1], B = p.pts[i % p.pts.length]; segs.push([A[0] * k, A[1] * k, B[0] * k, B[1] * k]); }
+    });
+    return bridgeLines(segs).map(function (b) { return [[b[0] / k, b[1] / k], [b[2] / k, b[3] / k]]; });
+  }
   /* ------------------------------------------------------------------ вывод для LISP */
   /* Строка для LISP: всё не-ASCII (и «~») как ~uXXXX — AutoLISP-читалка такие последовательности не трогает, декодирует gip:rm-dec */
   function lispStr(s) { return '"' + String(s).replace(/\\/g, '/').replace(/"/g, "'").replace(/[^\x20-\x7d]/g, function (ch) { return '~u' + ('0000' + ch.charCodeAt(0).toString(16).toUpperCase()).slice(-4); }) + '"'; }
@@ -342,7 +350,7 @@
   }
 
   var API = { ROLES: ROLES, buildGroups: buildGroups, guessRoleByName: guessRoleByName, parseExplication: parseExplication, findMarkers: findMarkers,
-    scaleFromText: scaleFromText, rgbInt: rgbInt, roomsByRaster: roomsByRaster, buildOutput: buildOutput, bboxOf: bboxOf, pathLen: pathLen, polyArea: polyArea, PT_MM: PT_MM, lispStr: lispStr };
+    scaleFromText: scaleFromText, rgbInt: rgbInt, bridgePt: bridgePt, roomsByRaster: roomsByRaster, buildOutput: buildOutput, bboxOf: bboxOf, pathLen: pathLen, polyArea: polyArea, PT_MM: PT_MM, lispStr: lispStr };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.GIPROOMSLIB = API;
 })(typeof window !== 'undefined' ? window : globalThis);

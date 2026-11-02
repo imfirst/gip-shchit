@@ -24,3 +24,4 @@
 .mdl-groups{flex:1;max-height:420px;overflow:auto;min-width:260px}
 #dlgCv{flex:1.4;min-width:0;max-width:100%;height:400px;background:#fff;border:1px solid #d9dde3;border-radius:6px}
 .ex-item input.w-s{width:56px;display:inline-block}
+.pl-t td.n span.ok{color:#15803d;font-weight:600}.pl-t td.n span.warn{color:#b45309;font-weight:600}.pl-t td.n span.bad{color:#dc2626;font-weight:600}
