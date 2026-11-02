@@ -58,58 +58,44 @@
                                     (cond ((/= (car a) (car b)) (< (car a) (car b))) ((/= (cadr a) (cadr b)) (< (cadr a) (cadr b))) (T (< (caddr a) (caddr b)))))))
   (mapcar '(lambda (k) (cdr (assoc k map))) order))
 
-;; оборудование по планам: блоки ГИП на планах (розетки, выключатели, светильники) по «Виду»
-(setq *gip:plan-map* '(
-  ("Светильник потолочный" "Светильник потолочный, IP20" "c")
-  ("Светильник подвесной" "Подвесной светильник, IP20" "c")
-  ("Светильник настольный / напольный" "Светильник настольный/напольный, IP20" "c")
-  ("Светильник встраиваемый" "Светильник встраиваемый, IP20" "c")
-  ("Светильник накладной" "Светильник накладной, IP20" "c")
-  ("Светильник настенный" "Светильник настенный, IP20" "c")
-  ("Светильник трековый" "Светильник трековый, IP20" "c")
-  ("Светильник потолочный IP44" "Светильник потолочный, IP44" "c")
-  ("Светильник встраиваемый IP44" "Светильник встраиваемый, IP44" "c")
-  ("Светильник накладной IP44" "Светильник накладной, IP44" "c")
-  ("Светильник настенный IP44" "Светильник настенный, IP44" "c")
-  ("Светильник трековый IP44" "Светильник трековый, IP44" "c")
-  ("Выключатель 1 клавишный, 1п, 16А" "Механизм выключателя одноклавишного скрытой проводки, IP20" "s")
-  ("Выключатель 2 клавишный, 1п, 16A" "Механизм выключателя двухклавишного скрытой проводки, IP20" "s")
-  ("Выключатель 3 клавишный, 1п, 16A" "Механизм выключателя трёхклавишного скрытой проводки, IP20" "s")
-  ("Переключатель 1 клавишный, 1п, 16A" "Механизм переключателя одноклавишного скрытой проводки, IP20" "s")
-  ("Переключатель 2 клавишный, 1п, 16A" "Механизм переключателя двухклавишного скрытой проводки, IP20" "s")
-  ("Диммер" "Механизм светорегулятора (диммера) скрытой проводки, IP20" "s")
-  ("Датчик движения" "Датчик движения, IP20" "s")
-  ("Розетка штепсельная силовая, 16A, L+N+PE (1Ф)" "Однофазная розетка с заземляющим контактом IP20" "s")
-  ("Розетка штепсельная силовая, 16A, L+N+PE (1Ф) IP44" "Однофазная розетка с заземляющим контактом IP44" "s")
-  ("Розетка штепсельная силовая, 16A, 3L+N+PE (3Ф)" "Трёхфазная розетка с заземляющим контактом" "s")
-  ("Розетка USB, IP20" "Розетка USB, IP20" "s")
-  ("Терморегулятор ТП" "Терморегулятор тёплого пола" "s")
-  ("Лючок внутрипольный розеточный 1 роз., 16A, L+N+PE, IP44" "Лючок внутрипольный розеточный 1 роз., 16A, IP44" "s")
-  ("Лючок внутрипольный розеточный 2 роз., 16A, L+N+PE, IP44" "Лючок внутрипольный розеточный 2 роз., 16A, IP44" "s")))
+;; значение атрибута блока по тегу (пусто, если нет)
+(defun gip:blk-att (o tag / atts v)
+  (setq v "" atts (vl-catch-all-apply 'vlax-invoke (list o 'GetAttributes)))
+  (if (not (vl-catch-all-error-p atts))
+    (foreach a atts (if (= (strcase (vlax-get a 'TagString)) tag) (setq v (vlax-get a 'TextString)))))
+  v)
 
-(defun gip:plan-counts (sheets / ss i e o nm v cnt r ip boxes)
-  ;; считаем только блоки на листах планов (роль plan_*), условные обозначения не трогаем
+;; роль листа плана, на котором считается блок: розетки — «силовые сети», выключатели и светильники — «сети освещения»
+(setq *gip:plan-blocks* '(("ЭОМ_Светильники_GIP" "l" "plan_l") ("ЭОМ_Выключатели_GIP" "s" "plan_l") ("ЭОМ_Розетки_GIP" "s" "plan_p")))
+
+;; подсчёт блоков на листах планов: список (наименование вид-блока число); наименование — атрибут ИМЯ блока
+;; (запасной вариант — динамическое свойство «Вид»). Условные обозначения и заготовки не считаются.
+(defun gip:plan-counts (sheets / ss i e o nm v cnt r ip boxes bi c)
   (setq cnt nil boxes nil)
   (foreach sh sheets
     (if (gip:starts (gip:g sh "role") "plan_")
-      (setq boxes (cons (list (- (car (gip:g sh "F")) *gip:SW*) (cadr (gip:g sh "F")) (car (gip:g sh "F")) (+ (cadr (gip:g sh "F")) *gip:SHH*)) boxes))))
+      (setq boxes (cons (list (- (car (gip:g sh "F")) *gip:SW*) (cadr (gip:g sh "F")) (car (gip:g sh "F")) (+ (cadr (gip:g sh "F")) *gip:SHH*) (gip:g sh "role")) boxes))))
   (if (and boxes (setq ss (ssget "_X" '((0 . "INSERT")))))
     (progn
       (setq i 0)
       (while (< i (sslength ss))
         (setq e (ssname ss i) i (1+ i) ip (cdr (assoc 10 (entget e))))
         (if (and (not (assoc -3 (entget e (list *gip:app*))))
-                 (vl-some '(lambda (b) (and (< (car b) (car ip) (caddr b)) (< (cadr b) (cadr ip) (cadddr b)))) boxes))
+                 (setq r (vl-some '(lambda (b) (if (and (< (car b) (car ip) (caddr b)) (< (cadr b) (cadr ip) (cadddr b))) b)) boxes)))
           (progn
             (setq o (vlax-ename->vla-object e))
             (setq nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
-            (if (and (= (type nm) 'STR) (member nm '("ЭОМ_Розетки_GIP" "ЭОМ_Выключатели_GIP" "ЭОМ_Светильники_GIP")))
+            (if (and (= (type nm) 'STR) (setq bi (assoc nm *gip:plan-blocks*)) (= (nth 2 bi) (nth 4 r)))
               (progn
-                (setq v nil)
-                (foreach p (vlax-invoke o 'GetDynamicBlockProperties)
-                  (if (= (vlax-get p 'PropertyName) "Вид") (setq v (vlax-get p 'Value))))
-                (if (setq r (assoc v *gip:plan-map*))
-                  (setq cnt (gip:s cnt v (1+ (gip:gn cnt v 0))))))))))))
+                (setq v (gip:blk-att o "ИМЯ"))
+                (if (= v "")
+                  (foreach p (vlax-invoke o 'GetDynamicBlockProperties)
+                    (if (= (vlax-get p 'PropertyName) "Вид") (setq v (vlax-get p 'Value)))))
+                (if (and (= (type v) 'STR) (/= (gip:trim v) ""))
+                  (progn
+                    (setq v (gip:trim v) c (assoc (list nm v) cnt))
+                    (if c (setq cnt (subst (cons (car c) (1+ (cdr c))) c cnt))
+                          (setq cnt (append cnt (list (cons (list nm v) 1))))))))))))))
   cnt)
 
 (defun gip:bath-count (S / n)
@@ -121,18 +107,20 @@
 (defun gip:round5 (x) (* 5 (gip:ceil (/ x 5.0))))
 
 ;; все строки спецификации: список секций (номер название строки)
-(defun gip:spec-sections (S BRD sheets / b sec1 cnt sec2 r sw sk boxes cab cabs mats bath sv area kup pe6 pe25 d20 d16 d25 d32 c)
+(defun gip:spec-sections (S BRD sheets / nm b sec1 cnt sec2 r sw sk boxes cab cabs mats bath sv area kup pe6 pe25 d20 d16 d25 d32 c)
   (setq b *gip:b* area (gip:gn S "area" 50.0) bath (gip:bath-count S) kup (gip:g S "kup"))
   (setq sec1 (gip:spec-board S BRD b))
-  ;; оборудование по планам
+  ;; оборудование по планам: наименования берутся из атрибута ИМЯ блоков; порядок — светильники, выключатели, розетки
   (setq cnt (gip:plan-counts sheets) sec2 nil sw 0)
-  (foreach m *gip:plan-map*
-    (if (setq c (gip:g cnt (car m)))
-      (progn
-        (setq sec2 (append sec2 (list (if (= (caddr m) "c")
-                                        (gip:row (cadr m) "определяется заказчиком" "определяется заказчиком" "шт." c)
-                                        (gip:row (cadr m) "" "Legrand" "шт." c)))))
-        (if (= (caddr m) "s") (setq sw (+ sw c))))))
+  (foreach bi (list "ЭОМ_Светильники_GIP" "ЭОМ_Выключатели_GIP" "ЭОМ_Розетки_GIP")
+    (foreach c (vl-sort (vl-remove-if-not '(lambda (x) (= (car (car x)) bi)) cnt) '(lambda (a b) (< (cadr (car a)) (cadr (car b)))))
+      (setq nm (cadr (car c)))
+      (if (= bi "ЭОМ_Светильники_GIP")
+        (setq sec2 (append sec2 (list (gip:row nm "определяется заказчиком" "определяется заказчиком" "шт." (cdr c)))))
+        (progn
+          (setq sec2 (append sec2 (list (gip:row nm "" "Legrand" "шт." (cdr c)))))
+          ;; под каждый механизм — монтажная коробка (кроме лючков в пол и выводов)
+          (if (not (or (gip:starts nm "Лючок") (gip:starts nm "Вывод"))) (setq sw (+ sw (cdr c))))))))
   (if (> sw 0) (setq sec2 (append sec2 (list (gip:row "Монтажная коробка на 1 пост для сухих перегородок, глуб. 50 мм" "" "Legrand" "шт." sw)))))
   ;; кабели и трубы по длинам линий
   (setq cabs nil d16 0 d20 0 d25 0 d32 0)
@@ -211,7 +199,7 @@
        (gip:mt "cell_secpos" (- fx 19460.5) y (itoa (gip:g r "pos")) nil)
        (gip:mt "cell_secname" (- fx 14960.5) y (gip:g r "name") nil))
       (T
-       (gip:mt "cell_name" (- fx 14960.5) y (strcat "  " (gip:g r "name")) nil)
+       (gip:mt "cell_name" (- fx 14960.5) y (gip:g r "name") nil)   ; отступ задаёт форматирование ячейки (\\pxl1,sm0.7,ql;), без пробелов в тексте
        (if (/= (gip:gn r "type" "") "") (gip:mt (if (= (gip:g r "type") "определяется заказчиком") "cell_type7" "cell_type") (- fx 9760.5) y (gip:g r "type") nil))
        (if (/= (gip:gn r "maker" "") "") (gip:mt (if (= (gip:g r "maker") "определяется заказчиком") "cell_type7" "cell_maker") (- fx 5735.5) y (gip:g r "maker") nil))
        (if (/= (gip:gn r "unit" "") "") (gip:mt "cell_unit" (- fx 4210.5) y (gip:g r "unit") nil))
