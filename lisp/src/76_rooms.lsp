@@ -233,7 +233,7 @@
 
 ;; ---------------------------------------------------------------- блоки номеров: атрибуты из реестра
 (defun gip:rm-room-atts (r)
-  (list (cons "NUM" (itoa (nth 0 r))) (cons "NAME" (gip:u (nth 1 r))) (cons "AREA" (rtos (nth 2 r) 2 2))
+  (list (cons "NUM" (itoa (nth 0 r))) (cons "NAME" (gip:u (nth 1 r))) (cons "AREA" (rtos (nth 2 r) 2 1))
         (cons "H" (rtos (nth 4 r) 2 0)) (cons "VOL" (rtos (nth 5 r) 2 2))))
 (defun gip:rm-num-refs (/ ss i r e)
   (setq r nil)
@@ -307,8 +307,16 @@
   (foreach ch '("<" ">" "/" "\\" ":" ";" "?" "*" "|" "," "=" "`" "\"") (setq s (gip:repl s ch " ")))
   s)
 
+(defun gip:rm-pairs (l / r)
+  (setq r nil)
+  (while (cdr l) (setq r (cons (list (float (car l)) (float (cadr l))) r) l (cddr l)))
+  (reverse r))
+(defun gip:rm-poly-area (pts / a p q)
+  (setq a 0.0 p (last pts))
+  (foreach q pts (setq a (+ a (- (* (car p) (cadr q)) (* (car q) (cadr p)))) p q))
+  (abs (/ a 2.0)))
 ;; ---------------------------------------------------------------- импорт из панели
-(defun gip:rm-import (fn / f l it head W H hdef rooms gw gf gj ge en blkJ blkW blkF blkE sh F0 org n nB e obj r msg k i ent title)
+(defun gip:rm-import (fn / pl q pts a f l it head W H hdef rooms gw gf gj ge en blkJ blkW blkF blkE sh F0 org n nB e obj r msg k i ent title)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
     (progn (gip:rm-report nil "нет файла от панели") nil)
     (progn
@@ -317,13 +325,14 @@
       (if (not (and (listp head) (eq (car head) 'GIPROOMS)))
         (progn (close f) (gip:rm-report nil "файл не распознан") nil)
         (progn
-          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil gj nil ge nil en nil nB 0)
+          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil gj nil ge nil en nil pl nil nB 0)
           (while (setq l (read-line f))
             (if (/= l "")
               (progn
                 (setq it (read l))
                 (cond
                   ((and (eq (car it) 'J) (= (length it) 5)) (setq gj (cons it gj)))
+                  ((and (eq (car it) 'P) (numberp (nth 1 it)) (> (length it) 7)) (setq pl (cons it pl)))
                   ((and (eq (car it) 'EH) (numberp (nth 1 it))) (setq en (cons (cons (fix (nth 1 it)) (gip:rm-dec (nth 2 it))) en)))
                   ((and (member (car it) '(L C F LK CK FK)) (numberp (cadr it)))
                    (setq k (fix (cadr it)))
@@ -368,6 +377,20 @@
                    (setq obj (gip:rm-insert *gip:rm-blk* (+ (car org) (nth 6 r)) (+ (cadr org) (nth 7 r)) "GIP_Номера помещений" "SN"))
                    (gip:set-atts obj (gip:rm-room-atts r))
                    (setq nB (1+ nB)))))
+             ;; контуры помещений, найденные панелью: скрытый слой, площадь по контуру (без BOUNDARY)
+             (if pl
+               (progn
+                 (gip:layer "GIP_ПОМ_КОНТУР") (gip:rm-noplot "GIP_ПОМ_КОНТУР")
+                 (setq rooms
+                       (mapcar '(lambda (r)
+                                  (if (setq q (vl-some '(lambda (x) (if (= (fix (nth 1 x)) (car r)) x)) pl))
+                                    (progn
+                                      (setq pts (gip:rm-pairs (cddr q)) a (gip:rm-r2 (/ (gip:rm-poly-area pts) 1000000.0)))
+                                      (gip:rm-make-contour2 pts (car org) (cadr org) "SC")
+                                      (list (nth 0 r) (nth 1 r) a (nth 3 r) (nth 4 r) (gip:rm-vol a (nth 4 r)) (nth 6 r) (nth 7 r)))
+                                    r))
+                               rooms))
+                 (gip:rm-sync-blocks rooms)))
              ;; листы электрики: каждый — отдельный блок в своей рамке справа от основной (то же положение относительно рамки)
              (setq i 0)
              (foreach ent (reverse ge)
@@ -551,22 +574,24 @@
   (setq ed (entget e) r nil)
   (foreach p ed (if (= (car p) 10) (setq r (cons (list (cadr p) (caddr p)) r))))
   (reverse r))
-(defun gip:rm-make-contour (pts dx dy)
+(defun gip:rm-make-contour (pts dx dy) (gip:rm-make-contour2 pts dx dy "C"))
+(defun gip:rm-make-contour2 (pts dx dy kind)
   (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 (gip:layer "GIP_ПОМ_КОНТУР")) '(100 . "AcDbPolyline")
                          (cons 90 (length pts)) '(70 . 1))
                    (mapcar '(lambda (p) (list 10 (+ dx (car p)) (+ dy (cadr p)))) pts)
-                   (gip:rm-tag "C"))))
+                   (gip:rm-tag kind))))
 (defun gip:rm-noplot (name)
-  (vl-catch-all-apply 'vla-put-plottable (list (vla-item (vla-get-layers (vla-get-activedocument (vlax-get-acad-object))) name) :vlax-false)))
+  (vl-catch-all-apply '(lambda () (vla-put-plottable (vla-item (vla-get-layers (vla-get-activedocument (vlax-get-acad-object))) name) :vlax-false))))
 (defun gip:rm-erase-layer (lay / ss i)
   (if (setq ss (ssget "_X" (list (cons 8 lay))))
     (progn (setq i 0) (while (< i (sslength ss)) (entdel (ssname ss i)) (setq i (1+ i))))))
 (setq *gip:rm-st* nil)
-(defun gip:rm-area-run (/ doc refs w0 xd org W H rooms tmp pieces lays clay e1 area nOk bad pt res osm cm l w r q o e best ba)
+(defun gip:rm-area-run (/ todo doc refs w0 xd org W H rooms tmp pieces lays clay e1 area nOk bad pt res osm cm l w r q o e best ba)
   (setq refs (gip:rm-wall-refs) rooms (gip:room-list) doc (vla-get-activedocument (vlax-get-acad-object)))
   (cond
     ((null refs) (gip:rm-report nil "В чертеже нет подложки помещений: сначала «Вставить на листы планов»."))
     ((null rooms) (gip:rm-report nil "Реестр помещений пуст."))
+    ((null (setq todo (vl-remove-if '(lambda (r) (> (nth 2 r) 0.0)) rooms))) (gip:rm-report T "Площади уже посчитаны: контуры из панели или обведены вручную. Остальное: кнопка «Обвести помещение»."))
     (T
      (setq w0 (car refs) xd (gip:rm-xd w0) org (car xd) W (cadr xd) H (caddr xd) nOk 0 bad nil res nil lays nil
            clay (getvar "CLAYER") osm (getvar "OSMODE") cm (getvar "CMDECHO"))
@@ -576,7 +601,6 @@
      (gip:layer "GIP_ПОМ_ГРАНИЦА") (gip:layer "GIP_ПОМ_КОНТУР") (gip:layer "GIP_ПОМ_ПЕРЕМЫЧКА")
      (vl-catch-all-apply 'vla-put-freeze (list (vla-item (vla-get-layers doc) "GIP_ПОМ_ПЕРЕМЫЧКА") :vlax-false))
      (gip:rm-noplot "GIP_ПОМ_ГРАНИЦА") (gip:rm-noplot "GIP_ПОМ_КОНТУР") (gip:rm-noplot "GIP_ПОМ_ПЕРЕМЫЧКА")
-     (gip:rm-erase-layer "GIP_ПОМ_КОНТУР")
      (setvar "OSMODE" 0) (setvar "CMDECHO" 0)
      ;; временная копия стен, разобранная на линии (BOUNDARY надёжно работает с обычными объектами)
      (setq tmp (vla-copy (vlax-ename->vla-object w0)))
@@ -598,7 +622,7 @@
        (if (and (not (member (strcase (vla-get-name l)) '("GIP_ПОМ_ГРАНИЦА" "GIP_ПОМ_ПЕРЕМЫЧКА"))) (= (vla-get-freeze l) :vlax-false))
          (progn (setq lays (cons l lays) *gip:rm-st* (list clay osm cm pieces lays)) (vl-catch-all-apply 'vla-put-freeze (list l :vlax-true)))))
      (command "_.ZOOM" "_W" (list (- (car org) 500.0) (- (cadr org) 500.0)) (list (+ (car org) W 500.0) (+ (cadr org) H 500.0)))
-     (foreach r rooms
+     (foreach r todo
        (if (and (numberp (nth 6 r)) (numberp (nth 7 r)))
          (progn
            (setq pt (list (+ (car org) (nth 6 r)) (+ (cadr org) (nth 7 r)) 0.0) e1 (entlast))
@@ -652,6 +676,52 @@
           (vl-catch-all-apply 'setvar (list "CMDECHO" (nth 2 *gip:rm-st*)))
           (setq *gip:rm-st* nil)))
       (gip:rm-report nil (strcat "ошибка расчёта площадей: " (vl-catch-all-error-message r)))))
+  (princ))
+
+;; ---------------------------------------------------------------- ручной контур помещения
+;; выбрать номер помещения, затем обвести полилинией (с привязками) или указать готовую замкнутую; площадь -> реестр
+(defun gip:rm-trace-run (/ sel e no r p pe e1 obj area cm osm rooms ed)
+  (setq rooms (gip:room-list))
+  (if (null rooms)
+    (gip:rm-report nil "Реестр помещений пуст.")
+    (progn
+      (setq sel (entsel "\nГИП: выберите номер помещения (кружок с цифрой): "))
+      (setq e (if sel (car sel)))
+      (cond
+        ((or (null e) (/= (cdr (assoc 0 (entget e))) "INSERT") (/= (strcase (cdr (assoc 2 (entget e)))) (strcase *gip:rm-blk*)))
+         (gip:rm-report nil "Не выбран блок номера помещения."))
+        (T
+         (setq no (atoi (gip:rm-att-val (vlax-ename->vla-object e) "NUM")) r (assoc no rooms))
+         (initget "Pick")
+         (setq p (getpoint (strcat "\nПомещение " (itoa no) ": первый угол контура или [Pick - выбрать готовую полилинию]: ")))
+         (setq cm (getvar "CMDECHO") osm (getvar "OSMODE"))
+         (cond
+           ((= p "Pick") (setq sel (entsel "\nВыберите замкнутую полилинию помещения: ") pe (if sel (car sel))))
+           ((and p (listp p))
+            (setq e1 (entlast))
+            (command "_.PLINE" p)
+            (while (> (getvar "CMDACTIVE") 0) (command pause))
+            (setq pe (entlast))
+            (if (equal pe e1) (setq pe nil))))
+         (setvar "CMDECHO" cm)
+         (cond
+           ((or (null pe) (null r) (not (member (cdr (assoc 0 (entget pe))) '("LWPOLYLINE"))))
+            (gip:rm-report nil "Контур не получен (нужна полилиния)."))
+           (T
+            (setq obj (vlax-ename->vla-object pe))
+            (vla-put-closed obj :vlax-true)
+            (setq area (gip:rm-r2 (/ (vla-get-area obj) 1000000.0)))
+            (vla-put-layer obj (gip:layer "GIP_ПОМ_КОНТУР"))
+            (gip:rm-noplot "GIP_ПОМ_КОНТУР")
+            (gip:rm-tag-obj obj "C")
+            (setq rooms (subst (list (nth 0 r) (nth 1 r) area (nth 3 r) (nth 4 r) (gip:rm-vol area (nth 4 r)) (nth 6 r) (nth 7 r)) r rooms))
+            (gip:room-put rooms)
+            (gip:rm-sync-blocks rooms)
+            (gip:rm-report T (strcat "помещение " (itoa no) ": площадь " (rtos area 2 1) " кв.м"
+                                     (if (> (nth 3 r) 0.0) (strcat " (у дизайнера " (rtos (nth 3 r) 2 1) ")") ""))))))))))
+(defun c:GIPROOMSTRACE (/ r)
+  (setq r (vl-catch-all-apply 'gip:rm-trace-run nil))
+  (if (vl-catch-all-error-p r) (gip:rm-report nil (strcat "ошибка обводки: " (vl-catch-all-error-message r))))
   (princ))
 (defun gip:rm-join (l / s)
   (setq s "")

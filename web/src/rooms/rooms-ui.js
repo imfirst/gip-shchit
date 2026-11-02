@@ -157,9 +157,9 @@ function renderRooms() {
   const tb = $('rooms').querySelector('tbody'); tb.innerHTML = '';
   S.rooms.forEach((r, i) => {
     const diff = r.area != null && r.areaD ? Math.abs(r.area / r.areaD - 1) : 0;
-    const a = r.area == null ? '' : '<span class="' + (r.ok === false ? 'bad' : '') + '" title="' + (r.ok === false ? 'контур не замкнут — оценка неверна' : '') + '">' + r.area.toFixed(2) + '</span>';
+    const a = r.fit ? '<span class="' + r.fit + '" title="' + esc(r.fitInfo || '') + '">' + (r.area != null ? r.area.toFixed(1) : '—') + '</span>' : (r.area == null ? '' : r.area.toFixed(1));
     tb.insertAdjacentHTML('beforeend', '<tr data-i="' + i + '" class="' + (S.assign === i ? 'sel' : '') + '"><td><span class="pin" title="Указать номер на плане">' + (r.marker ? '◉' : '○') + '</span> <input class="no" value="' + r.no + '" style="width:34px"></td>' +
-      '<td><input class="nm" value="' + esc(r.name) + '"></td><td><input class="hh" value="' + esc(r.h) + '" placeholder="' + esc($('hDef').value) + '"></td><td class="n">' + a + '</td><td class="n">' + (r.areaD || '') + '</td><td><button class="x" title="Удалить">×</button></td></tr>');
+      '<td><input class="nm" value="' + esc(r.name) + '"></td><td><input class="hh" value="' + esc(r.h) + '" placeholder="' + esc($('hDef').value) + '"></td><td class="n">' + a + '</td><td class="n">' + (r.areaD != null ? Number(r.areaD).toFixed(1) : '') + '</td><td><button class="x" title="Удалить">×</button></td></tr>');
   });
   tb.querySelectorAll('tr').forEach((tr) => {
     const r = S.rooms[+tr.dataset.i];
@@ -172,15 +172,43 @@ function renderRooms() {
 }
 $('addRoom').addEventListener('click', () => { const n = S.rooms.reduce((m, r) => Math.max(m, r.no), 0) + 1; S.rooms.push({ no: n, name: 'Помещение ' + n, areaD: null, h: '', area: null, marker: null }); renderRooms(); });
 $('hDef').addEventListener('change', renderRooms);
-$('estBtn').addEventListener('click', () => {
+/* Автоподбор контуров: перебираем «ширину замыкания» проёмов и набор барьеров (стены/окна, плюс двери),
+   выбираем вариант, у которого площадь ближе всего к цифре дизайнера. Нет цифры — самый «тугой» контур без утечки. */
+function autoFit() {
   if (!S.den) { toast('Сначала задайте масштаб'); return; }
   const wb = wallsBox(); if (!wb) { toast('Нет линий с ролью «Стена»'); return; }
   const mk = S.rooms.filter((r) => r.marker).map((r) => ({ no: r.no, x: r.marker[0], y: r.marker[1] }));
   if (!mk.length) { toast('Нет номеров на плане'); return; }
-  const res = R.roomsByRaster(S.D, { mmPerPt: mmPt(), closeMm: 1000, pxPerM: 40, bbox: [wb[0] - 10, wb[1] - 10, wb[2] + 10, wb[3] + 10], barrier: (p) => { const r = S.roleOf[p.g]; return r === 'wall' || r === 'window'; }, markers: mk });
-  res.forEach((x) => { const r = S.rooms.filter((q) => q.no === x.no)[0]; if (r) { r.area = x.ok ? x.area : null; r.ok = x.ok; if (!x.ok) r.area = x.area || null; } });
-  renderRooms(); toast('Оценка по растру приблизительная. Точные площади считает AutoCAD (кнопка «Посчитать площади в AutoCAD»).', 7000);
-});
+  const k2 = Math.pow(mmPt() / 1000, 2), best = {};
+  const sets = [(p) => { const r = S.roleOf[p.g]; return r === 'wall' || r === 'window'; }, (p) => { const r = S.roleOf[p.g]; return r === 'wall' || r === 'window' || r === 'door'; }];
+  const bridges = R.bridgePt(S.D.paths.filter((p) => S.roleOf[p.g] === 'wall' && !(p.fc && !p.sc)), mmPt());   /* перемычки в проёмах стен */
+  toast('Ищу контуры…', 20000);
+  setTimeout(() => {
+    sets.forEach((barrier, si) => [150, 300, 450, 600, 800, 1000, 1300, 1600].forEach((cm) => {
+      const res = R.roomsByRaster(S.D, { mmPerPt: mmPt(), closeMm: cm, pxPerM: 40, bbox: [wb[0] - 10, wb[1] - 10, wb[2] + 10, wb[3] + 10], barrier: barrier, extraLines: bridges, markers: mk });
+      res.forEach((x) => {
+        if (!x.poly || x.poly.length < 3 || x.leaked) return;
+        const area = Math.abs(R.polyArea(x.poly.concat([x.poly[0]]))) * k2;   /* замкнутый контур */ if (!(area > 0.3)) return;
+        const r = S.rooms.filter((q) => q.no === x.no)[0]; if (!r) return;
+        const d = r.areaD ? Math.abs(area / r.areaD - 1) : null, score = d != null ? d : 1 + cm / 10000 + si * 0.001;
+        if (!best[x.no] || score < best[x.no].score) best[x.no] = { score: score, area: area, poly: x.poly, d: d, cm: cm };
+      });
+    }));
+    let ok = 0, warn = 0, bad = 0;
+    S.rooms.forEach((r) => {
+      const b = best[r.no];
+      if (!b) { r.area = null; r.poly = null; r.fit = 'bad'; r.fitInfo = 'контур не найден (утечка через проёмы)'; bad++; return; }
+      r.area = b.area; r.poly = b.poly; r.ok = true;
+      if (b.d == null) { r.fit = 'warn'; r.fitInfo = 'у дизайнера нет площади: сверить нечем (замыкание ' + b.cm + ' мм)'; warn++; }
+      else if (b.d <= 0.03) { r.fit = 'ok'; r.fitInfo = 'расхождение с дизайнером ' + (b.d * 100).toFixed(1) + '%'; ok++; }
+      else if (b.d <= 0.08) { r.fit = 'warn'; r.fitInfo = 'расхождение с дизайнером ' + (b.d * 100).toFixed(1) + '% — проверьте контур'; warn++; }
+      else { r.fit = 'bad'; r.fitInfo = 'расхождение с дизайнером ' + (b.d * 100).toFixed(1) + '% — обведите вручную в AutoCAD'; bad++; }
+    });
+    S.batches = null; renderRooms(); draw();
+    toast('Контуры: совпали ' + ok + ', проверить ' + warn + ', вручную ' + bad + '. Красные не передаются: их можно обвести в AutoCAD кнопкой «Обвести помещение».', 12000);
+  }, 30);
+}
+$('estBtn').addEventListener('click', autoFit);
 
 /* ------------------------------------------------------------------ просмотр */
 const cv = $('cv'); let ctx = cv.getContext('2d');
@@ -232,6 +260,12 @@ function draw() {
     if (!/^\d[\d\s]{2,5}$/.test(t.s.trim()) || t.rot) return;
     const p = toScr([t.x + t.w / 2, t.y + t.h / 3]); if (t.h * v.k < 4) return;
     ctx.font = Math.max(8, t.h * v.k) + 'px sans-serif'; ctx.fillText(t.s.trim(), p[0], p[1]);
+  });
+  S.rooms.forEach((r) => {
+    if (!r.poly || r.poly.length < 3) return;
+    ctx.beginPath(); r.poly.forEach((q, j) => { const p = toScr(q); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }); ctx.closePath();
+    const col = r.fit === 'ok' ? '34,197,94' : (r.fit === 'warn' ? '245,158,11' : '220,38,38');
+    ctx.fillStyle = 'rgba(' + col + ',0.18)'; ctx.fill(); ctx.strokeStyle = 'rgba(' + col + ',0.9)'; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
   });
   const tm = $('txtMode').value;
   if (tm !== 'none') {
@@ -432,7 +466,7 @@ function rotateView() {
   if (!S.D0) return;
   S.rot = (S.rot + 1) % 4; S.D = rotateD(S.D0, S.rot);
   S.cal = null; $('calRow').hidden = true; S.assign = null; S.hot = null;
-  if (S.rooms.length) S.rooms.forEach((r) => { if (r.marker) r.marker = rotStep(r.marker); });
+  if (S.rooms.length) S.rooms.forEach((r) => { if (r.marker) r.marker = rotStep(r.marker); if (r.poly) r.poly = r.poly.map(rotStep); });
   else {
     const ex = R.parseExplication(S.D), mk = R.findMarkers(S.D, ex);
     S.rooms = ex.rooms.map((r) => { const m = mk.filter((q) => q.no === r.no)[0]; return { no: r.no, name: r.name, areaD: r.areaD, h: '', area: null, ok: null, marker: m ? [m.x, m.y] : null }; });
@@ -451,7 +485,7 @@ function build() {
   if (!S.rooms.length) { toast('Нет помещений'); return null; }
   const nos = {}; for (const r of S.rooms) { if (nos[r.no]) { toast('Повторяется номер ' + r.no, 6000); return null; } nos[r.no] = 1; if (!r.marker) { toast('У помещения ' + r.no + ' не указано место номера на плане', 6000); return null; } }
   const hd = num('hDef', 2700), b = S.bbox, k = mmPt();
-  const rooms = S.rooms.map((r) => ({ no: r.no, name: r.name, areaD: r.areaD, area: r.ok ? r.area : null, h: parseFloat(r.h) || hd, marker: r.marker }));
+  const rooms = S.rooms.map((r) => ({ no: r.no, name: r.name, areaD: r.areaD, area: r.poly && r.fit && r.fit !== 'bad' ? r.area : null, poly: r.poly && r.fit && r.fit !== 'bad' ? r.poly : null, h: parseFloat(r.h) || hd, marker: r.marker }));
   const extras = S.extra.map((e) => { const al = alignExtra(e); return { title: e.title, D: e.D, keep: e.keep, mmPerPt: (e.den || S.den) * R.PT_MM, origin: al.origin, shift: al.shift }; });
   const out = R.buildOutput(S.D, { name: S.name, mmPerPt: k, origin: [b[0], b[1]], hDefault: hd, rooms: rooms, extras: extras, keepRole: (p, i) => S.keep[i] || null, W: (b[2] - b[0]) * k, H: (b[3] - b[1]) * k });
   return out;
@@ -473,6 +507,7 @@ const cmd = (c) => () => { if (host) { host.postMessage('cmd\n' + c); toast('К�
 $('syncBtn').addEventListener('click', cmd('GIPROOMSYNC'));
 $('distBtn').addEventListener('click', cmd('GIPROOMSDIST'));
 $('areaBtn').addEventListener('click', cmd('GIPROOMSAREA'));
+$('traceBtn').addEventListener('click', cmd('GIPROOMSTRACE'));
 $('readBtn').addEventListener('click', cmd('GIPROOMSREAD'));
 if (host && host.addEventListener) {
   host.addEventListener('message', (e) => {

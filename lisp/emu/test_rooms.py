@@ -42,6 +42,7 @@ assert cnt["GIP_RM_E_"] == 1, cnt
 reg = run('(gip:room-list)')
 assert len(reg) == len(rooms_in)
 print("registry[0]:", ascii(reg[0]))
+assert abs(reg[0][2] - 6.0) < 0.01, "площадь помещения 1 должна браться из контура панели (P): %r" % (reg[0],)
 assert run('(gip:room-get 6 "NAME")')
 assert abs(run('(gip:room-get 1 "VOL")') - run('(gip:room-get 1 "AREA")') * 2.7) < 0.02
 # раскладка по листам планов
