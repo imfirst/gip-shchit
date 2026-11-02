@@ -8,7 +8,7 @@ const MEM_KEY = 'gip-rooms-mem-v1';
 function loadMem() { try { return JSON.parse(localStorage.getItem(MEM_KEY) || '{}'); } catch (e) { return {}; } }
 function saveMem() { try { localStorage.setItem(MEM_KEY, JSON.stringify(S.mem)); } catch (e) { /* без памяти */ } }
 
-const S = { name: '', doc: null, pageNo: 1, D: null, G: null, roleOf: {}, rooms: [], den: null, denSrc: '', extra: [], mem: loadMem(),
+const S = { name: '', doc: null, pageNo: 1, D: null, G: null, roleOf: {}, rooms: [], rot: 0, D0: null, den: null, denSrc: '', extra: [], mem: loadMem(),
   view: { ox: 0, oy: 0, k: 1 }, cal: null, assign: null, batches: null, sel: null, hot: null };
 
 /* ------------------------------------------------------------------ служебное */
@@ -56,7 +56,7 @@ async function loadPage(no) {
   prog(true, 0.3, 'Извлекаю геометрию…');
   const pj = await lib();
   S.pageNo = no;
-  S.D = await X.extractPage(pj, S.doc, no);
+  S.D0 = await X.extractPage(pj, S.doc, no); S.rot = 0; S.D = S.D0;
   if (S.D.paths.length < 50) { prog(false); toast('На листе почти нет векторной геометрии. Растровые PDF не поддерживаются: напишите в чат Claude.', 9000); }
   S.G = R.buildGroups(S.D);
   S.G.groups.forEach((g) => { const m = S.mem[g.label]; if (m && R.ROLES[m]) g.role = m; S.roleOf[g.id] = g.role; });
@@ -339,7 +339,7 @@ async function addExtraPage(no, kind) {
     prog(true, 0.4, 'Извлекаю лист ' + no + '…');
     const d = await pageData(no);
     /* масштаб листов электрики по умолчанию такой же, как у подложки (можно изменить) */
-    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: d.D, G: d.G, den: null, keep: defaultKeep(d.G, true) });
+    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D0: d.D, D: rotateD(d.D, S.rot), G: d.G, den: null, keep: defaultKeep(d.G, true) });
     prog(false); renderExtra();
   } catch (err) { prog(false); toast('Не удалось прочитать лист: ' + (err && err.message || err), 6000); }
 }
@@ -395,7 +395,7 @@ $('dlgBase').addEventListener('change', () => { if (DLG.d) { DLG.keep = defaultK
 $('dlgCancel').addEventListener('click', () => { $('exDlg').hidden = true; });
 $('dlgOk').addEventListener('click', () => {
   if (!DLG.d) return;
-  const e = { page: DLG.no, kind: DLG.kind, title: DLG.kind + ' (лист ' + DLG.no + ')', D: DLG.d.D, G: DLG.d.G, den: null, keep: DLG.keep };
+  const e = { page: DLG.no, kind: DLG.kind, title: DLG.kind + ' (лист ' + DLG.no + ')', D0: DLG.d.D, D: rotateD(DLG.d.D, S.rot), G: DLG.d.G, den: null, keep: DLG.keep };
   if (DLG.edit >= 0) { e.den = S.extra[DLG.edit].den; S.extra[DLG.edit] = e; } else S.extra.push(e);
   $('exDlg').hidden = true; renderExtra();
 });
@@ -416,6 +416,34 @@ function renderExtra() {
     box.appendChild(d);
   });
 }
+
+/* ------------------------------------------------------------------ поворот листа на 90° по часовой */
+function rotStep(p) { return [p[1], -p[0]]; }                     /* по часовой, Y вверх */
+function rotateD(D0, n) {
+  n = ((n % 4) + 4) % 4; if (!n) return D0;
+  const f = (p) => { let q = p; for (let i = 0; i < n; i++) q = rotStep(q); return q; };
+  const D = Object.assign({}, D0);
+  D.paths = D0.paths.map((p) => Object.assign({}, p, { pts: p.pts.map(f) }));
+  D.texts = D0.texts.map((t) => { const q = f([t.x, t.y]); let r = (t.rot || 0) - 90 * n; r = ((r + 540) % 360) - 180; return Object.assign({}, t, { x: q[0], y: q[1], rot: r }); });
+  if (n % 2) { D.w = D0.h; D.h = D0.w; }
+  return D;
+}
+function rotateView() {
+  if (!S.D0) return;
+  S.rot = (S.rot + 1) % 4; S.D = rotateD(S.D0, S.rot);
+  S.cal = null; $('calRow').hidden = true; S.assign = null; S.hot = null;
+  if (S.rooms.length) S.rooms.forEach((r) => { if (r.marker) r.marker = rotStep(r.marker); });
+  else {
+    const ex = R.parseExplication(S.D), mk = R.findMarkers(S.D, ex);
+    S.rooms = ex.rooms.map((r) => { const m = mk.filter((q) => q.no === r.no)[0]; return { no: r.no, name: r.name, areaD: r.areaD, h: '', area: null, ok: null, marker: m ? [m.x, m.y] : null }; });
+  }
+  S.expl = R.parseExplication(S.D);
+  if (!S.den) { const sc = R.scaleFromText(S.D); if (sc) { S.den = sc.den; $('den').value = S.den; } }
+  S.extra.forEach((e) => { e.D = rotateD(e.D0, S.rot); });
+  renderRooms(); rebuild(); fit();
+  toast('Лист повёрнут: ' + (S.rot * 90) + '° по часовой', 2500);
+}
+$('rotBtn').addEventListener('click', rotateView);
 
 function build() {
   if (!S.D || !S.bbox) { toast('Откройте PDF'); return null; }
