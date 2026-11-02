@@ -187,4 +187,18 @@ ok(d.byId[s1.id].dU > 4 && d.byId[s1.id].warn.some(w => w.f === 'dU'), 'dU warn 
 }
 
 console.log(fails ? fails + ' FAILED' : 'ALL OK');
+
+// предложения групп по помещениям
+{
+  const R = ['Прихожая', 'Спальня1', 'Гардеробная', 'Спальня2', 'Лоджия', 'Ванная', 'Санузел', 'Кухня', 'Гостиная'].map((n, i) => ({ no: i + 1, name: n }));
+  const L = M.roomGroups(R, 'light'), S = M.roomGroups(R, 'sock');
+  ok(L.includes('Освещение Прихожая, Гардеробная'), 'light hall+wardrobe');
+  ok(L.includes('Освещение Ванная, Санузел'), 'light wet merged');
+  ok(L.includes('Освещение Спальня2, Лоджия'), 'light bedroom+loggia');
+  ok(L.includes('Освещение Кухня-Гостиная'), 'light kitchen-living');
+  ok(L.includes('Освещение Спальня1'), 'light single');
+  ok(S.includes('Розетки Кухня') && S.includes('Розетки Гостиная') && !S.includes('Розетки Кухня-Гостиная'), 'sockets kitchen/living separate');
+  const R2 = M.roomGroups([{ name: 'Кухня-Гостиная' }], 'sock');
+  ok(R2.includes('Розетки Кухня') && R2.includes('Розетки Гостиная'), 'kitchen-living room split for sockets');
+}
 process.exit(fails ? 1 : 0);

@@ -46,6 +46,7 @@ namespace Gip.Shchit
         {
             public string Last;     // последний JSON, известный странице
             public bool Linked;
+            public string Rooms;    // последний список помещений, отправленный странице
         }
 
         public PanelControl()
@@ -185,6 +186,7 @@ namespace Gip.Shchit
         private void CheckDoc(Document doc)
         {
             var link = Link(doc);
+            PushRooms(doc, false);
             var text = ReadDict(doc, DictKey);
             if (text == null)
             {
@@ -202,11 +204,22 @@ namespace Gip.Shchit
         }
 
         /// <summary>Открыли/переключили чертёж — показать его щит.</summary>
+        /// <summary>Названия помещений из таблицы площадей (словарь GIPROOMSJSON) -> подсказки наименований групп.</summary>
+        private void PushRooms(Document doc, bool force)
+        {
+            var link = Link(doc);
+            var rooms = ReadDict(doc, "GIPROOMSJSON") ?? "[]";
+            if (!force && rooms == link.Rooms) return;
+            link.Rooms = rooms;
+            Post("{\"type\":\"rooms\",\"rooms\":" + rooms + "}");
+        }
+
         private void PushActive(string origin)
         {
             var doc = AcAp.DocumentManager.MdiActiveDocument;
             if (doc == null) return;
             var link = Link(doc);
+            PushRooms(doc, true);
             var text = ReadDict(doc, DictKey);
             if (text != null)
             {
