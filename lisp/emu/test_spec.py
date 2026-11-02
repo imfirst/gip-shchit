@@ -21,4 +21,12 @@ assert 'Выключатель' not in r, r
 I.run('(gip:room-put (list (list 1 "Прихожая" 5.0 5.0 2700.0 13.5 0.0 0.0)))')
 j = lstr(I.run('(gip:dict-get "GIPROOMSJSON")'))
 assert 'u041F' in j.upper().replace('U041F', 'u041F') or 'u041f' in j, j
+# листы спецификации: переполнение оборудования с планов остаётся на втором листе, третьего нет
+def rows(n): return ' '.join('(list (cons "name" "r%d"))' % i for i in range(n))
+def pages(n2):
+    r = I.run('(length (gip:spec-pages (list (list "Щит" (list %s)) (list "Обор" (list %s)) (list "Мат" (list %s)) (list "Каб" (list %s)))))' % (rows(8), rows(n2), rows(6), rows(5)))
+    return int(lstr(r))
+assert pages(5) == 2, pages(5)
+assert pages(25) == 2, pages(25)   # оборудование переполнило первый лист: хвост наверху второго, материалы ниже
+I.run('(setq tr (gip:plan-counts (gip:template-sheets)))')
 print('spec counts + rooms publish: ALL OK')

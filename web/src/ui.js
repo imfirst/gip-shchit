@@ -518,7 +518,7 @@
     var plan = v.num + (v.cableEff ? ' · ' + planMark() + ' ' + v.cableEff : '');
     cells.num = '<td class="c-num" data-tip="На плане: ' + esc(plan) + '"><span class="chip ' + serCls(v.ser) + '">' + esc(v.num) + '</span></td>';
     cells.cat = '<td class="c-cat td-pad"><select class="cell" id="c-' + v.id + '-cat" data-f="cat" aria-label="Назначение">' + M.CAT_ORDER.map(function (k) { return opt(k, M.CAT[k].label, v.cat); }).join('') + '</select></td>';
-    cells.name = '<td class="c-name td-pad"><input class="cell" id="c-' + v.id + '-name" data-f="name" value="' + esc(v.name) + '" aria-label="Наименование" autocomplete="off"' + (v.cat === 'light' || v.cat === 'sock' ? ' list="rn-' + v.cat + '"' : '') + '></td>';
+    cells.name = '<td class="c-name td-pad"><input class="cell" id="c-' + v.id + '-name" data-f="name" value="' + esc(v.name) + '" aria-label="Наименование" autocomplete="off"' + (v.cat === 'light' || v.cat === 'sock' ? ' data-rn="' + v.cat + '"' : '') + '></td>';
     cells.prot = '<td class="c-prot">' + protSelect(v) + '</td>';
     var inSel = '<select class="cell" id="c-' + v.id + '-In" data-f="In" aria-label="Номинал, А">' + M.STD_IN.map(function (x) { return opt(x, x, v.In); }).join('') + '</select>';
     cells['in'] = '<td class="c-in' + (wf.In ? ' w-cell' : '') + '"' + (wf.In ? ' data-tip="' + esc(v.warn.filter(function (w) { return w.f === 'In'; }).map(function (w) { return w.t; }).join('\n')) + '"' : '') + '><div class="duo">' +
@@ -995,12 +995,37 @@
      страница -> AutoCAD: строка «тип\nJSON» (ready, apply); AutoCAD -> страница: объект {type: load|unlinked|linked, state, doc, origin} */
   var bridgeT = 0;
   /* названия помещений из таблицы площадей чертежа -> подсказки для наименований групп освещения и розеток */
+  var roomSugg = { light: [], sock: [] };
   function setRoomNames(rooms) {
-    ['light', 'sock'].forEach(function (c) {
-      var dl = $('rn-' + c); if (!dl) return;
-      dl.innerHTML = M.roomGroups(rooms || [], c).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
-    });
+    roomSugg.light = M.roomGroups(rooms || [], 'light'); roomSugg.sock = M.roomGroups(rooms || [], 'sock');
   }
+  /* свой выпадающий список: показывает ВСЕ варианты независимо от того, что уже вписано (datalist браузера фильтрует по введённому) */
+  var rnMenu = null, rnInput = null;
+  function rnClose() { if (rnMenu) rnMenu.hidden = true; rnInput = null; }
+  function rnOpen(inp) {
+    var list = roomSugg[inp.getAttribute('data-rn')] || [];
+    if (!list.length) { rnClose(); return; }
+    if (!rnMenu) {
+      rnMenu = document.createElement('div'); rnMenu.className = 'rn-menu'; rnMenu.setAttribute('role', 'listbox');
+      rnMenu.style.cssText = 'position:fixed;z-index:60;max-height:260px;overflow:auto;background:#fff;color:#111;border:1px solid #bbb;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:4px;font-size:13px';
+      rnMenu.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        var it = e.target.closest('[data-v]'); if (!it || !rnInput) return;
+        var inp2 = rnInput; inp2.value = it.getAttribute('data-v');
+        inp2.dispatchEvent(new Event('input', { bubbles: true })); inp2.dispatchEvent(new Event('change', { bubbles: true }));
+        rnClose();
+      });
+      document.body.appendChild(rnMenu);
+    }
+    rnInput = inp;
+    rnMenu.innerHTML = list.map(function (t) { return '<div data-v="' + esc(t) + '" role="option" style="padding:5px 9px;border-radius:5px;cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'#e8f0fe\'" onmouseout="this.style.background=\'\'">' + esc(t) + '</div>'; }).join('');
+    var r = inp.getBoundingClientRect();
+    rnMenu.style.left = r.left + 'px'; rnMenu.style.top = (r.bottom + 2) + 'px'; rnMenu.style.minWidth = Math.max(220, r.width) + 'px'; rnMenu.hidden = false;
+  }
+  document.addEventListener('focusin', function (e) { var t = e.target; if (t && t.getAttribute && t.getAttribute('data-rn')) rnOpen(t); else if (!(rnMenu && rnMenu.contains(t))) rnClose(); });
+  document.addEventListener('mousedown', function (e) { var t = e.target; if (t && t.getAttribute && t.getAttribute('data-rn') && document.activeElement === t) rnOpen(t); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rnClose(); }, true);
+  window.addEventListener('scroll', rnClose, true);
   var hostS = { linked: false, doc: '', auto: uiS.auto !== false, dirty: false, waiting: !!host };
   function hostPost(type, payload) { if (!host) return; try { host.postMessage(type + '\n' + (payload || '')); } catch (e) { /* */ } }
   function pushNow() { clearTimeout(bridgeT); hostPost('apply', JSON.stringify(state)); hostS.dirty = false; syncHost(); }
