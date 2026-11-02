@@ -224,6 +224,8 @@
   (if (> (gip:gn s "railsMin" 0) 0) (setq need (max need (gip:g s "railsMin"))))
   ;; настоящий корпус ABB: реек на схеме столько же, сколько рядов в корпусе
   (if (setq bx (gip:pick-box W total (max need (length rails)))) (setq need (max need (cadr bx))))
+  ;; корпуса больше самого большого у ABB нет (напр. на ряд 18 — 72 мод.): запас рядов сверх каталога не добавляем
+  (if (null bx) (setq need (max (length rails) (min need (apply 'max (mapcar 'cadr (cdr (assoc W *gip:boxes*))))))))
   (while (< (length rails) need) (setq rails (append rails (list nil))))
   (list (cons "rails" rails) (cons "used" total) (cons "cap" (* (length rails) W)) (cons "box" bx)))
 
@@ -240,8 +242,9 @@
 
 (defun gip:cos (l) (if (or (member (gip:g l "cat") '("hob" "heat" "floor")) (= (gip:gn l "key" (gip:g l "id")) "oven")) 1.0 0.9))
 
-;; ориентировочная длина кабеля линии по площади квартиры, м
-(defun gip:cable-len (l area / s cat k c)
+;; ориентировочная длина кабеля линии по площади квартиры, м; плюс запас на приборы с планов (*gip:len-extra*: категория . метры на линию)
+(setq *gip:len-extra* nil)
+(defun gip:cable-len (l area / s cat k c x)
   (setq s (sqrt (max area 15.0)) cat (gip:g l "cat"))
   ;; калибровка по проекту «Сосновая»: свет ~50 м на линию (шлейф по светильникам), розетки ~16 м, техника ~11 м
   (cond ((= cat "light") (setq k 4.0 c 10.0))
@@ -249,12 +252,43 @@
         ((member cat '("hob" "app" "floor" "heat" "leak")) (setq k 0.9 c 2.0))
         ((= cat "ac") (setq k 1.2 c 4.0))
         (T (setq k 1.2 c 4.0)))
-  (gip:ceil (* (+ c (* k s)) 1.1)))
+  (setq x (cond ((cdr (assoc cat *gip:len-extra*))) ((and (not (member cat '("light" "sock" "floor"))) (cdr (assoc "out" *gip:len-extra*)))) (T 0.0)))
+  (gip:ceil (* (+ c (* k s) x) 1.1)))
+
+;; запас кабеля на приборы с планов. На подключение каждого светильника, выключателя, розетки — 0,3 м (расключение в коробке);
+;; вывод на плане — 1 м; спуск от потолка к выключателю/розетке туда и обратно: при прокладке по потолку к каждой розетке и выключателю
+;; кабель идёт вниз и снова вверх (2·(H − высота прибора)), при прокладке по полу к розеткам запас на подъём мал (2·0,3 м).
+;; Количество делится поровну между линиями своей категории (какой прибор на какой линии — на плане не указано).
+(defun gip:dev-extra (S lines / cnt nl ns nk nf no h route dS dK dF n k ng hs r)
+  (setq cnt (vl-catch-all-apply '(lambda () (gip:plan-counts (gip:template-sheets))) nil))
+  (if (vl-catch-all-error-p cnt) (setq cnt nil))
+  (setq nl 0 ns 0 nk 0 nf 0 no 0)
+  (foreach c cnt
+    (setq k (car (car c)) n (cdr c))
+    (cond ((= k "ЭОМ_Светильники_GIP") (setq nl (+ nl n)))
+          ((= k "ЭОМ_Выключатели_GIP") (setq ns (+ ns n)))
+          ((gip:starts (cadr (car c)) "Вывод") (setq no (+ no n)))
+          ((= (gip:lower (cadr (car c))) "терморегулятор тп") (setq nf (+ nf n)))
+          (T (setq nk (+ nk n)))))
+  ;; высота потолков — средняя по помещениям из реестра, иначе 2,7 м
+  (setq hs (vl-remove-if-not '(lambda (x) (> x 0.0)) (mapcar '(lambda (r) (nth 4 r)) (vl-catch-all-apply '(lambda () (gip:room-list)) nil))))
+  (setq h (if (and hs (listp hs)) (/ (apply '+ hs) (length hs) 1000.0) 2.7))
+  (setq route (gip:gn S "route" "Потолок")
+        dS (* 2.0 (max 0.0 (- h 0.9)))
+        dK (if (= route "Потолок") (* 2.0 (max 0.0 (- h 0.3))) 0.6)
+        dF (if (= route "Потолок") (* 2.0 (max 0.0 (- h 1.5))) 0.6))
+  (setq r nil)
+  (foreach q (list (list "light" (+ (* nl 0.3) (* ns (+ 0.3 dS)))) (list "sock" (* nk (+ 0.3 dK))) (list "floor" (* nf (+ 0.3 dF))) (list "out" (* no 1.0)))
+    (setq ng (length (vl-remove-if-not '(lambda (l) (if (= (car q) "out") (not (member (gip:g l "cat") '("light" "sock" "floor" "reserve"))) (= (gip:g l "cat") (car q)))) lines)))
+    (if (and (> ng 0) (> (cadr q) 0.0)) (setq r (cons (cons (car q) (/ (cadr q) ng)) r))))
+  r)
 
 ;; полный расчёт щита
 (defun gip:board (s / lines devs flow rails all area v2)
   (setq v2 (= (gip:g s "v") 2))
   (setq lines (if v2 (gip:rows-lines s) (gip:build-lines s)) area (gip:gn s "area" 50.0))
+  (setq *gip:len-extra* (vl-catch-all-apply 'gip:dev-extra (list s lines)))
+  (if (vl-catch-all-error-p *gip:len-extra*) (setq *gip:len-extra* nil))
   (setq lines (mapcar '(lambda (l) (if (gip:g l "len") l (gip:s l "len" (gip:cable-len l area)))) lines))
   (setq devs (if v2 (gip:rows-order s (gip:rows-devices s lines)) (gip:apply-order s (gip:build-devices s lines))))
   (setq flow (gip:flow-rails s devs))

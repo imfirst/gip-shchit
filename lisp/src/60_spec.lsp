@@ -16,9 +16,8 @@
   (setq bx (gip:g BRD "box"))
   (gip:sp-add "box"
     (if bx
-      (gip:row (strcat "Щит распределительный встраиваемый " (if (gip:starts (car bx) "UK") "UK600" "Mistral41F") ", " (itoa (cadr bx)) " "
-                       (if (= (cadr bx) 1) "ряд" (if (< (cadr bx) 5) "ряда" "рядов")) ", " (itoa (* (cadr bx) (gip:g S "railW"))) " мод., "
-                       (if (gip:starts (car bx) "UK") "IP30" "IP41") ", с клеммниками N/PE")
+      (gip:row (strcat "Щит распределительный встраиваемый Mistral41F, " (itoa (cadr bx)) " "
+                       (if (= (cadr bx) 1) "ряд" (if (< (cadr bx) 5) "ряда" "рядов")) ", " (itoa (* (cadr bx) (gip:g S "railW"))) " мод., IP41, с клеммниками N/PE")
                (if (/= (caddr bx) "") (caddr bx) (car bx)) "ABB" "шт." 1)
       (gip:row (strcat "Щит распределительный встраиваемый с клеммниками N/PE, IP41, " (itoa (gip:g BRD "cap")) " мод.") "" (gip:g b "name") "шт." 1)))
   (foreach d (gip:g BRD "all")
