@@ -8,7 +8,7 @@ const MEM_KEY = 'gip-rooms-mem-v1';
 function loadMem() { try { return JSON.parse(localStorage.getItem(MEM_KEY) || '{}'); } catch (e) { return {}; } }
 function saveMem() { try { localStorage.setItem(MEM_KEY, JSON.stringify(S.mem)); } catch (e) { /* без памяти */ } }
 
-const S = { name: '', doc: null, pageNo: 1, D: null, G: null, roleOf: {}, rooms: [], den: null, denSrc: '', mem: loadMem(),
+const S = { name: '', doc: null, pageNo: 1, D: null, G: null, roleOf: {}, rooms: [], den: null, denSrc: '', extra: [], mem: loadMem(),
   view: { ox: 0, oy: 0, k: 1 }, cal: null, assign: null, batches: null, sel: null, hot: null };
 
 /* ------------------------------------------------------------------ служебное */
@@ -60,7 +60,8 @@ async function loadPage(no) {
   S.den = sc ? sc.den : null; S.denSrc = sc ? 'из подписи листа «' + sc.text + '»' : '';
   $('den').value = S.den || '';
   prog(false);
-  ['scaleBox', 'layBox', 'roomBox', 'goBox'].forEach((id) => { $(id).hidden = false; });
+  ['scaleBox', 'layBox', 'roomBox', 'exBox', 'goBox'].forEach((id) => { $(id).hidden = false; });
+  S.extra = []; renderExtra(); fillExPages();
   $('empty').hidden = true;
   renderGroups(); renderRooms(); updateScaleInfo(); rebuild(); fit();
   if (!S.rooms.length) toast('Экспликация в PDF не найдена: добавьте помещения вручную (+ Помещение).', 6000);
@@ -253,6 +254,61 @@ cv.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 /* ------------------------------------------------------------------ файл, вставка, команды */
+/* ------------------------------------------------------------------ листы электрики */
+const ANNOT_RE = /размер|выноск|аннот|текст|штамп|рамк|ос[ьи]\b|оси\b|сетк|надпис|отметк|высотн|табл|легенд|помещен|площад|зон/;
+const BASE_RE = /стен|констр|перегор|колонн|мебел|двер|окн|архитект|подложк|проем|сантех|кухн/;
+function fillExPages() {
+  const sel = $('exPage'); sel.innerHTML = '';
+  if (!S.doc) return;
+  for (let i = 1; i <= S.doc.numPages; i++) sel.insertAdjacentHTML('beforeend', '<option value="' + i + '">лист ' + i + '</option>');
+}
+function exWallBox(e) {
+  let b = null; e.D.paths.forEach((p) => { const g = e.G.groups.filter((x) => x.id === p.g)[0]; if (g && g.role === 'wall') b = R.bboxOf(p.pts, b); });
+  return b;
+}
+/* совмещение листа электрики с подложкой: по габаритам стен; масштаб — со своего листа, если указан */
+function alignExtra(e) {
+  const wb = wallsBox(), wb2 = exWallBox(e), k = mmPt(), b = S.bbox;
+  if (wb && wb2 && b) return { origin: [wb2[0], wb2[1]], shift: [(wb[0] - b[0]) * k, (wb[1] - b[1]) * k], how: 'совмещён по стенам' };
+  return { origin: [b ? b[0] : 0, b ? b[1] : 0], shift: [0, 0], how: 'стены не найдены, положение как на основном листе' };
+}
+async function addExtra() {
+  if (!S.doc || !S.D) { toast('Сначала откройте PDF'); return; }
+  if (!S.den) { toast('Сначала задайте масштаб основного листа', 5000); return; }
+  const no = +$('exPage').value, kind = $('exKind').value;
+  try {
+    prog(true, 0.4, 'Извлекаю лист ' + no + '…');
+    const pj = await lib(), D = await X.extractPage(pj, S.doc, no), G = R.buildGroups(D), sc = R.scaleFromText(D);
+    const dropBase = $('exBase').checked, keep = {};
+    G.groups.forEach((g) => {
+      let k = true;
+      if (G.useLayers) { const l = g.label.toLowerCase().replace(/ё/g, 'е'); if (ANNOT_RE.test(l)) k = false; else if (dropBase && BASE_RE.test(l)) k = false; }
+      else {
+        if (/dash/.test(g.id) || (g.role === 'drop' && g.id.charAt(0) !== 'F')) k = false;
+        if (g.id.charAt(0) === 'F') k = g.n < 400;           /* заливки: мелкие символы да, крупные заливки нет (они отсекаются при выводе) */
+        if (g.role === 'wall' && dropBase) k = false;
+      }
+      keep[g.id] = k;
+    });
+    S.extra.push({ page: no, kind: kind, title: kind + ' (лист ' + no + ')', D: D, G: G, den: sc ? sc.den : S.den, keep: keep });
+    prog(false); renderExtra();
+  } catch (err) { prog(false); toast('Не удалось прочитать лист: ' + (err && err.message || err), 6000); }
+}
+function renderExtra() {
+  const box = $('exList'); box.innerHTML = '';
+  S.extra.forEach((e, i) => {
+    const al = alignExtra(e);
+    const d = document.createElement('details'); d.className = 'ex-item';
+    const rows = e.G.groups.slice(0, 40).map((g) => '<tr><td><label class="chk"><input type="checkbox" data-g="' + esc(g.id) + '"' + (e.keep[g.id] ? ' checked' : '') + '>' + esc(g.label) + '</label></td><td>' + g.n + '</td></tr>').join('');
+    d.innerHTML = '<summary><b>' + esc(e.title) + '</b> · масштаб 1:' + e.den + ' · ' + esc(al.how) + ' <button class="btn" type="button" data-del="' + i + '">Убрать</button></summary>' +
+      '<table class="pl-t"><thead><tr><th>Что оставить в блоке</th><th>Линий</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    d.querySelectorAll('input[data-g]').forEach((c) => c.addEventListener('change', () => { e.keep[c.getAttribute('data-g')] = c.checked; }));
+    d.querySelector('button[data-del]').addEventListener('click', (ev) => { ev.preventDefault(); S.extra.splice(i, 1); renderExtra(); });
+    box.appendChild(d);
+  });
+}
+$('exAdd').addEventListener('click', addExtra);
+
 function build() {
   if (!S.D || !S.bbox) { toast('Откройте PDF'); return null; }
   if (!S.den) { toast('Задайте масштаб или откалибруйте по размеру', 6000); $('den').focus(); return null; }
@@ -260,7 +316,8 @@ function build() {
   const nos = {}; for (const r of S.rooms) { if (nos[r.no]) { toast('Повторяется номер ' + r.no, 6000); return null; } nos[r.no] = 1; if (!r.marker) { toast('У помещения ' + r.no + ' не указано место номера на плане', 6000); return null; } }
   const hd = num('hDef', 2700), b = S.bbox, k = mmPt();
   const rooms = S.rooms.map((r) => ({ no: r.no, name: r.name, areaD: r.areaD, area: r.ok ? r.area : null, h: parseFloat(r.h) || hd, marker: r.marker }));
-  const out = R.buildOutput(S.D, { name: S.name, mmPerPt: k, origin: [b[0], b[1]], hDefault: hd, rooms: rooms, keepRole: (p, i) => S.keep[i] || null, W: (b[2] - b[0]) * k, H: (b[3] - b[1]) * k });
+  const extras = S.extra.map((e) => { const al = alignExtra(e); return { title: e.title, D: e.D, keep: e.keep, mmPerPt: e.den * R.PT_MM, origin: al.origin, shift: al.shift }; });
+  const out = R.buildOutput(S.D, { name: S.name, mmPerPt: k, origin: [b[0], b[1]], hDefault: hd, rooms: rooms, extras: extras, keepRole: (p, i) => S.keep[i] || null, W: (b[2] - b[0]) * k, H: (b[3] - b[1]) * k });
   return out;
 }
 function send(type, text) {
@@ -271,13 +328,14 @@ function send(type, text) {
   for (let i = 0; i < n; i++) host.postMessage(type + '-chunk\n' + i + '\n' + text.slice(i * size, (i + 1) * size));
   return true;
 }
-$('go').addEventListener('click', () => { const o = build(); if (o && send('rooms', o.text)) toast('Передаю в AutoCAD: ' + o.nGeom + ' линий, ' + S.rooms.length + ' помещений…', 5000); });
+$('go').addEventListener('click', () => { const o = build(); if (o && send('rooms', o.text)) toast('Передаю в AutoCAD (заготовка над альбомом): ' + o.nGeom + ' линий, ' + S.rooms.length + ' помещений' + (S.extra.length ? ', листов электрики ' + S.extra.length : '') + '…', 5000); });
 $('save').addEventListener('click', () => {
   const o = build(); if (!o) return;
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([o.text], { type: 'text/plain' })); a.download = 'gip_rooms_in.txt'; a.click();
 });
 const cmd = (c) => () => { if (host) { host.postMessage('cmd\n' + c); toast('Команда ' + c + ' отправлена в AutoCAD', 3000); } else toast('Связь с AutoCAD недоступна', 5000); };
 $('syncBtn').addEventListener('click', cmd('GIPROOMSYNC'));
+$('distBtn').addEventListener('click', cmd('GIPROOMSDIST'));
 $('areaBtn').addEventListener('click', cmd('GIPROOMSAREA'));
 $('readBtn').addEventListener('click', cmd('GIPROOMSREAD'));
 if (host && host.addEventListener) {
@@ -301,4 +359,4 @@ fileIn.addEventListener('change', () => { if (fileIn.files[0]) openFile(fileIn.f
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 $('pageSel').addEventListener('change', () => loadPage(+$('pageSel').value));
-window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild };
+window.GIPROOMSUI = { S: S, openFile: openFile, build: build, rebuild: rebuild, addExtra: addExtra };

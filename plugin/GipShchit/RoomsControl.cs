@@ -129,7 +129,7 @@ namespace Gip.Shchit
                     break;
                 case "cmd":
                     var c = body.Trim();
-                    if (c == "GIPROOMSYNC" || c == "GIPROOMSAREA" || c == "GIPROOMSREAD")
+                    if (c == "GIPROOMSYNC" || c == "GIPROOMSAREA" || c == "GIPROOMSREAD" || c == "GIPROOMSDIST")
                     {
                         _pendingCmd = c;
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;

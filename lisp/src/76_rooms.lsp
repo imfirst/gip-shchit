@@ -9,6 +9,7 @@
 ;;;   (gip:room-list) (gip:room-get номер "NAME"|"AREA"|"AREAD"|"H"|"VOL")
 ;;; Блок номера NUM-POM_GIP_A: атрибуты NUM (виден), NAME, AREA, H, VOL (скрыты). Всё созданное помечено xdata GIPROOMS.
 ;;; ============================================================================
+(setq *gip:rm-dy* -1000.0) ; план на листе на 1000 мм ниже общего положения плана
 (setq *gip:rm-app* "GIPROOMS" *gip:rm-file* "gip_rooms_in.txt" *gip:rm-blk* "NUM-POM_GIP_A" *gip:rm-key* "GIPROOMS")
 
 ;; ---------------------------------------------------------------- реестр
@@ -125,8 +126,40 @@
               p (gip:rm-pt (vla-get-insertionpoint o)))
         (if (and (gip:rm-in-frame F p) (gip:rm-expl-table-p o)) (setq r (cons o r))))))
   r)
+;; оформление ячейки (стиль текста, высота, выравнивание, inline-коды MText) берётся с образца исходной таблицы
+(defun gip:rm-cell-fmt (tb rr cc / sty hgt raw pre i n ch go)
+  (setq sty (vl-catch-all-apply 'vla-getcelltextstyle (list tb rr cc))
+        hgt (vl-catch-all-apply 'vla-getcelltextheight (list tb rr cc))
+        raw (vl-catch-all-apply 'vla-gettext (list tb rr cc)) pre "")
+  (if (or (vl-catch-all-error-p sty) (/= (type sty) 'STR)) (setq sty nil))
+  (if (or (vl-catch-all-error-p hgt) (not (numberp hgt))) (setq hgt nil))
+  ;; ведущие коды форматирования («{\\fArial|b0;\\H150;» и т.п.) без самого текста
+  (if (and (= (type raw) 'STR) (> (strlen raw) 3))
+    (progn
+      (setq i 1 n (strlen raw) go T)
+      (while (and go (<= i n))
+        (setq ch (substr raw i 1))
+        (cond ((= ch "{") (setq i (1+ i)))
+              ((and (= ch "\\") (< i n) (wcmatch (substr raw (1+ i) 1) "[fFHhCcQqWwTtAaLlOoKk]"))
+               (if (setq ch (vl-string-search ";" raw i)) (setq i (+ ch 2)) (setq go nil)))
+              (T (setq go nil))))
+      (setq pre (substr raw 1 (1- i)))
+      (if (not (and (> (strlen pre) 0) (vl-string-search ";" pre))) (setq pre ""))
+      (if (and (/= pre "") (= (substr pre 1 1) "{") (/= (substr raw n 1) "}")) (setq pre ""))))
+  (list sty hgt pre))
+(defun gip:rm-fmt-ok (f) (and f (nth 0 f) (nth 1 f) (>= (nth 1 f) 20.0)))
+;; лучший доступный образец: строка данных, иначе шапка, иначе ls_200 / 150 мм
+(defun gip:rm-pick-fmt (tb rows cc / r f best)
+  (foreach r rows (if (and (not best) (< r (vla-get-rows tb)) (gip:rm-fmt-ok (setq f (gip:rm-cell-fmt tb r cc)))) (setq best f)))
+  (if best best (list (gip:rm-style) 150.0 "")))
+(defun gip:rm-put-cell (tb rr cc txt fmt align / pre)
+  (setq pre (nth 2 fmt))
+  (vl-catch-all-apply 'vla-settext (list tb rr cc (if (/= pre "") (strcat pre txt (if (= (substr pre 1 1) "{") "}" "")) txt)))
+  (if (nth 0 fmt) (vl-catch-all-apply 'vla-setcelltextstyle (list tb rr cc (nth 0 fmt))))
+  (if (and (nth 1 fmt) (> (nth 1 fmt) 0.0)) (vl-catch-all-apply 'vla-setcelltextheight (list tb rr cc (nth 1 fmt))))
+  (if align (vl-catch-all-apply 'vla-setcellalignment (list tb rr cc align))))
 ;; заполнить таблицу: заголовок и «шапка» остаются; строк ровно столько, сколько нужно; нижний левый угол остаётся на месте
-(defun gip:rm-fill-table (tb rooms / nR nC k hdr start n need cur p bot idx rr cc g e rh)
+(defun gip:rm-fill-table (tb rooms / nR nC k hdr start n need cur p bot idx rr cc g e rh fm0 fm1)
   (setq nR (vla-get-rows tb) nC (vla-get-columns tb) k (max 1 (/ nC 2)) n (length rooms) hdr 1)
   (setq rr 0)
   (while (< rr (min 4 nR))
@@ -134,7 +167,8 @@
     (setq rr (1+ rr)))
   (setq start (1+ hdr) need (max 1 (fix (/ (+ n k -1) k))) cur (- nR start)
         p (gip:rm-pt (vla-get-insertionpoint tb)) bot (- (cadr p) (vla-get-height tb))
-        rh (vla-getrowheight tb (1- nR)))
+        rh (vla-getrowheight tb (1- nR))
+        fm0 (gip:rm-pick-fmt tb (list start hdr) 0) fm1 (gip:rm-pick-fmt tb (list start hdr) 1))
   (cond
     ((> need cur) (setq e (vl-catch-all-apply 'vla-insertrows (list tb (1- nR) rh (- need cur)))))
     ((< need cur) (setq e (vl-catch-all-apply 'vla-deleterows (list tb start (- cur need))))))
@@ -149,21 +183,41 @@
   (setq idx 0)
   (foreach r rooms
     (setq g (/ idx need) rr (+ start (rem idx need)))
-    (vl-catch-all-apply 'vla-settext (list tb rr (* 2 g) (itoa (car r))))
-    (vl-catch-all-apply 'vla-settext (list tb rr (1+ (* 2 g)) (gip:u (cadr r))))
+    (gip:rm-put-cell tb rr (* 2 g) (itoa (car r)) fm0 5)          ; номер: по центру
+    (gip:rm-put-cell tb rr (1+ (* 2 g)) (gip:u (cadr r)) fm1 4)   ; название: слева по середине
     (setq idx (1+ idx)))
   (vla-put-insertionpoint tb (vlax-3d-point (car p) (+ bot (vla-get-height tb)) 0.0))
   T)
 ;; новая таблица (если на листе её не было): нижний левый угол — внутренний угол рамки, как в шаблоне
-(defun gip:rm-new-table (F rooms / n tb x y h name)
+(defun gip:rm-any-table (/ ss i o r)
+  (setq r nil)
+  (if (setq ss (ssget "_X" '((0 . "ACAD_TABLE"))))
+    (progn (setq i 0)
+      (while (and (not r) (< i (sslength ss)))
+        (setq o (vlax-ename->vla-object (ssname ss i)) i (1+ i))
+        (if (gip:rm-expl-table-p o) (setq r o)))))
+  r)
+(defun gip:rm-new-table (F rooms / n tb x y h src)
   (setq n (length rooms) h (* 150.0 (+ n 2)) x (- (car F) (- (gip:rm-sw) 500.0)) y (+ (cadr F) 500.0 h))
-  (setq tb (vla-addtable (gip:ms) (vlax-3d-point x y 0.0) (+ n 2) 2 150.0 2000.0))
-  (vla-setcolumnwidth tb 0 631.58) (vla-setcolumnwidth tb 1 3368.42)
-  (vla-settext tb 0 0 "Экспликация помещений")
-  (vl-catch-all-apply 'vla-mergecells (list tb 0 0 0 1))
-  (vla-settext tb 1 0 "№")
-  (vla-settext tb 1 1 "Наименование помещения")
-  (vla-put-layer tb (gip:layer "GIP_Экспликация помещений"))
+  ;; оформление (стиль таблицы, шрифт, высота текста) копируется с уже существующей экспликации чертежа
+  (setq src (vl-catch-all-apply 'gip:rm-any-table nil))
+  (if (or (vl-catch-all-error-p src) (null src)) (setq src nil))
+  (if src
+    (progn
+      (setq tb (vla-copy src))
+      ;; у копии не должно быть метки заготовки
+      (vl-catch-all-apply 'entmod (list (list (cons -1 (vlax-vla-object->ename tb)) (list -3 (list *gip:rm-app*)))))
+      (vla-put-insertionpoint tb (vlax-3d-point x y 0.0)))
+    (progn
+      (setq tb (vla-addtable (gip:ms) (vlax-3d-point x y 0.0) (+ n 2) 2 150.0 2000.0))
+      (vla-setcolumnwidth tb 0 631.58) (vla-setcolumnwidth tb 1 3368.42)
+      (vla-settext tb 0 0 "Экспликация помещений")
+      (vl-catch-all-apply 'vla-mergecells (list tb 0 0 0 1))
+      (vla-settext tb 1 0 "№")
+      (vla-settext tb 1 1 "Наименование помещения")))
+  (vla-put-layer tb (if src (vla-get-layer src) (gip:layer "GIP_Экспликация помещений")))
+  ;; низ таблицы = внутренний угол рамки; fill-table сохраняет нижний левый угол, поэтому задаём его до заполнения
+  (vla-put-insertionpoint tb (vlax-3d-point x (+ (cadr F) 500.0 (vla-get-height tb)) 0.0))
   (gip:rm-fill-table tb rooms)
   tb)
 (defun gip:rm-sync-tables (sheets rooms / sh tbs nT nN)
@@ -174,6 +228,7 @@
     (if tbs
       (foreach tb tbs (if (not (vl-catch-all-error-p (vl-catch-all-apply 'gip:rm-fill-table (list tb rooms)))) (setq nT (1+ nT))))
       (if (not (vl-catch-all-error-p (vl-catch-all-apply 'gip:rm-new-table (list (car sh) rooms)))) (setq nN (1+ nN)))))
+  (if (gip:rm-kind-refs "SW") (vl-catch-all-apply 'gip:rm-stage-table (list rooms)))
   (list nT nN))
 
 ;; ---------------------------------------------------------------- блоки номеров: атрибуты из реестра
@@ -197,8 +252,54 @@
     (if (setq r (assoc no rooms)) (progn (gip:set-atts obj (gip:rm-room-atts r)) (setq n (1+ n)))))
   n)
 
+;; ---------------------------------------------------------------- заготовка над альбомом
+;; Импорт кладёт подложку, номера, экспликацию и листы электрики в отдельные рамки НАД альбомом (kind S*):
+;; рамка 0 — подложка и номера, рамки 1.. — листы электрики. Оттуда команда GIPROOMSDIST раскладывает подложку по листам планов.
+(defun gip:rm-album-box (/ ss i e o nm F x0 y1 n)
+  (setq n 0 x0 nil y1 nil)
+  (if (setq ss (ssget "_X" '((0 . "INSERT"))))
+    (progn
+      (setq i 0)
+      (while (< i (sslength ss))
+        (setq e (ssname ss i) i (1+ i) o (vlax-ename->vla-object e)
+              nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
+        (if (and (= (type nm) 'STR) (= nm "А3-GIP-ALBOM"))
+          (progn
+            (setq F (cdr (assoc 10 (entget e))) n (1+ n))
+            (if (or (null x0) (< (- (car F) (gip:rm-sw)) x0)) (setq x0 (- (car F) (gip:rm-sw))))
+            (if (or (null y1) (> (+ (cadr F) (gip:rm-shh)) y1)) (setq y1 (+ (cadr F) (gip:rm-shh)))))))))
+  (if (> n 0) (list x0 y1) (list 0.0 0.0)))
+;; правый нижний угол рамки заготовки номер i
+(defun gip:rm-stage-f (i / bx)
+  (setq bx (gip:rm-album-box))
+  (list (+ (car bx) (gip:rm-sw) (* i (+ (gip:rm-sw) 2000.0))) (+ (cadr bx) 3000.0)))
+(defun gip:rm-plan-org (F W H)
+  (list (- (+ (car F) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr F) (cadr *gip:plan-at*) *gip:rm-dy*) (/ H 2.0))))
+(defun gip:rm-stage-frame (F title / x0 y0 x1 y1)
+  (setq x0 (- (car F) (gip:rm-sw)) y0 (cadr F) x1 (car F) y1 (+ (cadr F) (gip:rm-shh)))
+  (gip:layer "GIP_Заготовка")
+  (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "GIP_Заготовка") '(62 . 2) '(100 . "AcDbPolyline") '(90 . 4) '(70 . 1)
+                         (list 10 x0 y0) (list 10 x1 y0) (list 10 x1 y1) (list 10 x0 y1))
+                   (gip:rm-tag "S")))
+  (entmake (append (list '(0 . "TEXT") '(8 . "GIP_Заготовка") '(62 . 2) (list 10 (+ x0 500.0) (- y1 800.0) 0.0) '(40 . 400.0) (cons 1 title) (cons 7 (gip:rm-style)))
+                   (gip:rm-tag "S"))))
+(defun gip:rm-kind (e / x)
+  (setq x (cdr (assoc *gip:rm-app* (cdr (assoc -3 (entget e (list *gip:rm-app*)))))))
+  (if x (cdr (assoc 1000 x))))
+(defun gip:rm-kind-refs (kind / ss i r)
+  (setq r nil)
+  (if (setq ss (ssget "_X" (list '(0 . "INSERT") (list -3 (list *gip:rm-app*)))))
+    (progn (setq i 0)
+      (while (< i (sslength ss))
+        (if (= (gip:rm-kind (ssname ss i)) kind) (setq r (cons (ssname ss i) r)))
+        (setq i (1+ i)))))
+  (reverse r))
+(defun gip:rm-layname (s)
+  (foreach ch '("<" ">" "/" "\\" ":" ";" "?" "*" "|" "," "=" "`" "\"") (setq s (gip:repl s ch " ")))
+  s)
+
 ;; ---------------------------------------------------------------- импорт из панели
-(defun gip:rm-import (fn / f l it head W H hdef rooms gw gf gj blkJ blkW blkF sheets sh org n nB e obj r msg)
+(defun gip:rm-import (fn / f l it head W H hdef rooms gw gf gj ge en blkJ blkW blkF blkE sh F0 org n nB e obj r msg k i ent title)
   (if (not (and fn (findfile fn) (setq f (open fn "r"))))
     (progn (gip:rm-report nil "нет файла от панели") nil)
     (progn
@@ -207,22 +308,27 @@
       (if (not (and (listp head) (eq (car head) 'GIPROOMS)))
         (progn (close f) (gip:rm-report nil "файл не распознан") nil)
         (progn
-          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil gj nil nB 0)
+          (setq hdef (nth 3 head) W (nth 4 head) H (nth 5 head) rooms nil gw nil gf nil gj nil ge nil en nil nB 0)
           (while (setq l (read-line f))
             (if (/= l "")
               (progn
                 (setq it (read l))
                 (cond
                   ((and (eq (car it) 'J) (= (length it) 5)) (setq gj (cons it gj)))
-                  ((and (member (car it) '(L C F)) (numberp (cadr it))) (if (= (cadr it) 0) (setq gw (cons it gw)) (setq gf (cons it gf))))
+                  ((and (eq (car it) 'EH) (numberp (nth 1 it))) (setq en (cons (cons (fix (nth 1 it)) (gip:rm-dec (nth 2 it))) en)))
+                  ((and (member (car it) '(L C F)) (numberp (cadr it)))
+                   (setq k (fix (cadr it)))
+                   (cond ((= k 0) (setq gw (cons it gw)))
+                         ((= k 1) (setq gf (cons it gf)))
+                         ((>= k 10)
+                          (if (setq e (assoc (- k 10) ge)) (setq ge (subst (cons (car e) (cons it (cdr e))) e ge)) (setq ge (cons (list (- k 10) it) ge))))))
                   ((and (eq (car it) 'R) (numberp (nth 1 it)) (= (type (nth 2 it)) 'STR))
                    (setq rooms (cons (list (nth 1 it) (gip:rm-dec (nth 2 it)) (float (nth 3 it)) (float (nth 4 it)) (float (nth 5 it))
                                            (gip:rm-vol (float (nth 3 it)) (float (nth 5 it))) (nth 6 it) (nth 7 it)) rooms)))))))
           (close f)
           (vl-file-delete fn)
-          (setq rooms (reverse rooms) sheets (gip:rm-sheets))
+          (setq rooms (reverse rooms))
           (cond
-            ((null sheets) (gip:rm-report nil "Не найдены листы планов (рамки А3-GIP-ALBOM с заголовком «План …»). Ничего не вставлено.") nil)
             ((null rooms) (gip:rm-report nil "В файле нет помещений") nil)
             (T
              (gip:rm-clear)
@@ -238,28 +344,100 @@
              (foreach it gj (entmake (list '(0 . "LINE") '(8 . "0") (cons 10 (list (float (nth 1 it)) (float (nth 2 it)) 0.0)) (cons 11 (list (float (nth 3 it)) (float (nth 4 it)) 0.0)))))
              (entmake '((0 . "ENDBLK")))
              (gip:rm-ensure-block)
-             (foreach sh sheets
-               (setq org (list (- (+ (car (car sh)) (car *gip:plan-at*)) (/ W 2.0)) (- (+ (cadr (car sh)) (cadr *gip:plan-at*) *gip:rm-dy*) (/ H 2.0))))
-               (setq obj (gip:rm-insert blkW (car org) (cadr org) "GIP_Подложка" "W"))
-               ;; для расчёта площадей: левый нижний угол и размер подложки
-               (setq e (vlax-vla-object->ename obj))
-               (entmod (append (entget e) (list (list -3 (list *gip:rm-app* (cons 1000 "W") (list 1010 (car org) (cadr org) 0.0) (cons 1040 W) (cons 1040 H))))))
-               (gip:rm-insert blkF (car org) (cadr org) "GIP_Подложка" "F")
-               (if gj (gip:rm-insert blkJ (car org) (cadr org) "GIP_ПОМ_ПЕРЕМЫЧКА" "J"))
-               (foreach r rooms
-                 (if (and (numberp (nth 6 r)) (numberp (nth 7 r)))
-                   (progn
-                     (setq obj (gip:rm-insert *gip:rm-blk* (+ (car org) (nth 6 r)) (+ (cadr org) (nth 7 r)) "GIP_Номера помещений" "N"))
-                     (gip:set-atts obj (gip:rm-room-atts r))
-                     (setq nB (1+ nB))))))
+             ;; рамка 0 заготовки: подложка по центру, как на листах планов
+             (setq F0 (gip:rm-stage-f 0) org (gip:rm-plan-org F0 W H))
+             (gip:rm-stage-frame F0 (strcat "Заготовка: подложка и номера помещений"
+                                           (if (/= (nth 2 head) "") (strcat " - " (gip:rm-dec (nth 2 head))) "")))
+             (setq obj (gip:rm-insert blkW (car org) (cadr org) "GIP_Подложка" "SW"))
+             (setq e (vlax-vla-object->ename obj))
+             (entmod (append (entget e) (list (list -3 (list *gip:rm-app* (cons 1000 "SW") (list 1010 (car org) (cadr org) 0.0) (cons 1040 W) (cons 1040 H))))))
+             (gip:rm-insert blkF (car org) (cadr org) "GIP_Подложка" "SF")
+             (if gj (gip:rm-insert blkJ (car org) (cadr org) "GIP_ПОМ_ПЕРЕМЫЧКА" "SJ"))
+             (foreach r rooms
+               (if (and (numberp (nth 6 r)) (numberp (nth 7 r)))
+                 (progn
+                   (setq obj (gip:rm-insert *gip:rm-blk* (+ (car org) (nth 6 r)) (+ (cadr org) (nth 7 r)) "GIP_Номера помещений" "SN"))
+                   (gip:set-atts obj (gip:rm-room-atts r))
+                   (setq nB (1+ nB)))))
+             ;; листы электрики: каждый — отдельный блок в своей рамке справа от основной (то же положение относительно рамки)
+             (setq i 0)
+             (foreach ent (reverse ge)
+               (setq title (if (assoc (car ent) en) (cdr (assoc (car ent) en)) (strcat "Лист " (itoa (1+ (car ent))))))
+               (setq blkE (gip:rm-blkname "GIP_RM_E_"))
+               (entmake (list '(0 . "BLOCK") (cons 2 blkE) '(70 . 0) '(10 0.0 0.0 0.0)))
+               (foreach it (reverse (cdr ent)) (gip:plan-ent it))
+               (entmake '((0 . "ENDBLK")))
+               (setq i (1+ i) sh (gip:rm-stage-f i))
+               (gip:rm-stage-frame sh (strcat "Заготовка: " title))
+               (gip:rm-insert blkE (car (gip:rm-plan-org sh W H)) (cadr (gip:rm-plan-org sh W H)) (strcat "GIP_Подложка " (gip:rm-layname title)) "SE"))
              (gip:room-put rooms)
-             (setq n (gip:rm-sync-tables sheets rooms))
-             (setq msg (strcat "листов: " (itoa (length sheets)) ", помещений: " (itoa (length rooms)) ", блоков номеров: " (itoa nB)
-                               ", экспликаций обновлено: " (itoa (car n)) ", создано: " (itoa (cadr n))
-                               ". Площади: кнопка «Посчитать площади в AutoCAD»."))
-             (princ (strcat "\nГИП: помещения — " msg))
+             (setq n (gip:rm-stage-table rooms))
+             (setq msg (strcat "заготовка над альбомом: помещений " (itoa (length rooms)) ", блоков номеров " (itoa nB)
+                               (if ge (strcat ", листов электрики " (itoa (length ge))) "")
+                               ". Передвиньте номера при необходимости, затем «Разложить по листам планов»."))
+             (princ (strcat "\nГИП: помещения - " msg))
              (gip:rm-report T msg)
              T)))))))
+
+;; экспликация в рамке заготовки: обновить на месте или создать (по образцу существующей)
+(defun gip:rm-stage-table (rooms / F0 tbs tb n)
+  (setq F0 (gip:rm-stage-f 0) n 0)
+  (setq tbs (vl-catch-all-apply 'gip:rm-find-tables (list F0)))
+  (if (vl-catch-all-error-p tbs) (setq tbs nil))
+  (if tbs
+    (foreach tb tbs (if (not (vl-catch-all-error-p (vl-catch-all-apply 'gip:rm-fill-table (list tb rooms)))) (setq n (1+ n))))
+    (progn
+      (setq tb (vl-catch-all-apply 'gip:rm-new-table (list F0 rooms)))
+      (if (not (vl-catch-all-error-p tb)) (progn (gip:rm-tag-obj tb "ST") (setq n 1)))))
+  n)
+
+;; ---------------------------------------------------------------- разложить заготовку по листам планов
+(setq *gip:rm-st* nil)
+(defun gip:rm-dist-run (/ sw0 xd orgS W H sheets rooms ents sh org e ed pt n nn obj no r kind)
+  (setq sw0 (car (gip:rm-kind-refs "SW")))
+  (cond
+    ((null sw0) (gip:rm-report nil "Нет заготовки: сначала «Вставить в заготовку над альбомом»."))
+    ((null (setq sheets (gip:rm-sheets))) (gip:rm-report nil "Не найдены листы планов (рамки А3-GIP-ALBOM с заголовком «План …»)."))
+    (T
+     (setq xd (gip:rm-xd sw0) orgS (car xd) W (cadr xd) H (caddr xd) rooms (gip:room-list))
+     ;; номера могли подвинуть в заготовке: запоминаем их положение в реестре
+     (foreach e (gip:rm-kind-refs "SN")
+       (setq obj (vlax-ename->vla-object e) no (atoi (gip:rm-att-val obj "NUM")))
+       (if (setq r (assoc no rooms))
+         (setq rooms (subst (append (list (nth 0 r) (nth 1 r) (nth 2 r) (nth 3 r) (nth 4 r) (nth 5 r))
+                                    (list (- (car (cdr (assoc 10 (entget e)))) (car orgS)) (- (cadr (cdr (assoc 10 (entget e)))) (cadr orgS))))
+                            r rooms))))
+     (gip:room-put rooms)
+     ;; убрать прежние копии на листах (но не заготовку)
+     (foreach e (gip:rm-tagged-all)
+       (if (not (wcmatch (strcat (cond ((gip:rm-kind e)) (T ""))) "S*")) (entdel e)))
+     (setq ents (append (gip:rm-kind-refs "SW") (gip:rm-kind-refs "SF") (gip:rm-kind-refs "SJ") (gip:rm-kind-refs "SN")) n 0 nn 0)
+     (foreach sh sheets
+       (setq org (gip:rm-plan-org (car sh) W H))
+       (foreach e ents
+         (setq ed (entget e) kind (substr (gip:rm-kind e) 2)
+               pt (list (+ (car (cdr (assoc 10 ed))) (- (car org) (car orgS))) (+ (cadr (cdr (assoc 10 ed))) (- (cadr org) (cadr orgS)))))
+         (setq obj (gip:rm-insert (cdr (assoc 2 ed)) (car pt) (cadr pt) (cdr (assoc 8 ed)) kind))
+         (cond
+           ((= kind "W")
+            (entmod (append (entget (vlax-vla-object->ename obj)) (list (list -3 (list *gip:rm-app* (cons 1000 "W") (list 1010 (car org) (cadr org) 0.0) (cons 1040 W) (cons 1040 H)))))))
+           ((= kind "N")
+            (if (setq r (assoc (atoi (gip:rm-att-val (vlax-ename->vla-object e) "NUM")) rooms))
+              (gip:set-atts obj (gip:rm-room-atts r)))
+            (setq nn (1+ nn)))))
+       (setq n (1+ n)))
+     (gip:rm-sync-blocks rooms)
+     (setq e (gip:rm-sync-tables sheets rooms))
+     (gip:rm-report T (strcat "листов планов: " (itoa n) ", блоков номеров: " (itoa nn) ", экспликаций обновлено: " (itoa (car e)) ", создано: " (itoa (cadr e)))))))
+(defun gip:rm-tagged-all (/ ss i r)
+  (setq r nil)
+  (if (setq ss (ssget "_X" (list (list -3 (list *gip:rm-app*)))))
+    (progn (setq i 0) (while (< i (sslength ss)) (setq r (cons (ssname ss i) r) i (1+ i)))))
+  r)
+(defun c:GIPROOMSDIST (/ r)
+  (setq r (vl-catch-all-apply 'gip:rm-dist-run nil))
+  (if (vl-catch-all-error-p r) (gip:rm-report nil (strcat "ошибка раскладки по листам: " (vl-catch-all-error-message r))))
+  (princ))
 
 ;; ---------------------------------------------------------------- площади средствами AutoCAD (-BOUNDARY)
 ;; Копия подложки со стенами разбирается на отдельные линии, все слои кроме слоя стен замораживаются,
@@ -291,8 +469,6 @@
   (if (setq ss (ssget "_X" (list (cons 8 lay))))
     (progn (setq i 0) (while (< i (sslength ss)) (entdel (ssname ss i)) (setq i (1+ i))))))
 (setq *gip:rm-st* nil)
-;; план ставится по центру листа, но на 1000 мм ниже общего положения плана (было выше нужного)
-(setq *gip:rm-dy* -1000.0)
 (defun gip:rm-area-run (/ doc refs w0 xd org W H rooms tmp pieces lays clay e1 area nOk bad pt res osm cm l w r q o e best ba)
   (setq refs (gip:rm-wall-refs) rooms (gip:room-list) doc (vla-get-activedocument (vlax-get-acad-object)))
   (cond

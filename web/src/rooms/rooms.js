@@ -306,6 +306,20 @@
         wsegs.push([X(A), Y(A), X(B), Y(B)]);
       }
     });
+    /* листы электрики (розетки, свет, тёплый пол): каждый — отдельный блок; координаты совмещены с подложкой */
+    (P.extras || []).forEach(function (ex, ei) {
+      lines.push('(EH ' + ei + ' ' + lispStr(ex.title) + ')');
+      var k2 = ex.mmPerPt, o2 = ex.origin, sh = ex.shift, lim = [-1500, -1500, (P.W || 0) + 1500, (P.H || 0) + 1500];
+      function X2(p) { return (p[0] - o2[0]) * k2 + sh[0]; } function Y2(p) { return (p[1] - o2[1]) * k2 + sh[1]; }
+      ex.D.paths.forEach(function (p, pi) {
+        if (!ex.keep[p.g] || p.pts.length < 2) return;
+        var q = p.pts.map(function (a) { return [X2(a), Y2(a)]; }), bb = bboxOf(q);
+        if (bb[0] < lim[0] || bb[1] < lim[1] || bb[2] > lim[2] || bb[3] > lim[3]) return;
+        var fo = p.fc && !p.sc;
+        if (fo && Math.max(bb[2] - bb[0], bb[3] - bb[1]) > 300) return;
+        lines.push('(' + (p.closed || fo ? 'C' : 'L') + ' ' + (10 + ei) + ' ' + q.map(function (a) { return f1(a[0]) + ' ' + f1(a[1]); }).join(' ') + ')'); nL++;
+      });
+    });
     var bl = bridgeLines(wsegs);
     bl.forEach(function (b) { lines.push('(J ' + f1(b[0]) + ' ' + f1(b[1]) + ' ' + f1(b[2]) + ' ' + f1(b[3]) + ')'); });
     return { text: lines.join('\n') + '\n', nGeom: nL, nBridge: bl.length / 2 };

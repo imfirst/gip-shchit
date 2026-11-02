@@ -54,15 +54,28 @@
       <p class="pl-hint" id="roomHint">Номера взяты из экспликации дизайнера. Чтобы переставить номер на плане, нажмите на его кружок в таблице и затем на нужное место просмотра.</p>
     </div>
 
+    <div class="panel pl-step" id="exBox" hidden>
+      <h2>5. Листы электрики (необязательно)</h2>
+      <div class="pl-row">
+        <label class="fld"><span class="lbl">Лист PDF</span><select id="exPage"></select></label>
+        <label class="fld"><span class="lbl">Что на листе</span><select id="exKind"><option>Розетки</option><option>Освещение</option><option>Тёплый пол</option><option>Другое</option></select></label>
+        <button class="btn" type="button" id="exAdd">Добавить лист</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="exBase" checked>Убирать с листа стены и мебель (они уже есть в подложке)</label>
+      <div id="exList"></div>
+      <p class="pl-hint">Каждый лист встанет отдельным блоком в своей рамке рядом с подложкой, в тех же координатах: блок можно совместить с подложкой простым перемещением. Размеры, выноски и тексты не переносятся. Лист совмещается с основным по стенам.</p>
+    </div>
+
     <div class="panel pl-step" id="goBox" hidden>
-      <h2>5. В чертёж</h2>
-      <div class="pl-row"><button class="btn primary" type="button" id="go">Вставить на листы планов</button><button class="btn" type="button" id="save">Сохранить файл</button></div>
+      <h2>6. В чертёж</h2>
+      <div class="pl-row"><button class="btn primary" type="button" id="go">Вставить в заготовку над альбомом</button><button class="btn" type="button" id="save">Сохранить файл</button></div>
+      <div class="pl-row"><button class="btn primary" type="button" id="distBtn" title="Скопировать подложку, номера и экспликацию из заготовки на все листы планов">Разложить по листам планов</button></div>
       <div class="pl-row">
         <button class="btn" type="button" id="syncBtn" title="Обновить блоки номеров и все экспликации из реестра помещений в чертеже">Обновить блоки и таблицы</button>
         <button class="btn" type="button" id="areaBtn" title="Контуры и площади помещений средствами AutoCAD (команда BOUNDARY)">Посчитать площади в AutoCAD</button>
         <button class="btn" type="button" id="readBtn" title="Прочитать реестр помещений из чертежа">Прочитать из чертежа</button>
       </div>
-      <p class="pl-hint" id="goHint">Подложка и номера встанут по центру каждого листа плана, экспликация обновится на месте. Реестр помещений хранится в чертеже и доступен другим программам ГИП.</p>
+      <p class="pl-hint" id="goHint">Подложка, номера и экспликация сначала встанут в отдельную рамку над альбомом: там их можно поправить. Затем «Разложить по листам планов» скопирует их по центру каждого листа, существующие экспликации обновятся на месте. Реестр помещений хранится в чертеже и доступен другим программам ГИП.</p>
     </div>
   </section>
 

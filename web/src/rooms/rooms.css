@@ -13,3 +13,6 @@
 #groups td:nth-child(3) { width: 104px; }
 #groups tr.hot td { background: var(--accent-soft); }
 .w-m { width: 90px; }
+.ex-item{border:1px solid var(--line,#d9dde3);border-radius:6px;padding:6px 8px;margin:6px 0}
+.ex-item summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ex-item table{margin-top:6px}
