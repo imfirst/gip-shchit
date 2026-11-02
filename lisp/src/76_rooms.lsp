@@ -18,7 +18,32 @@
   (gip:dict-put *gip:rm-key* (vl-prin1-to-string l))
   (vl-catch-all-apply 'gip:rm-publish (list l)))
 ;; для панели: если реестр помещений уже есть в чертеже (импорт до обновления), а JSON ещё не опубликован
-(defun gip:rm-publish-reg () (if (gip:room-list) (gip:rm-publish (gip:room-list))) (princ))
+;; названия помещений из экспликации чертежа (если реестра нет): пары «№ — название» из первой таблицы-экспликации
+(defun gip:rm-names-from-tables (/ ss i o nR nC k rr g no nm r)
+  (setq r nil)
+  (if (setq ss (ssget "_X" '((0 . "ACAD_TABLE"))))
+    (progn
+      (setq i 0)
+      (while (and (null r) (< i (sslength ss)))
+        (setq o (vlax-ename->vla-object (ssname ss i)) i (1+ i))
+        (if (gip:rm-expl-table-p o)
+          (progn
+            (setq nR (vla-get-rows o) nC (vla-get-columns o) k (max 1 (/ nC 2)) rr 2)
+            (while (< rr nR)
+              (setq g 0)
+              (while (< g k)
+                (setq no (atoi (gip:rm-cell o rr (* 2 g))) nm (gip:rm-cell o rr (1+ (* 2 g))))
+                (if (and (> no 0) (/= nm "") (not (assoc no r))) (setq r (cons (list no nm 0.0 0.0 0.0 0.0 nil nil) r)))
+                (setq g (1+ g)))
+              (setq rr (1+ rr))))))))
+  (vl-sort r '(lambda (a b) (< (car a) (car b)))))
+(defun gip:rm-publish-reg (/ l)
+  (setq l (gip:room-list))
+  (if (null l) (setq l (vl-catch-all-apply 'gip:rm-names-from-tables nil)))
+  (if (vl-catch-all-error-p l) (setq l nil))
+  (gip:rm-publish l)
+  (princ (strcat "\nГИП: названий помещений для панели: " (itoa (length l))))
+  (princ))
 (defun gip:rm-publish (l / parts)
   (setq parts nil)
   (foreach r l
