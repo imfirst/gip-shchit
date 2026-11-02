@@ -46,6 +46,7 @@ namespace Gip.Shchit
         {
             public string Last;     // последний JSON, известный странице
             public bool Linked;
+            public bool RoomsAsked;
             public string Rooms;    // последний список помещений, отправленный странице
         }
 
@@ -208,7 +209,13 @@ namespace Gip.Shchit
         private void PushRooms(Document doc, bool force)
         {
             var link = Link(doc);
-            var rooms = ReadDict(doc, "GIPROOMSJSON") ?? "[]";
+            var rooms = ReadDict(doc, "GIPROOMSJSON");
+            if (rooms == null)
+            {
+                // реестр мог быть создан раньше: просим LISP опубликовать его (один раз на чертёж)
+                if (!link.RoomsAsked) { link.RoomsAsked = true; doc.SendStringToExecute("(if gip:rm-publish-reg (gip:rm-publish-reg)) ", true, false, false); }
+                rooms = "[]";
+            }
             if (!force && rooms == link.Rooms) return;
             link.Rooms = rooms;
             Post("{\"type\":\"rooms\",\"rooms\":" + rooms + "}");

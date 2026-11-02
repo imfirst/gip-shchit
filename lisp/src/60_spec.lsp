@@ -66,7 +66,7 @@
   v)
 
 ;; роль листа плана, на котором считается блок: розетки — «силовые сети», выключатели и светильники — «сети освещения»
-(setq *gip:plan-blocks* '(("ЭОМ_Светильники_GIP" "l" "plan_l") ("ЭОМ_Выключатели_GIP" "s" "plan_l") ("ЭОМ_Розетки_GIP" "s" "plan_p")))
+(setq *gip:spec-blocks* '(("ЭОМ_Светильники_GIP" "l" "plan_l") ("ЭОМ_Выключатели_GIP" "s" "plan_l") ("ЭОМ_Розетки_GIP" "s" "plan_p")))
 
 ;; подсчёт блоков на листах планов: список (наименование вид-блока число); наименование — атрибут ИМЯ блока
 ;; (запасной вариант — динамическое свойство «Вид»). Условные обозначения и заготовки не считаются.
@@ -85,7 +85,7 @@
           (progn
             (setq o (vlax-ename->vla-object e))
             (setq nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
-            (if (and (= (type nm) 'STR) (setq bi (assoc nm *gip:plan-blocks*)) (= (nth 2 bi) (nth 4 r)))
+            (if (and (= (type nm) 'STR) (setq bi (assoc nm *gip:spec-blocks*)) (= (nth 2 bi) (nth 4 r)))
               (progn
                 (setq v (gip:blk-att o "ИМЯ"))
                 (if (= v "")

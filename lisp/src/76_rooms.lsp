@@ -17,6 +17,8 @@
 (defun gip:room-put (l)
   (gip:dict-put *gip:rm-key* (vl-prin1-to-string l))
   (vl-catch-all-apply 'gip:rm-publish (list l)))
+;; для панели: если реестр помещений уже есть в чертеже (импорт до обновления), а JSON ещё не опубликован
+(defun gip:rm-publish-reg () (if (gip:room-list) (gip:rm-publish (gip:room-list))) (princ))
 (defun gip:rm-publish (l / parts)
   (setq parts nil)
   (foreach r l
