@@ -1,0 +1,27 @@
+/* Отопление: две колонки — шаги и таблицы расчёта */
+.ht { grid-template-columns: minmax(330px, 420px) 1fr; }
+.ht-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+.ht-grid .fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ht-grid .fld.wide { grid-column: span 3; }
+.ht-grid input, .ht-grid select { width: 100%; min-width: 0; height: 30px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--text); padding: 0 6px; font-size: 13px; }
+#rooms th:nth-child(1), #rooms td:nth-child(1) { width: 34px; }
+#rooms th:nth-child(3), #rooms td:nth-child(3), #rooms th:nth-child(4), #rooms td:nth-child(4) { width: 52px; }
+#rooms th:nth-child(5), #rooms td:nth-child(5), #rooms th:nth-child(6), #rooms td:nth-child(6) { width: 44px; text-align: center; }
+#rooms th:nth-child(7), #rooms td:nth-child(7), #rooms th:nth-child(8), #rooms td:nth-child(8) { width: 66px; }
+#rads th:nth-child(1), #rads td:nth-child(1) { width: 40px; }
+#rads th:nth-child(5), #rads td:nth-child(5) { width: 56px; }
+#rads th:nth-child(6), #rads td:nth-child(6) { width: 58px; }
+#rads th:nth-child(7), #rads td:nth-child(7) { width: 96px; }
+#rads th:nth-child(8), #rads td:nth-child(8) { width: 62px; }
+#rads th:nth-child(9), #rads td:nth-child(9) { width: 28px; }
+#rads tr.warn td { background: #fff4e5; }
+#rads tr.off td { opacity: .6; }
+.pl-t input.w-xs { width: 100%; min-width: 0; height: 28px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 6px; background: var(--surface); color: var(--text); font-size: 13px; }
+.pl-t .x { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 15px; }
+#spec { font-size: 12px; }
+#spec tr.sec td { font-weight: 700; padding-top: 8px; }
+#spec th:nth-child(1), #spec td:nth-child(1) { width: 36px; }
+#spec th:nth-child(5), #spec td:nth-child(5) { width: 40px; }
+#spec th:nth-child(6), #spec td:nth-child(6) { width: 56px; }
+.ht-warn { font-size: 12px; color: #b45309; display: flex; flex-direction: column; gap: 3px; }
+.pl-hint.ok { color: #15803d; font-weight: 600; } .pl-hint.bad { color: #b42318; font-weight: 600; }

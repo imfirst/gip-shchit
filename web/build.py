@@ -45,3 +45,16 @@ rooms = rooms.replace('/*ROOMSUI*/', open(os.path.join(RM, 'rooms-ui.js'), encod
 assert 'googleapis' not in rooms
 open(os.path.join(DIST, 'rooms.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + rooms + '</body></html>')
 print('rooms', len(rooms))
+
+# страница «Отопление» (панель GIPHEAT): база приборов, состав узлов (nodes.json из tools/heat_template.py), расчёт
+HT = os.path.join(S, 'heat')
+heat = open(os.path.join(HT, 'heat.html'), encoding='utf-8').read()
+heat = heat.replace('/*CSS*/', open(os.path.join(S, 'style.css'), encoding='utf-8').read())
+heat = heat.replace('/*PLANCSS*/', open(os.path.join(PL, 'plan.css'), encoding='utf-8').read()).replace('/*HEATCSS*/', open(os.path.join(HT, 'heat.css'), encoding='utf-8').read())
+heat = heat.replace('/*HEATDB*/', open(os.path.join(HT, 'db.js'), encoding='utf-8').read())
+heat = heat.replace('/*NODES*/', open(os.path.join(HT, 'nodes.json'), encoding='utf-8').read().strip())
+heat = heat.replace('/*HEATCALC*/', open(os.path.join(HT, 'calc.js'), encoding='utf-8').read())
+heat = heat.replace('/*HEATUI*/', open(os.path.join(HT, 'heat-ui.js'), encoding='utf-8').read())
+assert 'googleapis' not in heat
+open(os.path.join(DIST, 'heat.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + heat + '</body></html>')
+print('heat', len(heat))

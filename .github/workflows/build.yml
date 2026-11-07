@@ -27,6 +27,9 @@ jobs:
           node web/test/plan_geometry_test.mjs
           python lisp/emu/test_plan_import.py
           python lisp/emu/test_rooms.py
+          node web/test/heat_test.js
+          python lisp/emu/test_heat.py
+          python lisp/emu/test_heat_build.py
 
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
@@ -48,6 +51,7 @@ jobs:
           Copy-Item dist/panel.html "$b/Contents/web/panel.html"
           Copy-Item dist/plan.html "$b/Contents/web/plan.html"
           Copy-Item dist/rooms.html "$b/Contents/web/rooms.html"
+          Copy-Item dist/heat.html "$b/Contents/web/heat.html"
           New-Item -ItemType Directory -Force "$b/Contents/web/pdfjs" | Out-Null
           Copy-Item dist/pdfjs/* "$b/Contents/web/pdfjs/"
           Get-ChildItem -Recurse $b | ForEach-Object { $_.FullName }
@@ -57,6 +61,7 @@ jobs:
           Copy-Item docs/README_GIP_SHCHIT.txt "out/zip/ОПИСАНИЕ.txt"
           Compress-Archive -Path out/zip/* -DestinationPath out/GIP_SHCHIT_AutoCAD.zip -Force
           Compress-Archive -Path template/GIP_EOM_Shablon.dxf -DestinationPath out/GIP_EOM_Shablon.zip -Force
+          Compress-Archive -Path template/GIP_VIK_EOM_O_Shablon.dxf -DestinationPath out/GIP_VIK_EOM_O_Shablon.zip -Force
 
       - uses: actions/upload-artifact@v4
         with:
@@ -64,6 +69,7 @@ jobs:
           path: |
             out/GIP_SHCHIT_AutoCAD.zip
             out/GIP_EOM_Shablon.zip
+            out/GIP_VIK_EOM_O_Shablon.zip
 
       - name: Выпуск (Releases)
         if: github.ref == 'refs/heads/main'
@@ -73,4 +79,4 @@ jobs:
         run: |
           $tag = "v1.0.${{ github.run_number }}"
           $msg = (git log -1 --pretty=%s)
-          gh release create $tag out/GIP_SHCHIT_AutoCAD.zip out/GIP_EOM_Shablon.zip --title "GIP-ЩИТ $tag" --notes "$msg`n`nУстановка — в файле УСТАНОВКА.txt внутри архива." --latest
+          gh release create $tag out/GIP_SHCHIT_AutoCAD.zip out/GIP_EOM_Shablon.zip out/GIP_VIK_EOM_O_Shablon.zip --title "GIP-ЩИТ $tag" --notes "$msg`n`nУстановка — в файле УСТАНОВКА.txt внутри архива." --latest

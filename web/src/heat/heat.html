@@ -1,0 +1,85 @@
+<title>Отопление · ГИП</title>
+<style>
+/*CSS*/
+/*PLANCSS*/
+/*HEATCSS*/
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Отопление</h1><span class="sub">помещения → приборы под окнами → трассы Т1/Т2 от ШРВ → схема и спецификация</span></div>
+  <div class="spacer"></div>
+  <button class="btn" type="button" id="readBtn" title="Прочитать помещения, окна и ШРВ из чертежа">Обновить из чертежа</button>
+</header>
+
+<main class="pl ht">
+  <section class="pl-side" aria-label="Шаги">
+    <div class="panel pl-step">
+      <h2>1. План и окна</h2>
+      <p class="pl-hint" id="sheetInfo">Нужен лист «План … с сетями Т1, Т2» альбома О с подложкой (панель «Помещения» → «Разложить по листам планов»).</p>
+      <div class="pl-row">
+        <button class="btn primary" type="button" id="scanBtn" title="Найти окна на подложке листа плана Т1, Т2 и привязать их к помещениям">Найти окна</button>
+        <button class="btn" type="button" id="winBtn" title="В AutoCAD: два края окна по грани стены и точка в помещении">+ окно</button>
+        <button class="btn" type="button" id="winDelBtn" title="В AutoCAD: указать окно, которое не нужно">− окно</button>
+      </div>
+      <div class="pl-row">
+        <button class="btn" type="button" id="shrvBtn" title="В AutoCAD: указать место ШРВ у стены (со стороны помещения)">ШРВ отопления</button>
+        <span class="pl-hint" id="shrvInfo">не указан</span>
+      </div>
+    </div>
+
+    <div class="panel pl-step">
+      <h2>2. Исходные данные</h2>
+      <div class="ht-grid">
+        <label class="fld"><span class="lbl">Подача, °C</span><input id="p_tsup" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl">Обратка, °C</span><input id="p_tret" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl">В помещении, °C</span><input id="p_tin" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl" title="Удельные теплопотери при высоте 2,7 м">Вт/м²</span><input id="p_q" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl">Запас</span><input id="p_reserve" inputmode="decimal"></label>
+        <label class="fld"><span class="lbl" title="Коэффициент для угловых помещений">Угловое ×</span><input id="p_corner" inputmode="decimal"></label>
+      </div>
+      <div class="ht-grid">
+        <label class="fld wide"><span class="lbl">Приборы по умолчанию</span><select id="p_series"></select></label>
+        <label class="fld"><span class="lbl" title="Высота прибора не больше (по подоконнику)">Высота до, мм</span><input id="p_maxH" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl">Колонок</span><select id="p_cols"><option value="2">2</option><option value="3">3</option></select></label>
+        <label class="fld"><span class="lbl" title="Длина прибора не больше доли ширины окна">Длина ≤ окна ×</span><input id="p_lenMax" inputmode="decimal"></label>
+        <label class="fld wide"><span class="lbl">Подключение</span><select id="p_conn"></select></label>
+        <label class="fld wide"><span class="lbl">Внутрипольный конвектор (Varmann)</span><select id="p_conv"></select></label>
+        <label class="fld wide"><span class="lbl">Трубы</span><select id="p_pipe"></select></label>
+        <label class="fld wide"><span class="lbl">ШРВ</span><select id="p_collector"></select></label>
+      </div>
+    </div>
+
+    <div class="panel pl-step">
+      <h2>3. В чертёж</h2>
+      <div class="pl-row"><button class="btn primary" type="button" id="buildBtn" title="Приборы, трассы Т1/Т2, подписи, аксонометрия, узлы, спецификация">Построить отопление</button></div>
+      <p class="pl-hint" id="buildInfo">Перестраиваются только объекты отопления (метка GIPHEAT). Приборы можно поменять в таблице и построить заново.</p>
+      <div id="warns" class="ht-warn"></div>
+    </div>
+  </section>
+
+  <section class="pl-side" aria-label="Расчёт">
+    <div class="panel pl-step">
+      <h2>Помещения</h2>
+      <table class="pl-t" id="rooms"><thead><tr><th>№</th><th>Название</th><th>S, м²</th><th>H</th><th title="Отапливается">Отопл.</th><th title="Угловое">Угл.</th><th title="Расчётная нагрузка">Q, Вт</th><th title="Задать нагрузку вручную">Q вруч.</th><th>Окна</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel pl-step">
+      <h2>Приборы</h2>
+      <table class="pl-t" id="rads"><thead><tr><th>Окно</th><th>Помещение</th><th>Серия</th><th>Модель</th><th title="Секций (или длина конвектора)">N / L</th><th>L, мм</th><th title="Нужно / даёт прибор">Q, Вт</th><th>Подкл.</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel pl-step">
+      <h2>Спецификация (предпросмотр)</h2>
+      <table class="pl-t" id="spec"><thead><tr><th>Поз.</th><th>Наименование</th><th>Тип, марка</th><th>Изгот.</th><th>Ед.</th><th>Кол.</th></tr></thead><tbody></tbody></table>
+      <p class="pl-hint">Длины труб и изоляции считаются по построенным трассам (+10 %), в чертеже.</p>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/*HEATDB*/
+var HEAT_NODES = /*NODES*/;
+/*HEATCALC*/
+</script>
+<script>
+/*HEATUI*/
+</script>

@@ -18,7 +18,7 @@ namespace Gip.Shchit
             try
             {
                 var ed = AcAp.DocumentManager.MdiActiveDocument?.Editor;
-                ed?.WriteMessage("\nГИП-ЩИТ: панель «Группы щита» — команда GIPPANEL (ГИППАНЕЛЬ); панель «Помещения» — команда GIPROOMS.");
+                ed?.WriteMessage("\nГИП-ЩИТ: панель «Группы щита» — команда GIPPANEL (ГИППАНЕЛЬ); панель «Помещения» — команда GIPROOMS; «Отопление» — команда GIPHEAT.");
             }
             catch { /* при запуске AutoCAD документа может ещё не быть */ }
         }
@@ -33,6 +33,34 @@ namespace Gip.Shchit
 
         [CommandMethod("GIP", "GIPROOMS", CommandFlags.Session | CommandFlags.NoHistory)]
         public void ShowRooms() => RoomsHost.Show();
+
+        [CommandMethod("GIP", "GIPHEAT", CommandFlags.Session | CommandFlags.NoHistory)]
+        public void ShowHeat() => HeatHost.Show();
+    }
+
+    /// <summary>Закрепляемая палитра «Отопление»: приборы под окнами, трассы Т1/Т2 от ШРВ, схема, спецификация.</summary>
+    internal static class HeatHost
+    {
+        private static PaletteSet _ps;
+        private static HeatControl _panel;
+
+        public static void Show()
+        {
+            if (_ps == null)
+            {
+                _ps = new PaletteSet("ГИП · Отопление", "GIPHEAT", new Guid("3b8c1f6e-58a4-4c2e-9a7d-0e5b2c7d9f31"))
+                {
+                    Style = PaletteSetStyles.ShowCloseButton | PaletteSetStyles.ShowPropertiesMenu | PaletteSetStyles.ShowAutoHideButton,
+                    MinimumSize = new Size(420, 360),
+                    DockEnabled = DockSides.Left | DockSides.Right | DockSides.None
+                };
+                _panel = new HeatControl();
+                _ps.Add("Отопление", _panel);
+                if (_ps.Size.Width < 500) _ps.Size = new Size(1200, 800);
+            }
+            _ps.Visible = true;
+            _panel?.OnShown();
+        }
     }
 
     /// <summary>Закрепляемая палитра «Помещения»: PDF дизайнера → подложка, номера и экспликация.</summary>

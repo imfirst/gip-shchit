@@ -7,7 +7,7 @@
 
 (defun gip:F->O (F) (list (+ (car F) (car *gip:dO*)) (+ (cadr F) (cadr *gip:dO*))))
 
-;; листы шаблона: рамки А3-GIP-ALBOM без метки GIPGEN и их названия из штампа
+;; листы шаблона: рамки А3-GIP-ALBOM без меток GIPGEN/GIPHEAT и их названия из штампа
 (defun gip:template-sheets (/ ss i e o ip nm res ttl tss j te tp)
   (setq res nil)
   (if (setq ss (ssget "_X" '((0 . "INSERT"))))
@@ -17,7 +17,8 @@
         (setq e (ssname ss i) i (1+ i))
         (setq o (vlax-ename->vla-object e))
         (setq nm (vl-catch-all-apply 'vlax-get (list o 'EffectiveName)))
-        (if (and (= nm "А3-GIP-ALBOM") (not (assoc -3 (entget e (list *gip:app*)))))
+        ;; рамки альбома О (метка GIPHEAT) — не листы ЭОМ
+        (if (and (= nm "А3-GIP-ALBOM") (not (assoc -3 (entget e (list *gip:app*)))) (not (assoc -3 (entget e (list "GIPHEAT")))))
           (setq res (cons (list (cdr (assoc 10 (entget e))) e) res))))))
   ;; названия
   (setq tss (ssget "_X" '((0 . "MTEXT"))))
