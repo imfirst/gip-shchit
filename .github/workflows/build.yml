@@ -27,6 +27,7 @@ jobs:
           node web/test/plan_geometry_test.mjs
           python lisp/emu/test_plan_import.py
           python lisp/emu/test_rooms.py
+          python lisp/emu/test_rooms_add.py
           node web/test/heat_test.js
           python lisp/emu/test_heat.py
           python lisp/emu/test_heat_build.py
