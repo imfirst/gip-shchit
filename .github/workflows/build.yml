@@ -30,6 +30,8 @@ jobs:
           node web/test/heat_test.js
           python lisp/emu/test_heat.py
           python lisp/emu/test_heat_build.py
+          node web/test/cond_test.js
+          python lisp/emu/test_cond_build.py
 
       - name: Сборка DLL
         run: dotnet build plugin/GipShchit/GipShchit.csproj -c Release -o out/bin
@@ -52,6 +54,8 @@ jobs:
           Copy-Item dist/plan.html "$b/Contents/web/plan.html"
           Copy-Item dist/rooms.html "$b/Contents/web/rooms.html"
           Copy-Item dist/heat.html "$b/Contents/web/heat.html"
+          Copy-Item dist/cond.html "$b/Contents/web/cond.html"
+          Copy-Item dist/proekt.html "$b/Contents/web/proekt.html"
           New-Item -ItemType Directory -Force "$b/Contents/web/pdfjs" | Out-Null
           Copy-Item dist/pdfjs/* "$b/Contents/web/pdfjs/"
           Get-ChildItem -Recurse $b | ForEach-Object { $_.FullName }

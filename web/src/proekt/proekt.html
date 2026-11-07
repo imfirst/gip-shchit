@@ -1,0 +1,68 @@
+<title>Проект · ГИП</title>
+<style>
+/*CSS*/
+/*PLANCSS*/
+.pj { grid-template-columns: minmax(330px, 440px) 1fr; }
+.pj-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.pj-grid .fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pj-grid .fld.wide { grid-column: span 2; }
+.pj-grid input, .pj-grid select { width: 100%; min-width: 0; height: 30px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--text); padding: 0 6px; font-size: 13px; }
+.pj-sys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.pj-card { border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); }
+.pj-card h3 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pj-card .st { font-size: 12px; color: var(--muted); }
+.pj-dot { width: 9px; height: 9px; border-radius: 50%; background: #d0d5dd; display: inline-block; }
+.pj-dot.ok { background: #12b76a; } .pj-dot.part { background: #f79009; } .pj-dot.off { background: #d0d5dd; }
+.pj-audit { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pj-audit .crit { color: #b42318; } .pj-audit .chk { color: #b45309; } .pj-audit .info { color: var(--muted); }
+.pj-chk { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Проект квартиры</h1><span class="sub">данные проекта · состояние систем · проверка комплекта</span></div>
+  <div class="spacer"></div>
+  <button class="btn" type="button" id="readBtn" title="Прочитать состояние систем из чертежа">Обновить из чертежа</button>
+</header>
+
+<main class="pl pj">
+  <section class="pl-side" aria-label="Данные проекта">
+    <div class="panel pl-step">
+      <h2>1. Объект</h2>
+      <div class="pj-grid">
+        <label class="fld wide"><span class="lbl">Адрес объекта</span><input id="f_address" placeholder="г. Москва, …"></label>
+        <label class="fld"><span class="lbl">Квартира №</span><input id="f_flat"></label>
+        <label class="fld"><span class="lbl">Этаж</span><input id="f_floor" inputmode="numeric"></label>
+        <label class="fld"><span class="lbl">Шифр</span><input id="f_code"></label>
+        <label class="fld"><span class="lbl">Стадия</span><select id="f_stage"><option>Р</option><option>П</option></select></label>
+        <label class="fld wide"><span class="lbl">Заказчик</span><input id="f_client"></label>
+        <label class="fld"><span class="lbl">Разработал</span><input id="f_author"></label>
+        <label class="fld"><span class="lbl">Проверил</span><input id="f_checker"></label>
+      </div>
+    </div>
+    <div class="panel pl-step">
+      <h2>2. Системы в проекте</h2>
+      <div class="pj-chk">
+        <label><input type="checkbox" id="s_eom" checked> ЭОМ</label>
+        <label><input type="checkbox" id="s_heat" checked> Отопление</label>
+        <label><input type="checkbox" id="s_cond" checked> Кондиционирование</label>
+        <label title="Водоснабжение и канализация — в разработке"><input type="checkbox" id="s_vk"> ВК</label>
+      </div>
+      <div class="pl-row"><button class="btn primary" type="button" id="saveBtn" title="Записать данные проекта в чертёж (словарь GIPPROEKT)">Сохранить в чертёж</button></div>
+      <p class="pl-hint" id="saveInfo">Данные хранятся в самом чертеже и восстанавливаются при следующем открытии.</p>
+    </div>
+  </section>
+  <section class="pl-side" aria-label="Состояние">
+    <div class="panel pl-step">
+      <h2>Порядок работы</h2>
+      <div class="pj-sys" id="cards"></div>
+    </div>
+    <div class="panel pl-step">
+      <h2>Проверка проекта</h2>
+      <div class="pj-audit" id="audit"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+/*PROEKTJS*/
+</script>

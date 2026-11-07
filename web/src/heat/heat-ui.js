@@ -116,6 +116,7 @@
   $('winBtn').onclick = function () { cmd('GIPHEATWIN'); };
   $('winDelBtn').onclick = function () { cmd('GIPHEATWINDEL'); };
   $('shrvBtn').onclick = function () { cmd('GIPHEATSHRV'); };
+  $('wallsBtn').onclick = function () { cmd('GIPWALLS'); };
   $('buildBtn').onclick = function () {
     readParams(); render();
     if (!S.reg.shrv) { toast('Сначала укажите ШРВ отопления.', 6000); return; }
