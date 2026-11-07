@@ -234,7 +234,7 @@ def install_acad(I, A):
         'VLR-COMMAND-REACTOR': lambda data, cbs: Vla('REACTOR'), 'VLR-REMOVE': lambda r: None,
         'VLR-REACTORS': lambda *a: None, 'VLR-DATA': lambda r: None, 'VLR-OBJECT-REACTOR': lambda *a: Vla('REACTOR'),
         'VLR-EDITOR-REACTOR': lambda *a: Vla('REACTOR'), 'VLR-DOCMANAGER-REACTOR': lambda *a: Vla('REACTOR'),
-        'OPEN': l_open, 'CLOSE': l_close, 'WRITE-LINE': write_line, 'WRITE-STRING': write_string, 'READ-LINE': read_line, 'FINDFILE': findfile,
+        'OPEN': l_open, 'CLOSE': l_close, 'WRITE-LINE': write_line, 'READ-LINE': read_line, 'FINDFILE': findfile,
         'VL-FILENAME-DIRECTORY': lambda p: os.path.dirname(p), 'VL-FILE-DELETE': lambda p: T,
         'STARTAPP': lambda *a: None, 'COMMAND': lambda *a: (_ for _ in ()).throw(LispError('COMMAND called in emulator: ' + lstr(list(a)))),
         'VL-CMDF': lambda *a: (_ for _ in ()).throw(LispError('VL-CMDF in emulator')),
