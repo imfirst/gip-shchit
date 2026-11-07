@@ -1,0 +1,43 @@
+;;; ============================================================================
+;;; ПРОЕКТ (GIPPROEKT): данные проекта в чертеже и сводка по системам для единой панели «ГИП · Проект».
+;;; Данные проекта (адрес, квартира, шифр, выбранные системы …) — JSON в словаре чертежа GIPPROEKT.
+;;; Сводка собирается из реестров систем: помещения GIPROOMS, щит GIPPANEL, отопление GIPHEAT*, кондиционирование GIPCOND*.
+;;; ============================================================================
+(setq *gip:pj-in* "gip_prj_in.txt" *gip:pj-out* "gip_prj_out.txt" *gip:pj-regf* "gip_prj_reg.txt")
+
+(defun gip:pj-report (ok msg / f p)
+  (setq p (strcat (getvar "TEMPPREFIX") *gip:pj-out*))
+  (if (setq f (open p "w"))
+    (progn (write-line (if ok "ok" "error") f) (write-line (gip:plan-ascii msg) f) (close f)))
+  (princ (strcat "\nГИП: " msg)))
+(defun gip:pj-b (x) (if x "true" "false"))
+(defun gip:pj-cnt (l kind) (length (vl-remove-if-not '(lambda (u) (= (cadr u) kind)) l)))
+(defun gip:pj-write-reg (/ f p rooms area hs cs hl cl u st)
+  (setq p (strcat (getvar "TEMPPREFIX") *gip:pj-regf*) rooms (gip:room-list) area 0.0)
+  (foreach r rooms (setq area (+ area (gip:nz (nth 2 r) 0.0))))
+  (setq hs (gip:ht-sheets) cs (gip:cd-sheets) hl (gip:ht-get "GIPHEATLEN") cl (gip:ht-get "GIPCONDLEN") u (gip:cd-units))
+  (if (setq f (open p "w"))
+    (progn
+      (write-string (strcat "{\"type\":\"project-registry\",\"rooms\":{\"n\":" (itoa (length rooms)) ",\"area\":" (gip:js-num (gip:ht-r10 area)) "}") f)
+      (write-string (strcat ",\"eom\":{\"sheets\":" (itoa (length (gip:template-sheets))) ",\"panel\":" (gip:pj-b (gip:dict-get "GIPPANEL")) "}") f)
+      (write-string (strcat ",\"heat\":{\"plan\":" (gip:pj-b (gip:ht-sheet hs "plan")) ",\"scheme\":" (gip:pj-b (gip:ht-sheet hs "scheme"))
+                            ",\"spec\":" (itoa (length (vl-remove-if-not '(lambda (s) (= (gip:g s "role") "spec")) hs)))
+                            ",\"windows\":" (itoa (length (gip:ht-windows))) ",\"shrv\":" (gip:pj-b (gip:ht-shrv))
+                            ",\"built\":" (gip:pj-b hl) ",\"t1\":" (if hl (gip:js-num (car hl)) "null") ",\"rads\":" (if hl (itoa (caddr hl)) "0") "}") f)
+      (write-string (strcat ",\"cond\":{\"plan\":" (gip:pj-b (gip:cd-sheet cs "plan")) ",\"scheme\":" (gip:pj-b (gip:cd-sheet cs "scheme"))
+                            ",\"spec\":" (itoa (length (gip:cd-specs cs)))
+                            ",\"I\":" (itoa (gip:pj-cnt u "I")) ",\"O\":" (itoa (gip:pj-cnt u "O")) ",\"R\":" (itoa (gip:pj-cnt u "R")) ",\"K\":" (itoa (gip:pj-cnt u "K"))
+                            ",\"built\":" (gip:pj-b cl) "}") f)
+      (write-string ",\"walls\":[" f)
+      (setq st T)
+      (foreach l (gip:rt-wall-layers) (if (not st) (write-string "," f)) (setq st nil) (write-string (gip:js-str l) f))
+      (write-string (strcat "],\"state\":" (gip:js-str (gip:nz (gip:dict-get "GIPPROEKT") "")) "}") f)
+      (close f))))
+(defun c:GIPPRJREAD () (gip:pj-write-reg) (princ))
+(defun c:GIPPRJSAVE (/ s data st)
+  (setq s *gip:ht-in* *gip:ht-in* *gip:pj-in* data (gip:ht-read-in) *gip:ht-in* s)
+  (if (setq st (car (gip:ht-items data "STATE")))
+    (progn (gip:dict-put "GIPPROEKT" (cadr st)) (gip:pj-report T "данные проекта сохранены в чертеже."))
+    (gip:pj-report nil "нет данных проекта."))
+  (gip:pj-write-reg)
+  (princ))

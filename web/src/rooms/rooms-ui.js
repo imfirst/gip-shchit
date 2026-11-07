@@ -507,6 +507,7 @@ $('syncBtn').addEventListener('click', cmd('GIPROOMSYNC'));
 $('distBtn').addEventListener('click', cmd('GIPROOMSDIST'));
 $('areaBtn').addEventListener('click', cmd('GIPROOMSAREA'));
 $('traceBtn').addEventListener('click', cmd('GIPROOMSTRACE'));
+$('addRoomDwg').addEventListener('click', cmd('GIPROOMADD'));
 $('readBtn').addEventListener('click', cmd('GIPROOMSREAD'));
 if (host && host.addEventListener) {
   host.addEventListener('message', (e) => {

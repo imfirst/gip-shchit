@@ -129,7 +129,7 @@ namespace Gip.Shchit
                     break;
                 case "cmd":
                     var c = body.Trim();
-                    if (c == "GIPROOMSYNC" || c == "GIPROOMSAREA" || c == "GIPROOMSREAD" || c == "GIPROOMSDIST" || c == "GIPROOMSTRACE")
+                    if (c == "GIPROOMSYNC" || c == "GIPROOMSAREA" || c == "GIPROOMSREAD" || c == "GIPROOMSDIST" || c == "GIPROOMSTRACE" || c == "GIPROOMADD")
                     {
                         _pendingCmd = c;
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
@@ -167,7 +167,7 @@ namespace Gip.Shchit
                     var c = _pendingCmd; _pendingCmd = null;
                     ClearFile(OutFile); ClearFile(RegFile);
                     doc.SendStringToExecute(c + " ", true, false, false);
-                    StartWait(c, (c == "GIPROOMSAREA" || c == "GIPROOMSTRACE") ? 600 : 60);
+                    StartWait(c, (c == "GIPROOMSAREA" || c == "GIPROOMSTRACE" || c == "GIPROOMADD") ? 900 : 60);
                 }
             }
             catch (System.Exception ex) { Log("Idle: " + ex); }

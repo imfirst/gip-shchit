@@ -1,0 +1,76 @@
+<title>Кондиционирование · ГИП</title>
+<style>
+/*CSS*/
+/*PLANCSS*/
+/*CONDCSS*/
+</style>
+
+<header class="top">
+  <div class="brand"><span class="mark">ГИП</span><h1>Кондиционирование</h1><span class="sub">места блоков → трассы Х1/Х2 и дренаж Д1 → схема и спецификация</span></div>
+  <div class="spacer"></div>
+  <button class="btn" type="button" id="readBtn" title="Прочитать точки блоков и помещения из чертежа">Обновить из чертежа</button>
+</header>
+
+<main class="pl cd">
+  <section class="pl-side" aria-label="Шаги">
+    <div class="panel pl-step">
+      <h2>1. Система</h2>
+      <div class="cd-grid">
+        <label class="fld wide"><span class="lbl">Оборудование</span><select id="p_brand"></select></label>
+        <label class="fld"><span class="lbl">Тип внутренних</span><select id="p_type"><option value="wall">настенные</option><option value="duct">канальные</option></select></label>
+        <label class="fld"><span class="lbl" title="Удельная холодильная нагрузка при высоте 2,7 м">Вт/м²</span><input id="p_q" inputmode="numeric"></label>
+      </div>
+      <p class="pl-hint" id="modeInfo"></p>
+    </div>
+    <div class="panel pl-step">
+      <h2>2. Места блоков</h2>
+      <p class="pl-hint" id="sheetInfo">Нужен лист «План квартиры с сетями Х1, Х2, Д1» альбома ВиК с подложкой (панель «Помещения» → «Разложить по листам»).</p>
+      <div class="pl-row">
+        <button class="btn primary" type="button" id="inBtn" title="В AutoCAD: щёлкать у стен, где висят внутренние блоки (Enter — закончить)">Внутренние блоки</button>
+        <button class="btn" type="button" id="outBtn" title="В AutoCAD: места наружных блоков снаружи у фасада (корзины, балкон)">Наружные</button>
+      </div>
+      <div class="pl-row">
+        <button class="btn" type="button" id="riserBtn" title="VRF: точка подключения квартиры к магистрали (стояк)">Магистраль VRF</button>
+        <button class="btn" type="button" id="k1Btn" title="В AutoCAD: выпуск дренажа в К1 (капельная воронка HL138 у стояка)">Выпуск в К1</button>
+      </div>
+      <div class="pl-row">
+        <button class="btn" type="button" id="delBtn" title="В AutoCAD: указать точку, которую нужно удалить">− точка</button>
+        <button class="btn" type="button" id="clearBtn" title="Удалить все точки кондиционирования">Очистить</button>
+        <button class="btn" type="button" id="wallsBtn" title="План не из «Помещений»: указать линии стен подложки (слои запомнятся)">Стены подложки</button>
+      </div>
+      <p class="pl-hint" id="ptInfo"></p>
+    </div>
+    <div class="panel pl-step">
+      <h2>3. В чертёж</h2>
+      <label class="pl-row cd-chk"><input type="checkbox" id="p_specclear" checked> <span>Заменить текст в таблицах листов спецификации ВиК (в шаблоне там образец). Снимите галочку, если в спецификации уже есть ваши строки ВК — тогда кондиционирование допишется после них.</span></label>
+      <div class="pl-row"><button class="btn primary" type="button" id="buildBtn" title="Блоки, трассы Х1/Х2, дренаж Д1, подписи, аксонометрия, спецификация">Построить кондиционирование</button></div>
+      <p class="pl-hint" id="buildInfo">Перестраиваются только объекты кондиционирования (метка GIPCOND). Модели можно поменять в таблице и построить заново.</p>
+      <div id="warns" class="cd-warn"></div>
+    </div>
+  </section>
+
+  <section class="pl-side" aria-label="Подбор">
+    <div class="panel pl-step">
+      <h2>Внутренние блоки</h2>
+      <table class="pl-t" id="ins"><thead><tr><th>№</th><th>Помещение</th><th>S, м²</th><th title="Расчётная холодильная нагрузка, кВт">Q, кВт</th><th>Модель</th><th title="Охлаждение, кВт">кВт</th><th title="Наружный блок / подключение">К наруж.</th><th title="Дренажная помпа">Помпа</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel pl-step">
+      <h2>Наружные блоки</h2>
+      <table class="pl-t" id="outs"><thead><tr><th>№</th><th>Вид</th><th>Модель</th><th title="Охлаждение, кВт">кВт</th><th title="Сумма внутренних, кВт">Σ внутр.</th><th>Блоки</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel pl-step">
+      <h2>Спецификация (предпросмотр)</h2>
+      <table class="pl-t" id="spec"><thead><tr><th>Поз.</th><th>Наименование</th><th>Тип, марка</th><th>Изгот.</th><th>Ед.</th><th>Кол.</th></tr></thead><tbody></tbody></table>
+      <p class="pl-hint">Медь, изоляция и дренаж считаются по построенным трассам (+10 %, кратно 5 м), рефнеты и фитинги — по дереву трасс.</p>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/*CONDDB*/
+/*CONDCALC*/
+</script>
+<script>
+/*CONDUI*/
+</script>

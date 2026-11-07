@@ -101,7 +101,7 @@ namespace Gip.Shchit
                     break;
                 case "cmd":
                     var c = body.Trim();
-                    if (c == "GIPHEATREAD" || c == "GIPHEATSCAN" || c == "GIPHEATSHRV" || c == "GIPHEATWIN" || c == "GIPHEATWINDEL" || c == "GIPHEATBUILD")
+                    if (c == "GIPHEATREAD" || c == "GIPHEATSCAN" || c == "GIPHEATSHRV" || c == "GIPHEATWIN" || c == "GIPHEATWINDEL" || c == "GIPHEATBUILD" || c == "GIPWALLS")
                     {
                         _pendingCmd = c;
                         _pendingDoc = AcAp.DocumentManager.MdiActiveDocument;
@@ -135,7 +135,7 @@ namespace Gip.Shchit
                     var c = _pendingCmd; _pendingCmd = null;
                     ClearFile(OutFile); ClearFile(RegFile);
                     doc.SendStringToExecute(c + " ", true, false, false);
-                    StartWait(c, (c == "GIPHEATSHRV" || c == "GIPHEATWIN" || c == "GIPHEATWINDEL") ? 900 : 600);
+                    StartWait(c, (c == "GIPHEATSHRV" || c == "GIPHEATWIN" || c == "GIPHEATWINDEL" || c == "GIPWALLS") ? 900 : 600);
                 }
             }
             catch (System.Exception ex) { Log("Idle: " + ex); }

@@ -58,3 +58,26 @@ heat = heat.replace('/*HEATUI*/', open(os.path.join(HT, 'heat-ui.js'), encoding=
 assert 'googleapis' not in heat
 open(os.path.join(DIST, 'heat.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + heat + '</body></html>')
 print('heat', len(heat))
+
+# страница «Кондиционирование» (панель GIPCOND): база блоков, подбор, спецификация
+CD = os.path.join(S, 'cond')
+cond = open(os.path.join(CD, 'cond.html'), encoding='utf-8').read()
+cond = cond.replace('/*CSS*/', open(os.path.join(S, 'style.css'), encoding='utf-8').read())
+cond = cond.replace('/*PLANCSS*/', open(os.path.join(PL, 'plan.css'), encoding='utf-8').read()).replace('/*CONDCSS*/', open(os.path.join(CD, 'cond.css'), encoding='utf-8').read())
+cond = cond.replace('/*CONDDB*/', open(os.path.join(CD, 'db.js'), encoding='utf-8').read())
+cond = cond.replace('/*CONDCALC*/', open(os.path.join(CD, 'calc.js'), encoding='utf-8').read())
+cond = cond.replace('/*CONDUI*/', open(os.path.join(CD, 'cond-ui.js'), encoding='utf-8').read())
+assert 'googleapis' not in cond
+open(os.path.join(DIST, 'cond.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + cond + '</body></html>')
+print('cond', len(cond))
+
+# страница «Проект» (единая панель GIPPROEKT)
+PJ = os.path.join(S, 'proekt')
+prj = open(os.path.join(PJ, 'proekt.html'), encoding='utf-8').read()
+prj = prj.replace('/*CSS*/', open(os.path.join(S, 'style.css'), encoding='utf-8').read())
+prj = prj.replace('/*PLANCSS*/', open(os.path.join(PL, 'plan.css'), encoding='utf-8').read())
+prj = prj.replace('/*PROEKTJS*/', open(os.path.join(PJ, 'proekt.js'), encoding='utf-8').read())
+open(os.path.join(DIST, 'proekt.html'), 'w', encoding='utf-8').write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + prj + '</body></html>')
+print('proekt', len(prj))
+
+

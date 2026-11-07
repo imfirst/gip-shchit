@@ -11,7 +11,7 @@
 ;;; Всё созданное помечено xdata GIPHEAT (вид объекта), перестроение стирает только своё.
 ;;; ============================================================================
 (setq *gip:ht-app* "GIPHEAT" *gip:ht-lay* "A_T1" *gip:ht-pitch* 100.0 *gip:ht-pair* 25.0 *gip:ht-info* nil
-      *gip:ht-in* "gip_heat_in.txt" *gip:ht-out* "gip_heat_out.txt" *gip:ht-regf* "gip_heat_reg.txt")
+      *gip:ht-sys* nil *gip:ht-qfn* nil *gip:ht-row0* nil *gip:ht-in* "gip_heat_in.txt" *gip:ht-out* "gip_heat_out.txt" *gip:ht-regf* "gip_heat_reg.txt")
 
 ;; ---------------------------------------------------------------- метки
 (defun gip:ht-tag (kind) (list (list -3 (list *gip:ht-app* (cons 1000 kind)))))
@@ -777,8 +777,23 @@
 ;; ---------------------------------------------------------------- спецификация (форма ГИП, по 27 строк на лист)
 (defun gip:ht-num (x) (if (= (type x) 'STR) x (gip:repl (rtos x 2 (if (equal x (fix x) 1e-9) 0 1)) "." ",")))
 (defun gip:ht-ceil (x) (if (> x (fix x)) (1+ (fix x)) (fix x)))
-(defun gip:ht-spec (specs data t1 t2 / rows sec pos fpos q k it pages cur y F ri lay)
-  (setq rows (list (list "sys" "О")) pos 0 fpos nil)
+;; строк в сетке листа спецификации: сетка — вставка на слое FORMAT, первая строка на F+13600, шаг 400;
+;; низ сетки по габариту вставки; не удалось — 19 (меньшая из сеток шаблона ГИП)
+(defun gip:ht-spec-cap (sh / F ss i e o mn mx r cap)
+  (setq F (gip:g sh "F") cap nil)
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (8 . "FORMAT"))))
+    (progn
+      (setq i 0)
+      (while (< i (sslength ss))
+        (setq e (ssname ss i) i (1+ i))
+        (if (gip:rt-in (cdr (assoc 10 (entget e))) (gip:g sh "box"))
+          (progn
+            (setq o (vlax-ename->vla-object e) r (vl-catch-all-apply 'vla-getboundingbox (list o 'mn 'mx)))
+            (if (and (not (vl-catch-all-error-p r)) mn)
+              (setq cap (fix (/ (+ (- 13800.0 (- (cadr (vlax-safearray->list mn)) (cadr F))) 50.0) 400.0)))))))))
+  (if (and cap (>= cap 5) (<= cap 30)) cap 19))
+(defun gip:ht-spec (specs data t1 t2 / rows sec pos fpos q k it pages cur y F ri lay caps)
+  (setq rows (list (list "sys" (if *gip:ht-sys* *gip:ht-sys* "О"))) pos 0 fpos nil)
   (foreach it data
     (cond
       ((= (vl-symbol-name (car it)) "SEC")
@@ -794,13 +809,15 @@
                        ((= q "T2") (float (gip:ht-ceil (* t2 k))))
                        ((= q "TAPE1") (max 1 (gip:ht-ceil (/ (* t1 k) 25.0))))
                        ((= q "TAPE2") (max 1 (gip:ht-ceil (/ (* t2 k) 25.0))))
+                       (*gip:ht-qfn* (apply *gip:ht-qfn* (list q k)))
                        (T 0))
            q (if (= (type q) 'REAL) (strcat (gip:ht-num q) (if (equal q (fix q) 1e-9) ",0" "")) q)))
        (setq rows (append rows (list (list "row" fpos (nth 1 it) (nth 2 it) (nth 3 it) (nth 4 it) q))) fpos nil))))
   ;; листы
-  (setq pages nil cur nil)
+  ;; *gip:ht-row0* — занятые строки в начале каждого листа (ручные записи), по листам; nil — листы пустые
+  (setq pages nil cur nil caps (mapcar 'gip:ht-spec-cap specs))
   (foreach r rows
-    (if (>= (length cur) 27) (setq pages (append pages (list cur)) cur nil))
+    (if (>= (length cur) (- (gip:nz (nth (length pages) caps) 19) (gip:nz (nth (length pages) *gip:ht-row0*) 0))) (setq pages (append pages (list cur)) cur nil))
     (setq cur (append cur (list r))))
   (if cur (setq pages (append pages (list cur))))
   (if (> (length pages) (length specs))
@@ -809,7 +826,7 @@
   (foreach pg pages
     (if specs
       (progn
-        (setq F (gip:g (car specs) "F") specs (cdr specs) ri 0)
+        (setq F (gip:g (car specs) "F") specs (cdr specs) ri (gip:nz (nth (vl-position pg pages) *gip:ht-row0*) 0))
         (foreach r pg
           (setq y (+ (cadr F) 13600.0 (* ri -400.0)))
           (cond
