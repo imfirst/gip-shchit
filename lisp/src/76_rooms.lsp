@@ -86,14 +86,14 @@
   (setq p (strcat (getvar "TEMPPREFIX") "gip_rooms_reg.txt") fst T)
   (if (setq f (open p "w"))
     (progn
-      (write-string "{\"type\":\"registry\",\"rooms\":[" f)
+      (princ "{\"type\":\"registry\",\"rooms\":[" f)
       (foreach r (gip:room-list)
-        (if (not fst) (write-string "," f))
+        (if (not fst) (princ "," f))
         (setq fst nil)
-        (write-string (strcat "{\"no\":" (itoa (nth 0 r)) ",\"name\":" (gip:rm-json-str (nth 1 r))
+        (princ (strcat "{\"no\":" (itoa (nth 0 r)) ",\"name\":" (gip:rm-json-str (nth 1 r))
                               ",\"h\":" (rtos (nth 4 r) 2 0) ",\"area\":" (rtos (nth 2 r) 2 2)
                               ",\"perim\":" (rtos (gip:rm-perim-get (nth 0 r)) 2 2) "}") f))
-      (write-string "]}" f) (close f))))
+      (princ "]}" f) (close f))))
 
 ;; ---------------------------------------------------------------- блок номера с атрибутами
 (defun gip:rm-style () (if (tblsearch "STYLE" "ls_200") "ls_200" "STANDARD"))
